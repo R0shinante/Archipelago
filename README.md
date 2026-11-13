@@ -1,149 +1,138 @@
-# [Archipelago](https://archipelago.gg) ![Discord Shield](https://discordapp.com/api/guilds/731205301247803413/widget.png?style=shield) | [Install](https://github.com/ArchipelagoMW/Archipelago/releases)
+# Death Stranding (Director's Cut, PC/Steam) — APWorld Archipelago
 
-Archipelago provides a generic framework for developing multiworld capability for game randomizers. In all cases,
-presently, Archipelago is also the randomizer itself.
+Monde et client [Archipelago](https://archipelago.gg) expérimentaux pour **Death Stranding Director's Cut** (PC, Steam).
+Projet non officiel, sans lien avec Kojima Productions, 505 Games ni l'équipe d'Archipelago.
 
-Currently, the following games are supported:
+> ⚠️ **Alpha.** À utiliser **hors ligne**, en **solo**, sur une **sauvegarde dédiée aux tests**.
+> Le client lit et écrit la mémoire du jeu : ne l'utilisez jamais en ligne et faites une copie de vos sauvegardes avant de commencer.
 
-* The Legend of Zelda: A Link to the Past
-* Factorio
-* Subnautica
-* Risk of Rain 2
-* The Legend of Zelda: Ocarina of Time
-* Timespinner
-* Super Metroid
-* Secret of Evermore
-* Final Fantasy
-* VVVVVV
-* Raft
-* Super Mario 64
-* Meritous
-* Super Metroid/Link to the Past combo randomizer (SMZ3)
-* ChecksFinder
-* Hollow Knight
-* The Witness
-* Sonic Adventure 2: Battle
-* Starcraft 2
-* Dark Souls 3
-* Super Mario World
-* Pokémon Red and Blue
-* Hylics 2
-* Overcooked! 2
-* Zillion
-* Lufia II Ancient Cave
-* Blasphemous
-* Wargroove
-* Stardew Valley
-* The Legend of Zelda
-* The Messenger
-* Kingdom Hearts 2
-* The Legend of Zelda: Link's Awakening DX
-* Adventure
-* DLC Quest
-* Noita
-* Undertale
-* Bumper Stickers
-* Mega Man Battle Network 3: Blue Version
-* Muse Dash
-* DOOM 1993
-* Terraria
-* Lingo
-* Pokémon Emerald
-* DOOM II
-* Shivers
-* Heretic
-* Landstalker: The Treasures of King Nole
-* Final Fantasy Mystic Quest
-* TUNIC
-* Kirby's Dream Land 3
-* Celeste 64
-* Castlevania 64
-* A Short Hike
-* Yoshi's Island
-* Mario & Luigi: Superstar Saga
-* Bomb Rush Cyberfunk
-* Aquaria
-* Yu-Gi-Oh! Ultimate Masters: World Championship Tournament 2006
-* A Hat in Time
-* Old School Runescape
-* Kingdom Hearts 1
-* Mega Man 2
-* Yacht Dice
-* Faxanadu
-* Saving Princess
-* Castlevania: Circle of the Moon
-* Inscryption
-* Civilization VI
-* The Legend of Zelda: The Wind Waker
-* Jak and Daxter: The Precursor Legacy
-* Super Mario Land 2: 6 Golden Coins
-* shapez
-* Paint
-* Celeste (Open World)
-* Choo-Choo Charles
-* APQuest
-* Satisfactory
-* EarthBound
-* Mega Man 3
-* Gauntlet Legends
+## Fonctionnalités
 
-For setup and instructions check out our [tutorials page](https://archipelago.gg/tutorial/).
-Downloads can be found at [Releases](https://github.com/ArchipelagoMW/Archipelago/releases), including compiled
-windows binaries.
+| | État |
+|---|---|
+| Checks : commandes principales (51), détectées automatiquement | ✅ |
+| Objets « Episode N Access » (déblocage des épisodes) | ✅ |
+| Cristaux chiraux appliqués en jeu | ✅ |
+| Autres ressources (métaux, céramiques…) | ❌ |
+| Pièges, DeathLink (mort du joueur) | ❌ |
+| Commandes standard / optionnelles comme checks | ❌ |
 
-## History
+Les checks sont identifiés par `7 770 000 + numéro de commande`. Le client détecte une commande terminée grâce au **titre des
+sauvegardes de checkpoint** (« Commande terminée : nº N … »), qu'il déchiffre avec un outil tiers.
 
-Archipelago is built upon a strong legacy of brilliant hobbyists. We want to honor that legacy by showing it here.
-The repositories which Archipelago is built upon, inspired by, or otherwise owes its gratitude to are:
+## Prérequis
 
-* [bonta0's MultiWorld](https://github.com/Bonta0/ALttPEntranceRandomizer/tree/multiworld_31)
-* [AmazingAmpharos' Entrance Randomizer](https://github.com/AmazingAmpharos/ALttPEntranceRandomizer)
-* [VT Web Randomizer](https://github.com/sporchia/alttp_vt_randomizer)
-* [Dessyreqt's alttprandomizer](https://github.com/Dessyreqt/alttprandomizer)
-* [Zarby89's](https://github.com/Ijwu/Enemizer/commits?author=Zarby89)
-  and [sosuke3's](https://github.com/Ijwu/Enemizer/commits?author=sosuke3) contributions to Enemizer, which make up the
-  vast majority of Enemizer contributions.
+- **Windows** et Death Stranding Director's Cut (Steam), en français par défaut (voir « Autres langues »)
+- **Archipelago 0.6.x**, lancé depuis les sources ou l'installateur officiel (<https://github.com/ArchipelagoMW/Archipelago/releases>)
+- **Python 3.12 ou 3.13** si vous lancez Archipelago depuis les sources (Python 3.10 et 3.11 ne conviennent pas)
+- **pymem**, pour que le client accède à la mémoire du jeu
+- **DeathStrandingSaveDataResigner** (version en ligne de commande), pour déchiffrer les sauvegardes :
+  <https://github.com/mi5hmash/DeathStrandingSaveDataResigner> (onglet *Releases*, fichier
+  `death-stranding-savedata-resigner-cli`). Cet outil est un projet tiers, il n'est pas inclus ici.
+  Le client ne travaille que sur une **copie temporaire** de vos checkpoints : vos sauvegardes ne sont jamais modifiées.
 
-We recognize that there is a strong community of incredibly smart people that have come before us and helped pave the
-path. Just because one person's name may be in a repository title does not mean that only one person made that project
-happen. We can't hope to perfectly cover every single contribution that lead up to Archipelago, but we hope to honor
-them fairly.
+## Installation pas à pas
 
-### Path to the Archipelago
+### 1. Installer l'APWorld
+- **Depuis une release :** téléchargez `death_stranding.apworld` et placez-le dans le dossier `custom_worlds` d'Archipelago.
+- **Depuis ce dépôt :** copiez le dossier `worlds/death_stranding` dans le dossier `worlds` d'Archipelago (installation depuis les sources).
 
-Archipelago was directly forked from bonta0's `multiworld_31` branch of ALttPEntranceRandomizer (this project has a
-long legacy of its own, please check it out linked above) on January 12, 2020. The repository was then named to
-_MultiWorld-Utilities_ to better encompass its intended function. As Archipelago matured, then known as
-"Berserker's MultiWorld" by some, we found it necessary to transform our repository into a root level repository
-(as opposed to a 'forked repo') and change the name (which came later) to better reflect our project.
+Évitez d'avoir les deux à la fois, sinon le monde est chargé deux fois.
 
-## Running Archipelago
+### 2. Installer pymem
+Dans une invite de commandes (adaptez `-3.12` à votre version de Python) :
 
-For most people, all you need to do is head over to
-the [releases page](https://github.com/ArchipelagoMW/Archipelago/releases), then download and run the appropriate
-installer, or AppImage for Linux-based systems.
+```
+py -3.12 -m pip install pymem
+```
 
-If you are a developer or are running on a platform with no compiled releases available, please see our doc on
-[running Archipelago from source](docs/running%20from%20source.md).
+Si vous utilisez l'installateur officiel d'Archipelago, installez `pymem` dans le Python qui lance le client
+(les sources d'Archipelago sont recommandées pour ce monde).
 
-## Related Repositories
+### 3. Préparer le YAML
+1. Dans le Launcher d'Archipelago, cliquez sur **Generate Template Options**.
+2. Ouvrez `Death Stranding.yaml`, vérifiez `game: Death Stranding` et renseignez votre `name:`.
+3. Placez-le dans le dossier `Players`.
 
-This project makes use of multiple other projects. We wouldn't be here without these other repositories and the
-contributions of their developers, past and present.
+Options : objectif (`finish_episode_14` ou `finish_episode_12`), pourcentage de pièges, épisodes de départ, DeathLink.
 
-* [z3randomizer](https://github.com/ArchipelagoMW/z3randomizer)
-* [Enemizer](https://github.com/Ijwu/Enemizer)
-* [Ocarina of Time Randomizer](https://github.com/TestRunnerSRL/OoT-Randomizer)
+### 4. Générer et héberger la partie
+1. Launcher → **Generate**. Le fichier `AP_xxxxxxxx.zip` apparaît dans `output`.
+2. Launcher → **Host**, puis choisissez ce zip. Notez l'adresse (par défaut `localhost:38281`).
 
-## Contributing
+> **À refaire à chaque nouvelle version de l'APWorld :** une partie générée avec une version plus ancienne peut contenir
+> des lieux inconnus du serveur. Le client l'indique par un avertissement « Le lieu … n'existe pas dans la partie hébergée ».
 
-To contribute to Archipelago, including the WebHost, core program, or by adding a new game, see our
-[Contributing guidelines](/docs/contributing.md).
+### 5. Premier lancement du client
+1. Lancez Death Stranding **hors ligne**, chargez votre sauvegarde dédiée.
+2. Dans le Launcher d'Archipelago, ouvrez **Death Stranding Client** et connectez-vous : `/connect localhost:38281`.
+3. Vérifiez l'accès à la mémoire : `/ds_status` doit afficher vos quantités de cristaux chiraux.
+   Test d'écriture : `/ds_give Chiral Crystals 10`.
 
-## FAQ
+### 6. Configurer la détection des sauvegardes
+1. Téléchargez et décompressez l'outil de déchiffrement, par exemple dans `C:\Games`.
+2. Indiquez son emplacement au client (une seule fois) :
+   ```
+   /ds_resigner C:\Games\death-stranding-savedata-resigner-cli.exe
+   ```
+3. Si le dossier des sauvegardes n'est pas trouvé automatiquement :
+   ```
+   /ds_saves_dir C:\Users\<vous>\AppData\Local\KojimaProductions\DeathStrandingDC\<identifiant Steam>
+   ```
+   C'est le dossier qui contient les sous-dossiers `quicksave…`, `checkpoint…`, chacun avec un `checkpoint.dat`.
+4. Vérifiez toute la chaîne : `/ds_selftest` déchiffre le dernier checkpoint et affiche son titre, par exemple
+   `Commande terminée : nº 61 « … »`.
 
-For Frequently asked questions, please see the website's [FAQ Page](https://archipelago.gg/faq/en/).
+### 7. Jouer
+Terminez une commande principale : le jeu écrit un checkpoint, le client lit le titre, envoie le check, et le serveur
+distribue les objets. Les objets reçus s'affichent dans la console du client.
 
-## Code of Conduct
+## Commandes du client
 
-Please refer to our [code of conduct](/docs/code_of_conduct.md).
+| Commande | Rôle |
+|---|---|
+| `/locations` | Liste les lieux (commandes) du monde |
+| `/check <nom>` | Envoie un check manuellement |
+| `/ds_status` | Quantités lues en mémoire |
+| `/ds_give <ressource> <quantité>` | Test d'écriture en mémoire |
+| `/ds_resigner <exe>` | Chemin de l'outil de déchiffrement |
+| `/ds_saves_dir <dossier>` | Dossier des sauvegardes |
+| `/ds_saves` | État de la surveillance (checkpoints vus, commandes détectées) |
+| `/ds_selftest` | Teste le déchiffrement et la lecture du titre |
+| `/ds_catchup` | Traite aussi les checkpoints déjà présents (avec prudence) |
+
+## Dépannage
+
+- **« Le lieu … n'existe pas dans la partie hébergée »** : régénérez la partie avec la dernière version de l'APWorld.
+- **`/ds_status` n'affiche rien :** le jeu doit être lancé et la sauvegarde chargée. Les offsets peuvent changer après une mise à jour
+  du jeu : ils sont dans `memory_map.default.json` (copiez-le en `memory_map.json` dans le dossier utilisateur d'Archipelago pour les modifier).
+- **« Fichier introuvable » avec `/ds_resigner` :** vérifiez le chemin complet jusqu'au `.exe`. Les antislashs sont acceptés tels quels.
+- **Code retour étrange du déchiffrement** (par exemple `3762504530`) : l'outil plante à sa sortie, c'est sans conséquence tant que
+  `/ds_selftest` affiche un titre.
+- **Rien n'est détecté :** lancez `/ds_selftest`, puis `/ds_saves`. Les modifications ne comptent qu'après le démarrage du client.
+
+## Autres langues
+
+Le titre des sauvegardes dépend de la langue du jeu. Si votre jeu n'est pas en français, ajustez `saves.completed_words` dans
+`memory_map.json` (mots signifiant « terminée »). Les titres de commandes sont lus dans la langue du jeu, seul le numéro compte.
+
+## Limites connues
+
+- Seules les 51 commandes principales de la liste sont des checks. La liste vient de guides communautaires et peut contenir des erreurs
+  (n°17 absente, n°66 au nom approximatif).
+- Les objets reçus n'ont d'effet en jeu que pour les cristaux chiraux (+100) ; les autres sont seulement affichés.
+- Les offsets mémoire proviennent d'une table de triche communautaire (seules les adresses sont reprises, pas le fichier) et de relevés personnels.
+  Ils peuvent casser à chaque mise à jour du jeu.
+
+## Tests
+
+```
+SKIP_REQUIREMENTS_UPDATE=1 python tests/test_memory.py
+SKIP_REQUIREMENTS_UPDATE=1 python tests/test_savewatch.py
+```
+
+(Dans le dépôt autonome ; ces tests ne sont pas inclus dans la branche du fork.)
+
+## Licence
+
+MIT. Death Stranding est une marque de Kojima Productions. Ce projet n'est ni approuvé ni affilié.

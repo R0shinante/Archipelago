@@ -1,0 +1,41 @@
+{
+  "_comment": "Valeurs issues d'une cheat table communautaire (Director's Cut, Steam) et de tes propres releves. Verifie avec /ds_status dans le client. Copie ce fichier en memory_map.json dans le dossier utilisateur d'Archipelago pour le modifier.",
+  "process_name": "ds.exe",
+  "inventory": {
+    "global_module_offset": "0x7BB3AE8",
+    "global_aob": "48 8B 05 ?? ?? ?? ?? 48 8D 15 ?? ?? ?? ?? C5 FA 5A D0 48 8B 48 18 48 8B 01",
+    "global_aob_deltas": [
+      "0x658",
+      "0x0"
+    ],
+    "chain": [
+      "0x48",
+      "0x10",
+      "0x54C8"
+    ],
+    "resources": {
+      "Chiral Crystals": {
+        "qty": "0x2498",
+        "max": "0x249C"
+      },
+      "Cryptobiote": {
+        "qty": "0x24E0",
+        "max": "0x24E4"
+      },
+      "D-Cryptobiote": {
+        "qty": "0x2528",
+        "max": "0x252C"
+      }
+    }
+  },
+  "delivery_flags": {
+    "_comment": "Pas encore trouve : nom du lieu -> offset (a determiner)."
+  },
+  "item_grants": {
+    "_comment": "item Archipelago -> ressource du jeu et quantite ajoutee a la reception",
+    "Chiral Crystals": {
+      "resource": "Chiral Crystals",
+      "amount": 100
+    }
+  }
+}

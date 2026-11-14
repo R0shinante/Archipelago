@@ -117,14 +117,21 @@ FILLER_ITEMS: dict[str, int] = {
 }
 
 # Pieges
+# Les 3 premiers remplacent les anciens pieges (Timefall / BT Spawn / Cargo Drop) qui n'avaient aucun effet en jeu.
 TRAP_ITEMS: dict[str, int] = {
-    "Timefall Trap": 40,
-    "BT Spawn Trap": 20,
-    "Cargo Drop Trap": 40,
+    "Injury Trap": 20,        # -30 % de vie (ne tue jamais : plancher a 10 %)
+    "Fatigue Trap": 25,       # +3000 de fatigue
+    "Boot Wear Trap": 20,     # -40 % de durabilite des bottes
 }
 
 # Ajoutes apres les pieges pour ne pas decaler les IDs d'objets existants
 EXTRA_FILLER_ITEMS: dict[str, int] = {
     "Chemicals": 20,
     "Special Alloys": 10,
+}
+
+# Pieges ajoutes apres les objets existants (IDs stables)
+EXTRA_TRAP_ITEMS: dict[str, int] = {
+    "Rust Trap": 20,          # -1500 d'etat de la combinaison (rouille)
+    "Pickpocket Trap": 15,    # -50 cristaux chiraux du sac a dos
 }

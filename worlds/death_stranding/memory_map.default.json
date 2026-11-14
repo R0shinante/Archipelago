@@ -56,6 +56,10 @@
     "Special Alloys": {
       "stock": "Special Alloys",
       "amount": 50
+    },
+    "Pickpocket Trap": {
+      "resource": "Chiral Crystals",
+      "amount": -50
     }
   },
   "facilities": {
@@ -404,6 +408,35 @@
     ],
     "health": "0xC0",
     "max_health": "0xC4",
-    "consciousness": "0xDC"
+    "consciousness": "0xDC",
+    "fatigue": "0x130",
+    "boots": "0x32C",
+    "max_boots": "0x330",
+    "suit": "0x358"
+  },
+  "traps": {
+    "_comment": "Pieges appliques en memoire. delta absolu, ou frac * (champ 'of') ; floor/ceil absolus, ou floor_frac * (champ 'of'). Fatigue : 0 = aucune, 10000 = pleine ; combinaison : 5000 = sans rouille.",
+    "Injury Trap": {
+      "field": "health",
+      "frac": -0.3,
+      "of": "max_health",
+      "floor_frac": 0.1
+    },
+    "Fatigue Trap": {
+      "field": "fatigue",
+      "delta": 3000,
+      "ceil": 10000
+    },
+    "Boot Wear Trap": {
+      "field": "boots",
+      "frac": -0.4,
+      "of": "max_boots",
+      "floor_frac": 0.05
+    },
+    "Rust Trap": {
+      "field": "suit",
+      "delta": -1500,
+      "floor": 0
+    }
   }
 }

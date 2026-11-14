@@ -41,7 +41,7 @@ Si ton jeu n'est pas en français, ajuste `saves.completed_words` dans `memory_m
 - Seules les commandes principales de la liste sont des checks (51). La liste vient d'une page communautaire
   et peut contenir des erreurs (n°17 absente, n°66 au nom approximatif).
 - Les objets reçus n'ont d'effet en jeu que pour les Chiral Crystals (+100, sac à dos) et les matériaux (stock d'une installation) ; le reste est affiché seulement.
-- Les pièges et les autres ressources ne sont pas encore branchés (DeathLink : expérimental, voir plus bas).
+- Les autres ressources (sandalweed, cryptobiotes…) ne sont pas encore branchées. DeathLink et pièges : expérimentaux, voir plus bas.
 
 ## DeathLink (expérimental)
 Activez l'option `death_link` dans le YAML, puis régénérez la partie. Le client lit la vie de Sam en mémoire :
@@ -50,3 +50,16 @@ Activez l'option `death_link` dans le YAML, puis régénérez la partie. Le clie
 Une mort provoquée par un DeathLink n'est pas renvoyée (20 s de répit), et une mort envoyée bloque les envois pendant 30 s.
 **Avant de l'activer**, testez à la main : `/ds_hp` doit afficher la vie, puis `/ds_kill` doit tuer Sam. Si la vie affichée est
 juste mais que Sam ne meurt pas, signalez-le : la mort passera alors par une autre valeur (conscience).
+
+## Pièges (expérimental)
+Les pièges sont des objets du multimonde qui modifient l'état de Sam en mémoire. Aucun ne peut tuer Sam.
+| Objet | Effet |
+|---|---|
+| Injury Trap | −30 % de la vie maximale (plancher : 10 %) |
+| Fatigue Trap | +3000 de fatigue (maximum 10000) |
+| Boot Wear Trap | −40 % de durabilité des bottes (plancher : 5 %) |
+| Rust Trap | −1500 d'état de la combinaison (rouille, minimum 0) |
+| Pickpocket Trap | −50 cristaux chiraux du sac à dos (minimum 0) |
+
+Un piège attend que Sam soit lisible (pas pendant un chargement ou un menu). `/ds_trap` liste les pièges et en applique un à la
+main pour tester. Les valeurs sont dans `memory_map.default.json` (section `traps`). Le pourcentage de pièges se règle dans le YAML.

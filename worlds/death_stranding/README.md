@@ -15,7 +15,7 @@ Projet non officiel, sans lien avec Kojima Productions, 505 Games ni l'équipe d
 | Cristaux chiraux appliqués en jeu | ✅ |
 | Matériaux (résines, métaux, céramiques, chimiques, alliages) crédités au stock d'une installation tirée au hasard | 🧪 à valider en jeu |
 | DeathLink (envoi et réception de la mort du joueur) | 🧪 à valider en jeu |
-| Pièges | ❌ |
+| Pièges : Injury, Fatigue, Boot Wear, Rust, Pickpocket | 🧪 à valider en jeu |
 | Commandes standard / optionnelles comme checks | ❌ |
 
 Les checks sont identifiés par `7 770 000 + numéro de commande`. Le client détecte une commande terminée grâce au **titre des
@@ -96,6 +96,7 @@ distribue les objets. Les objets reçus s'affichent dans la console du client.
 | `/check <nom>` | Envoie un check manuellement |
 | `/ds_status` | Quantités lues en mémoire |
 | `/ds_give <ressource> <quantité>` | Test d'écriture en mémoire (sac à dos) |
+| `/ds_trap [nom]` | Test d'un piège (sans nom : liste les pièges) |
 | `/ds_hp` | Vie du joueur lue en mémoire (test) |
 | `/ds_kill` | Test : met la vie de Sam à 0 |
 | `/ds_items` | Objets reçus / appliqués en jeu (diagnostic) |

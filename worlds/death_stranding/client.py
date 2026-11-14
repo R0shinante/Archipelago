@@ -5,7 +5,7 @@
   * sauvegardes (savewatch): detecte les commandes terminees d'apres le titre des checkpoints ;
   * mode manuel            : /check <lieu> envoie un check a la main.
 
-Commandes de diagnostic : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_items, /ds_resigner, /ds_saves, /ds_selftest, /ds_catchup.
+Commandes de diagnostic : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_trap, /ds_items, /ds_resigner, /ds_saves, /ds_selftest, /ds_catchup.
 """
 from __future__ import annotations
 
@@ -131,6 +131,29 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
             return
         new = self.ctx.memory.add_resource(resource, n)
         self.output(f"{resource} -> {new}" if new is not None else "Echec (voir /ds_status).")
+
+    @mark_raw
+    def _cmd_ds_trap(self, name: str = "") -> None:
+        """Test d'un piege : /ds_trap <nom>  (ex : /ds_trap Injury). Sans nom : liste les pieges."""
+        ctx = self.ctx
+        traps = {k: v for k, v in ctx.map.get("traps", {}).items() if not k.startswith("_")}
+        all_names = list(traps) + [k for k, v in ctx.map.get("item_grants", {}).items()
+                                   if k.endswith("Trap")]
+        q = name.strip().lower()
+        match = [n for n in all_names if q and q in n.lower()]
+        if len(match) != 1:
+            self.output("Pieges : " + ", ".join(all_names) + ("  -> precisez le nom." if q else ""))
+            return
+        n = match[0]
+        if n in traps:
+            status, res = apply_trap(ctx.memory, traps[n])
+            self.output({"ok": f"{n} : {traps[n]['field']} {res[0]:.1f} -> {res[1]:.1f}" if res else "",
+                         "wait": "Joueur illisible (menu ? chargement ?). Voir /ds_hp.",
+                         "fail": "Valeur incoherente : piege abandonne."}[status])
+        else:
+            g = ctx.map["item_grants"][n]
+            q2 = ctx.memory.add_resource(g["resource"], int(g["amount"]))
+            self.output(f"{n} : {g['resource']} -> {q2}" if q2 is not None else "Inventaire illisible (voir /ds_status).")
 
     def _cmd_ds_hp(self) -> None:
         """Lit la vie du joueur en memoire (test avant d'activer DeathLink)."""
@@ -415,6 +438,25 @@ class DeathStrandingContext(CommonContext):
         _json_save(PROGRESS_FILE, data)
 
 
+def apply_trap(memory, spec: dict) -> typing.Tuple[str, typing.Optional[typing.Tuple[float, float]]]:
+    """Applique un piege decrit dans memory_map["traps"]. Renvoie ("ok", (avant, apres)), ("wait", None) si le joueur
+    n'est pas lisible (menu, chargement) ou ("fail", None) si la valeur visee est incoherente (piege abandonne)."""
+    if not memory.player_ready():
+        return "wait", None
+    delta = float(spec.get("delta", 0.0))
+    floor, ceil = spec.get("floor"), spec.get("ceil")
+    if "of" in spec:
+        ref = memory.read_player_field(spec["of"])
+        if ref is None or ref <= 0:
+            return "fail", None
+        if "frac" in spec:
+            delta = float(spec["frac"]) * ref
+        if "floor_frac" in spec:
+            floor = float(spec["floor_frac"]) * ref
+    res = memory.adjust_player(spec["field"], delta, floor, ceil)
+    return ("ok", res) if res else ("fail", None)
+
+
 def death_step(vitals: typing.Optional[typing.Tuple[float, float]], alive_polls: int, pending: bool,
                now: float, suppress_until: float) -> typing.Tuple[typing.Optional[str], int, bool, float]:
     """Logique DeathLink pure. Renvoie (action, alive_polls, pending, suppress_until), action = "kill" | "send" | None.
@@ -483,6 +525,17 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 results = [ctx.memory.add_stock(f, grant["stock"], int(grant["amount"])) for f in targets]
                 logger.info(f"Objet applique : {name} (+{grant['amount']} {grant['stock']} -> "
                             + ", ".join(f"{f} : {r}" for f, r in zip(targets, results)) + ")")
+            elif name in ctx.map.get("traps", {}):
+                status, res = apply_trap(ctx.memory, ctx.map["traps"][name])
+                if status == "wait":
+                    if ctx._warned_item != ctx.applied_index:
+                        logger.info(f"En attente du jeu pour appliquer : {name}")
+                        ctx._warned_item = ctx.applied_index
+                    break
+                if status == "ok":
+                    logger.info(f"Piege applique : {name} ({ctx.map['traps'][name]['field']} : {res[0]:.0f} -> {res[1]:.0f})")
+                else:
+                    logger.warning(f"Piege ignore : {name} (valeur du jeu incoherente, voir /ds_trap)")
             elif isinstance(grant, dict):
                 new_qty = ctx.memory.add_resource(grant["resource"], int(grant["amount"]))
                 if new_qty is None:
@@ -490,7 +543,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                         logger.info(f"En attente du jeu pour appliquer : {name}")
                         ctx._warned_item = ctx.applied_index
                     break
-                logger.info(f"Objet applique : {name} (+{grant['amount']} {grant['resource']} -> {new_qty})")
+                logger.info(f"Objet applique : {name} ({grant['amount']:+d} {grant['resource']} -> {new_qty})")
             else:
                 logger.info(f"Objet recu (sans effet en jeu pour l'instant) : {name}")
             ctx.applied_index += 1

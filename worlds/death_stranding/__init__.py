@@ -4,7 +4,7 @@ from BaseClasses import Item, ItemClassification, Region, Tutorial
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import Component, Type, components, launch_subprocess
 
-from .data import EPISODE_TITLES, EPISODES, EXTRA_FILLER_ITEMS, FILLER_ITEMS, TRAP_ITEMS, USEFUL_ITEMS
+from .data import EPISODE_TITLES, EPISODES, EXTRA_FILLER_ITEMS, EXTRA_TRAP_ITEMS, FILLER_ITEMS, TRAP_ITEMS, USEFUL_ITEMS
 from .items import DeathStrandingItem, item_name_to_id, item_table
 from .locations import DeathStrandingLocation, location_name_to_id, location_table
 from .options import DeathStrandingOptions
@@ -104,7 +104,7 @@ class DeathStrandingWorld(World):
                 remaining -= 1
 
         filler_names = [n for d in (FILLER_ITEMS, EXTRA_FILLER_ITEMS) for n, q in d.items() for _ in range(q)]
-        trap_names = [n for n, q in TRAP_ITEMS.items() for _ in range(q)]
+        trap_names = [n for d in (TRAP_ITEMS, EXTRA_TRAP_ITEMS) for n, q in d.items() for _ in range(q)]
         trap_count = int(remaining * self.options.trap_percentage.value / 100)
         for _ in range(max(remaining, 0)):
             if trap_count > 0:

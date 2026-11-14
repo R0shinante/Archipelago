@@ -273,6 +273,33 @@ class GameMemory:
             return None
         return hp, mx
 
+    def player_ready(self) -> bool:
+        return self.read_vitals() is not None
+
+    def read_player_field(self, field: str) -> typing.Optional[float]:
+        obj = self._player_object()
+        if obj is None or field not in self.player:
+            return None
+        v = self._f32(obj + _num(self.player[field]))
+        return v if v is not None and v == v and abs(v) < 1e7 else None   # v == v : pas NaN
+
+    def adjust_player(self, field: str, delta: float, floor: typing.Optional[float] = None,
+                      ceil: typing.Optional[float] = None) -> typing.Optional[typing.Tuple[float, float]]:
+        """Ajoute `delta` a un champ float du joueur. `floor` (si delta < 0) et `ceil` (si delta > 0) bornent le resultat ;
+        une valeur deja au-dela de la borne n'est jamais modifiee dans le mauvais sens. Renvoie (avant, apres) ou None."""
+        obj = self._player_object()
+        cur = self.read_player_field(field)
+        if obj is None or cur is None:
+            return None
+        new = cur + delta
+        if delta < 0 and floor is not None:
+            new = max(new, min(cur, floor))
+        if delta > 0 and ceil is not None:
+            new = min(new, max(cur, ceil))
+        if not self.backend.write(obj + _num(self.player[field]), struct.pack("<f", new)):
+            return None
+        return cur, new
+
     def kill_player(self) -> bool:
         """Met la vie du joueur a 0 (seulement si les valeurs sont coherentes)."""
         obj = self._player_object()

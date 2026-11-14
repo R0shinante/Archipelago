@@ -13,7 +13,7 @@ Projet non officiel, sans lien avec Kojima Productions, 505 Games ni l'équipe d
 | Checks : commandes principales (51), détectées automatiquement | ✅ |
 | Objets « Episode N Access » (déblocage des épisodes) | ✅ |
 | Cristaux chiraux appliqués en jeu | ✅ |
-| Matériaux (résines, métaux, céramiques, chimiques, alliages) crédités au stock d'une installation | 🧪 à valider en jeu |
+| Matériaux (résines, métaux, céramiques, chimiques, alliages) crédités au stock d'une installation tirée au hasard | 🧪 à valider en jeu |
 | Pièges, DeathLink (mort du joueur) | ❌ |
 | Commandes standard / optionnelles comme checks | ❌ |
 
@@ -98,7 +98,9 @@ distribue les objets. Les objets reçus s'affichent dans la console du client.
 | `/ds_items` | Objets reçus / appliqués en jeu (diagnostic) |
 | `/ds_items_reset <n>` | Recale l'index des objets appliqués |
 | `/ds_stock [installation]` | Stocks de matériaux d'une installation |
-| `/ds_stock_target <installation>` | Installation créditée par les objets matériaux |
+| `/ds_stock_mode random\|target` | Répartition des matériaux : installation au hasard (défaut) ou choisie |
+| `/ds_stock_pool Nom1; Nom2` | Limite le tirage au hasard à certaines installations (`all` = toutes) |
+| `/ds_stock_target <installation>` | Installation créditée en mode `target` |
 | `/ds_stock_give <matériau> <quantité>` | Test d'écriture d'un stock |
 | `/ds_resigner <exe>` | Chemin de l'outil de déchiffrement |
 | `/ds_saves_dir <dossier>` | Dossier des sauvegardes |
@@ -125,7 +127,7 @@ Le titre des sauvegardes dépend de la langue du jeu. Si votre jeu n'est pas en 
 
 - Seules les 51 commandes principales de la liste sont des checks. La liste vient de guides communautaires et peut contenir des erreurs
   (n°17 absente, n°66 au nom approximatif).
-- Les objets reçus n'ont d'effet en jeu que pour les cristaux chiraux (+100, sac à dos) et les matériaux (stock d'une installation, par défaut Capitol Knot City) ; les autres sont seulement affichés.
+- Les objets reçus n'ont d'effet en jeu que pour les cristaux chiraux (+100, sac à dos) et les matériaux (stock d'une installation tirée au hasard, ou choisie en mode `target`) ; les autres sont seulement affichés.
 - Les offsets mémoire proviennent d'une table de triche communautaire (seules les adresses sont reprises, pas le fichier) et de relevés personnels.
   Ils peuvent casser à chaque mise à jour du jeu.
 

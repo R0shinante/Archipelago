@@ -5,11 +5,12 @@
   * sauvegardes (savewatch): detecte les commandes terminees d'apres le titre des checkpoints ;
   * mode manuel            : /check <lieu> envoie un check a la main.
 
-Commandes de diagnostic : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_items, /ds_resigner, /ds_saves, /ds_selftest, /ds_catchup.
+Commandes de diagnostic : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_items, /ds_resigner, /ds_saves, /ds_selftest, /ds_catchup.
 """
 from __future__ import annotations
 
 import asyncio
+import random
 import json
 import os
 import typing
@@ -171,6 +172,35 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
             vals = {m: ctx.memory.read_stock(n, m) for m in known[n]}
             self.output(f"{n} : " + ", ".join(f"{m} {v}" for m, v in vals.items()))
 
+    def _cmd_ds_stock_mode(self, mode: str = "") -> None:
+        """Repartition des materiaux recus : /ds_stock_mode random (installation au hasard) ou target (installation choisie)"""
+        if mode not in ("random", "target"):
+            cur = self.ctx.settings.get("stock_mode") or self.ctx.map.get("facilities", {}).get("stock_mode", "random")
+            self.output(f"Mode actuel : {cur}. Usage : /ds_stock_mode random | target")
+            return
+        self.ctx.settings["stock_mode"] = mode
+        _json_save(SETTINGS_FILE, self.ctx.settings)
+        self.output(f"Mode de repartition des materiaux : {mode}")
+
+    @mark_raw
+    def _cmd_ds_stock_pool(self, names: str = "") -> None:
+        """Limite le mode random a certaines installations : /ds_stock_pool Nom1; Nom2; Nom3   (/ds_stock_pool all pour tout reprendre)"""
+        known = self.ctx.map.get("facilities", {}).get("stock", {})
+        n = names.strip()
+        if n.lower() in ("", "all", "tout"):
+            self.ctx.settings.pop("stock_pool", None)
+            _json_save(SETTINGS_FILE, self.ctx.settings)
+            self.output(f"Pool : toutes les installations ({len(known)}).")
+            return
+        wanted = [x.strip() for x in n.split(";") if x.strip()]
+        bad = [x for x in wanted if x not in known]
+        if bad:
+            self.output(f"Installations inconnues : {', '.join(bad)}")
+            return
+        self.ctx.settings["stock_pool"] = wanted
+        _json_save(SETTINGS_FILE, self.ctx.settings)
+        self.output(f"Pool du mode random : {', '.join(wanted)}")
+
     @mark_raw
     def _cmd_ds_stock_target(self, facility: str = "") -> None:
         """Choisit l'installation qui recoit les materiaux : /ds_stock_target <installation>  (ex : Port Knot City)"""
@@ -319,6 +349,16 @@ class DeathStrandingContext(CommonContext):
         t = self.settings.get("stock_target") or self.map.get("facilities", {}).get("stock_target") or []
         return [t] if isinstance(t, str) else list(t)
 
+    def stock_targets_for(self, index: int) -> typing.List[str]:
+        """Installation(s) creditee(s) pour l'objet n°`index` : au hasard dans le pool (reproductible), ou la cible choisie."""
+        fac = self.map.get("facilities", {})
+        stock = fac.get("stock", {})
+        if (self.settings.get("stock_mode") or fac.get("stock_mode", "random")) == "random":
+            pool = self.settings.get("stock_pool") or fac.get("stock_pool") or list(stock)
+            valid = sorted(p for p in pool if p in stock) or sorted(stock)
+            return [random.Random(f"{self._progress_key()}:{index}").choice(valid)]
+        return self.stock_targets()
+
     def _progress_key(self) -> str:
         # Archipelago 0.6 : `seed_name` reste None cote client, la vraie graine est dans `server_seed_name`.
         return f"{self.server_seed_name or self.seed_name}:{self.team}:{self.slot}"
@@ -396,7 +436,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
             name = ctx.item_names.lookup_in_game(item.item)
             grant = grants.get(name)
             if isinstance(grant, dict) and "stock" in grant:
-                targets = ctx.stock_targets()
+                targets = ctx.stock_targets_for(ctx.applied_index)
                 if ctx.memory.stock_base() is None:
                     if ctx._warned_item != ctx.applied_index:
                         logger.info(f"En attente du jeu pour appliquer : {name}")

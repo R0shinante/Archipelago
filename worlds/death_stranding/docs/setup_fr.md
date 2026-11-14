@@ -22,10 +22,12 @@
 
 ## Matériaux (résines, métaux, céramiques, produits chimiques, alliages)
 Dans le jeu, ces matériaux sont stockés **par installation**, pas dans le sac à dos. Les objets Resins / Metals / Ceramics /
-Chemicals / Special Alloys reçus sont donc crédités au stock d'**une installation** (par défaut : Capitol Knot City).
+Chemicals / Special Alloys reçus sont donc crédités au stock d'**une installation**, tirée **au hasard** parmi les 39 pour chaque objet
+(tirage reproductible, le message « Objet appliqué » indique laquelle). `/ds_stock_mode target` désactive le hasard et crédite toujours
+l'installation choisie avec `/ds_stock_target` ; `/ds_stock_pool Nom1; Nom2` limite le tirage à certaines installations (`/ds_stock_pool all` pour tout reprendre).
 - `/ds_stock` affiche les 6 valeurs de cette installation (`/ds_stock Port Knot City` pour une autre) ; ouvrez d'abord le menu de
   l'installation en jeu pour comparer.
-- `/ds_stock_target <installation>` change l'installation créditée (enregistré), `/ds_stock_give Metals 50` teste l'écriture.
+- `/ds_stock_target <installation>` choisit l'installation du mode `target` (enregistré), `/ds_stock_give Metals 50` teste l'écriture sur cette installation.
 - Les offsets viennent d'une table communautaire (jeu v1.004) ; si `/ds_stock` répond « Stocks introuvables » alors que le jeu est chargé,
   ils ne correspondent pas à votre version.
 

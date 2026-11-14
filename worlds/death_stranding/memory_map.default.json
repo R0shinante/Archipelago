@@ -392,6 +392,7 @@
         "Chemicals": "-0xf50",
         "Special Alloys": "-0xf48"
       }
-    }
+    },
+    "stock_mode": "random"
   }
 }

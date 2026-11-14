@@ -5,7 +5,7 @@
   * sauvegardes (savewatch): detecte les commandes terminees d'apres le titre des checkpoints ;
   * mode manuel            : /check <lieu> envoie un check a la main.
 
-Commandes de diagnostic : /ds_status, /ds_give, /ds_resigner, /ds_saves, /ds_selftest, /ds_catchup.
+Commandes de diagnostic : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_items, /ds_resigner, /ds_saves, /ds_selftest, /ds_catchup.
 """
 from __future__ import annotations
 
@@ -131,6 +131,72 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         new = self.ctx.memory.add_resource(resource, n)
         self.output(f"{resource} -> {new}" if new is not None else "Echec (voir /ds_status).")
 
+    def _cmd_ds_items(self) -> None:
+        """Diagnostic : objets recus du serveur et objets deja appliques en jeu."""
+        ctx = self.ctx
+        names = [ctx.item_names.lookup_in_game(i.item) for i in ctx.items_received]
+        self.output(f"Objets recus : {len(names)} ; appliques : {ctx.applied_index} (cle {ctx._progress_key()})")
+        for k, n in enumerate(names[-5:], start=max(0, len(names) - 5)):
+            self.output(f"  #{k} {n} {'(applique)' if k < ctx.applied_index else '(EN ATTENTE)'}")
+        if ctx.applied_index > len(names):
+            self.output("Index d'application superieur au nombre d'objets recus : /ds_items_reset pour le recaler.")
+
+    def _cmd_ds_items_reset(self, n: str = "") -> None:
+        """Recale l'index d'objets appliques : /ds_items_reset <n>  (les objets a partir de n seront reappliques)"""
+        try:
+            idx = int(n)
+        except ValueError:
+            self.output("Usage : /ds_items_reset <n>  (0 = tout reappliquer ; attention aux ressources deja ajoutees)")
+            return
+        self.ctx.applied_index = max(0, idx)
+        self.ctx.save_progress()
+        self.output(f"Index d'application : {self.ctx.applied_index}")
+
+    @mark_raw
+    def _cmd_ds_stock(self, facility: str = "") -> None:
+        """Stocks de materiaux d'une installation : /ds_stock [installation]  (par defaut : celle(s) qui recoivent les objets)"""
+        ctx = self.ctx
+        if not ctx.backend.attached() and not ctx.backend.attach():
+            self.output("Jeu introuvable (ds.exe). Lance le jeu et charge une sauvegarde.")
+            return
+        known = ctx.map.get("facilities", {}).get("stock", {})
+        names = [facility.strip()] if facility.strip() else ctx.stock_targets()
+        if ctx.memory.stock_base() is None:
+            self.output("Stocks introuvables (menu principal ? sauvegarde pas chargee ? decalages a verifier).")
+            return
+        for n in names:
+            if n not in known:
+                self.output(f"Installation inconnue : {n}. Exemples : {', '.join(list(known)[:4])}...")
+                continue
+            vals = {m: ctx.memory.read_stock(n, m) for m in known[n]}
+            self.output(f"{n} : " + ", ".join(f"{m} {v}" for m, v in vals.items()))
+
+    @mark_raw
+    def _cmd_ds_stock_target(self, facility: str = "") -> None:
+        """Choisit l'installation qui recoit les materiaux : /ds_stock_target <installation>  (ex : Port Knot City)"""
+        n = facility.strip()
+        if n not in self.ctx.map.get("facilities", {}).get("stock", {}):
+            self.output(f"Installation inconnue : {n!r}. Voir /ds_stock pour un exemple de nom.")
+            return
+        self.ctx.settings["stock_target"] = [n]
+        _json_save(SETTINGS_FILE, self.ctx.settings)
+        self.output(f"Les materiaux recus seront credites a : {n}")
+
+    def _cmd_ds_stock_give(self, *args: str) -> None:
+        """Test : /ds_stock_give <materiau> <quantite>   ex : /ds_stock_give Metals 50  (credite l'installation choisie)"""
+        if len(args) < 2:
+            self.output("Usage : /ds_stock_give <Resins|Metals|Ceramics|Chemicals|Special Alloys|Chiral Crystals> <quantite>")
+            return
+        try:
+            n = int(args[-1])
+        except ValueError:
+            self.output("Quantite invalide.")
+            return
+        material = " ".join(args[:-1])
+        for f in self.ctx.stock_targets():
+            new = self.ctx.memory.add_stock(f, material, n)
+            self.output(f"{f} / {material} -> {new}" if new is not None else f"Echec pour {f} (voir /ds_stock).")
+
     # -- sauvegardes -------------------------------------------------------
     @mark_raw
     def _cmd_ds_resigner(self, path: str = "") -> None:
@@ -248,8 +314,14 @@ class DeathStrandingContext(CommonContext):
                 self.save_checks.add(code)
                 logger.info(f"Commande terminee detectee : {loc}")
 
+    def stock_targets(self) -> typing.List[str]:
+        """Installations qui recoivent les materiaux : reglage utilisateur, sinon valeur par defaut du paquet."""
+        t = self.settings.get("stock_target") or self.map.get("facilities", {}).get("stock_target") or []
+        return [t] if isinstance(t, str) else list(t)
+
     def _progress_key(self) -> str:
-        return f"{self.seed_name}:{self.slot}"
+        # Archipelago 0.6 : `seed_name` reste None cote client, la vraie graine est dans `server_seed_name`.
+        return f"{self.server_seed_name or self.seed_name}:{self.team}:{self.slot}"
 
     async def server_auth(self, password_requested: bool = False):
         if password_requested and not self.password:
@@ -285,7 +357,7 @@ class DeathStrandingContext(CommonContext):
         _json_save(PROGRESS_FILE, data)
 
 
-async def game_watcher(ctx: DeathStrandingContext) -> None:
+async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
     grants = ctx.map.get("item_grants", {})
     loop = asyncio.get_running_loop()
     last_save_poll = 0.0
@@ -323,7 +395,17 @@ async def game_watcher(ctx: DeathStrandingContext) -> None:
             item = ctx.items_received[ctx.applied_index]
             name = ctx.item_names.lookup_in_game(item.item)
             grant = grants.get(name)
-            if isinstance(grant, dict):
+            if isinstance(grant, dict) and "stock" in grant:
+                targets = ctx.stock_targets()
+                if ctx.memory.stock_base() is None:
+                    if ctx._warned_item != ctx.applied_index:
+                        logger.info(f"En attente du jeu pour appliquer : {name}")
+                        ctx._warned_item = ctx.applied_index
+                    break
+                results = [ctx.memory.add_stock(f, grant["stock"], int(grant["amount"])) for f in targets]
+                logger.info(f"Objet applique : {name} (+{grant['amount']} {grant['stock']} -> "
+                            + ", ".join(f"{f} : {r}" for f, r in zip(targets, results)) + ")")
+            elif isinstance(grant, dict):
                 new_qty = ctx.memory.add_resource(grant["resource"], int(grant["amount"]))
                 if new_qty is None:
                     if ctx._warned_item != ctx.applied_index:
@@ -342,6 +424,24 @@ async def game_watcher(ctx: DeathStrandingContext) -> None:
         if not ctx.finished and last in (ctx.checked_locations | ctx.manual_checks | ctx.save_checks):
             ctx.finished = True
             await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
+
+
+async def game_watcher(ctx: DeathStrandingContext) -> None:
+    """Relance la surveillance si elle plante : une exception ne doit jamais l'arreter en silence."""
+    import traceback
+    last_error = ""
+    while not ctx.exit_event.is_set():
+        try:
+            await _game_watcher_loop(ctx)
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            text = traceback.format_exc()
+            if text != last_error:  # une seule fois par erreur differente
+                last_error = text
+                logger.error("Erreur dans la surveillance du jeu (elle redemarre) :\n" + text)
+            await asyncio.sleep(2.0)
 
 
 def launch(*launch_args: str) -> None:

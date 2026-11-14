@@ -18,7 +18,10 @@ PAGE = 4096
 
 
 def _num(value: typing.Union[int, str]) -> int:
-    return value if isinstance(value, int) else int(value, 16) if value.lower().startswith("0x") else int(value)
+    if isinstance(value, int):
+        return value
+    v = value.strip().lower()
+    return int(v, 16) if v.startswith(("0x", "-0x")) else int(v)
 
 
 def aob_to_regex(pattern: str) -> "re.Pattern[bytes]":
@@ -80,6 +83,8 @@ class GameMemory:
         self.backend = backend
         self._good_global: typing.Optional[int] = None
         self._aob_cache: typing.Optional[typing.List[int]] = None
+        self.fac = config.get("facilities", {})
+        self._stock_base: typing.Optional[int] = None
 
     # -- lecture de base ---------------------------------------------------
     def _u64(self, addr: int) -> typing.Optional[int]:
@@ -186,3 +191,57 @@ class GameMemory:
             return None
         new = max(0, min(q + delta, m))
         return new if self.backend.write(obj + _num(res["qty"]), struct.pack("<i", new)) else None
+
+    # -- stocks de materiaux par installation ------------------------------
+    def _stock_sane(self, base: int) -> bool:
+        """Controle : les 6 valeurs de la premiere installation sont des quantites plausibles (0..10 millions)."""
+        stock = self.fac.get("stock", {})
+        if not stock:
+            return False
+        for off in next(iter(stock.values())).values():
+            v = self._i32(base + _num(off))
+            if v is None or not 0 <= v <= 10_000_000:
+                return False
+        return True
+
+    def _find_stock_base(self) -> typing.Optional[int]:
+        rng = self.backend.module_range()
+        if not rng or "global_module_offset" not in self.fac:
+            return None
+        g = rng[0] + _num(self.fac["global_module_offset"])
+        for layout in self.fac.get("layouts", []):
+            p = self._u64(g)
+            for off in layout.get("chain", []):
+                if not self._plausible(p):
+                    break
+                p = self._u64(p + _num(off))
+            if self._plausible(p):
+                base = p + _num(layout.get("shift", 0))
+                if self._stock_sane(base):
+                    return base
+        return None
+
+    def stock_base(self) -> typing.Optional[int]:
+        """Adresse de reference des stocks, ou None (jeu pas charge). Revalidee a chaque appel."""
+        if self._stock_base is not None and self._stock_sane(self._stock_base):
+            return self._stock_base
+        self._stock_base = self._find_stock_base()
+        return self._stock_base
+
+    def stock_address(self, facility: str, material: str) -> typing.Optional[int]:
+        base = self.stock_base()
+        off = self.fac.get("stock", {}).get(facility, {}).get(material)
+        return None if base is None or off is None else base + _num(off)
+
+    def read_stock(self, facility: str, material: str) -> typing.Optional[int]:
+        addr = self.stock_address(facility, material)
+        return None if addr is None else self._i32(addr)
+
+    def add_stock(self, facility: str, material: str, delta: int) -> typing.Optional[int]:
+        """Ajoute `delta` au stock d'une installation (plafonne entre 0 et max_stock). Renvoie la nouvelle quantite ou None."""
+        addr = self.stock_address(facility, material)
+        cur = None if addr is None else self._i32(addr)
+        if addr is None or cur is None:
+            return None
+        new = max(0, min(cur + delta, int(self.fac.get("max_stock", 99999))))
+        return new if self.backend.write(addr, struct.pack("<i", new)) else None

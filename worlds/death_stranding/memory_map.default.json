@@ -36,6 +36,362 @@
     "Chiral Crystals": {
       "resource": "Chiral Crystals",
       "amount": 100
+    },
+    "Resins": {
+      "stock": "Resins",
+      "amount": 100
+    },
+    "Metals": {
+      "stock": "Metals",
+      "amount": 100
+    },
+    "Ceramics": {
+      "stock": "Ceramics",
+      "amount": 100
+    },
+    "Chemicals": {
+      "stock": "Chemicals",
+      "amount": 100
+    },
+    "Special Alloys": {
+      "stock": "Special Alloys",
+      "amount": 50
+    }
+  },
+  "facilities": {
+    "_comment": "Stocks de materiaux PAR INSTALLATION (valeurs de 4 octets). adresse = P + shift + stock[installation][materiau], avec P = lire64(lire64(module+global_module_offset) + chain...). 'layouts' : deux lectures possibles de la liste de decalages de la table communautaire ; la premiere qui passe le controle de coherence est retenue.",
+    "global_module_offset": "0x7C0E480",
+    "layouts": [
+      {
+        "chain": [
+          "0x50"
+        ],
+        "shift": "0x1168"
+      },
+      {
+        "chain": [
+          "0x1168"
+        ],
+        "shift": "0x50"
+      }
+    ],
+    "max_stock": 99999,
+    "stock_target": [
+      "Capitol Knot City"
+    ],
+    "stock": {
+      "Capitol Knot City": {
+        "Chiral Crystals": "-0x1138",
+        "Resins": "-0x1130",
+        "Metals": "-0x1128",
+        "Ceramics": "-0x1120",
+        "Chemicals": "-0x1118",
+        "Special Alloys": "-0x1110"
+      },
+      "Chiral Artist's Studio": {
+        "Chiral Crystals": "-0xa18",
+        "Resins": "-0xa10",
+        "Metals": "-0xa08",
+        "Ceramics": "-0xa00",
+        "Chemicals": "-0x9f8",
+        "Special Alloys": "-0x9f0"
+      },
+      "Collector": {
+        "Chiral Crystals": "-0x130",
+        "Resins": "-0x128",
+        "Metals": "-0x120",
+        "Ceramics": "-0x118",
+        "Chemicals": "-0x110",
+        "Special Alloys": "-0x108"
+      },
+      "Cosplayer": {
+        "Chiral Crystals": "-0x260",
+        "Resins": "-0x258",
+        "Metals": "-0x250",
+        "Ceramics": "-0x248",
+        "Chemicals": "-0x240",
+        "Special Alloys": "-0x238"
+      },
+      "Craftsman": {
+        "Chiral Crystals": "-0xbe0",
+        "Resins": "-0xbd8",
+        "Metals": "-0xbd0",
+        "Ceramics": "-0xbc8",
+        "Chemicals": "-0xbc0",
+        "Special Alloys": "-0xbb8"
+      },
+      "Distribution Center North of Edge Knot City": {
+        "Chiral Crystals": "0x558",
+        "Resins": "0x560",
+        "Metals": "0x568",
+        "Ceramics": "0x570",
+        "Chemicals": "0x578",
+        "Special Alloys": "0x580"
+      },
+      "Distribution Center North of Mountain Knot City": {
+        "Chiral Crystals": "0x2f8",
+        "Resins": "0x300",
+        "Metals": "0x308",
+        "Ceramics": "0x310",
+        "Chemicals": "0x318",
+        "Special Alloys": "0x320"
+      },
+      "Distribution Center South of Lake Knot City": {
+        "Chiral Crystals": "0x98",
+        "Resins": "0xa0",
+        "Metals": "0xa8",
+        "Ceramics": "0xb0",
+        "Chemicals": "0xb8",
+        "Special Alloys": "0xc0"
+      },
+      "Distribution Center West of Capital Knot City": {
+        "Chiral Crystals": "-0x1008",
+        "Resins": "-0x1000",
+        "Metals": "-0xff8",
+        "Ceramics": "-0xff0",
+        "Chemicals": "-0xfe8",
+        "Special Alloys": "-0xfe0"
+      },
+      "Doctor": {
+        "Chiral Crystals": "-0x688",
+        "Resins": "-0x680",
+        "Metals": "-0x678",
+        "Ceramics": "-0x670",
+        "Chemicals": "-0x668",
+        "Special Alloys": "-0x660"
+      },
+      "Edge Knot City": {
+        "Chiral Crystals": "0x5f0",
+        "Resins": "0x5f8",
+        "Metals": "0x600",
+        "Ceramics": "0x608",
+        "Chemicals": "0x610",
+        "Special Alloys": "0x618"
+      },
+      "Elder": {
+        "Chiral Crystals": "-0xc78",
+        "Resins": "-0xc70",
+        "Metals": "-0xc68",
+        "Ceramics": "-0xc60",
+        "Chemicals": "-0xc58",
+        "Special Alloys": "-0xc50"
+      },
+      "Engineer": {
+        "Chiral Crystals": "-0xd10",
+        "Resins": "-0xd08",
+        "Metals": "-0xd00",
+        "Ceramics": "-0xcf8",
+        "Chemicals": "-0xcf0",
+        "Special Alloys": "-0xce8"
+      },
+      "Evo-devo Biologist": {
+        "Chiral Crystals": "-0x428",
+        "Resins": "-0x420",
+        "Metals": "-0x418",
+        "Ceramics": "-0x410",
+        "Chemicals": "-0x408",
+        "Special Alloys": "-0x400"
+      },
+      "Film Director": {
+        "Chiral Crystals": "-0x2f8",
+        "Resins": "-0x2f0",
+        "Metals": "-0x2e8",
+        "Ceramics": "-0x2e0",
+        "Chemicals": "-0x2d8",
+        "Special Alloys": "-0x2d0"
+      },
+      "First Prepper": {
+        "Chiral Crystals": "-0x1c8",
+        "Resins": "-0x1c0",
+        "Metals": "-0x1b8",
+        "Ceramics": "-0x1b0",
+        "Chemicals": "-0x1a8",
+        "Special Alloys": "-0x1a0"
+      },
+      "Geologist": {
+        "Chiral Crystals": "-0x5f0",
+        "Resins": "-0x5e8",
+        "Metals": "-0x5e0",
+        "Ceramics": "-0x5d8",
+        "Chemicals": "-0x5d0",
+        "Special Alloys": "-0x5c8"
+      },
+      "Heartman's Lab": {
+        "Chiral Crystals": "0x428",
+        "Resins": "0x430",
+        "Metals": "0x438",
+        "Ceramics": "0x440",
+        "Chemicals": "0x448",
+        "Special Alloys": "0x450"
+      },
+      "Junk Dealer": {
+        "Chiral Crystals": "-0xab0",
+        "Resins": "-0xaa8",
+        "Metals": "-0xaa0",
+        "Ceramics": "-0xa98",
+        "Chemicals": "-0xa90",
+        "Special Alloys": "-0xa88"
+      },
+      "Lake Knot City": {
+        "Chiral Crystals": "0x0",
+        "Resins": "0x8",
+        "Metals": "0x10",
+        "Ceramics": "0x18",
+        "Chemicals": "0x20",
+        "Special Alloys": "0x28"
+      },
+      "Ludens Fan": {
+        "Chiral Crystals": "-0xe40",
+        "Resins": "-0xe38",
+        "Metals": "-0xe30",
+        "Ceramics": "-0xe28",
+        "Chemicals": "-0xe20",
+        "Special Alloys": "-0xe18"
+      },
+      "Mama's Lab": {
+        "Chiral Crystals": "0x260",
+        "Resins": "0x268",
+        "Metals": "0x270",
+        "Ceramics": "0x278",
+        "Chemicals": "0x280",
+        "Special Alloys": "0x288"
+      },
+      "Mountain Knot City": {
+        "Chiral Crystals": "0x390",
+        "Resins": "0x398",
+        "Metals": "0x3a0",
+        "Ceramics": "0x3a8",
+        "Chemicals": "0x3b0",
+        "Special Alloys": "0x3b8"
+      },
+      "Mountaineer": {
+        "Chiral Crystals": "-0x850",
+        "Resins": "-0x848",
+        "Metals": "-0x840",
+        "Ceramics": "-0x838",
+        "Chemicals": "-0x830",
+        "Special Alloys": "-0x828"
+      },
+      "Musician": {
+        "Chiral Crystals": "-0xda8",
+        "Resins": "-0xda0",
+        "Metals": "-0xd98",
+        "Ceramics": "-0xd90",
+        "Chemicals": "-0xd88",
+        "Special Alloys": "-0xd80"
+      },
+      "Novelists's Son": {
+        "Chiral Crystals": "-0x98",
+        "Resins": "-0x90",
+        "Metals": "-0x88",
+        "Ceramics": "-0x80",
+        "Chemicals": "-0x78",
+        "Special Alloys": "-0x70"
+      },
+      "Paleontologist": {
+        "Chiral Crystals": "-0x558",
+        "Resins": "-0x550",
+        "Metals": "-0x548",
+        "Ceramics": "-0x540",
+        "Chemicals": "-0x538",
+        "Special Alloys": "-0x530"
+      },
+      "Peter Englert": {
+        "Chiral Crystals": "-0x390",
+        "Resins": "-0x388",
+        "Metals": "-0x380",
+        "Ceramics": "-0x378",
+        "Chemicals": "-0x370",
+        "Special Alloys": "-0x368"
+      },
+      "Photographer": {
+        "Chiral Crystals": "-0x7b8",
+        "Resins": "-0x7b0",
+        "Metals": "-0x7a8",
+        "Ceramics": "-0x7a0",
+        "Chemicals": "-0x798",
+        "Special Alloys": "-0x790"
+      },
+      "Port Knot City": {
+        "Chiral Crystals": "-0xed8",
+        "Resins": "-0xed0",
+        "Metals": "-0xec8",
+        "Ceramics": "-0xec0",
+        "Chemicals": "-0xeb8",
+        "Special Alloys": "-0xeb0"
+      },
+      "Roboticist": {
+        "Chiral Crystals": "-0x8e8",
+        "Resins": "-0x8e0",
+        "Metals": "-0x8d8",
+        "Ceramics": "-0x8d0",
+        "Chemicals": "-0x8c8",
+        "Special Alloys": "-0x8c0"
+      },
+      "South Knot City": {
+        "Chiral Crystals": "0x1c8",
+        "Resins": "0x1d0",
+        "Metals": "0x1d8",
+        "Ceramics": "0x1e0",
+        "Chemicals": "0x1e8",
+        "Special Alloys": "0x1f0"
+      },
+      "Spiritualist": {
+        "Chiral Crystals": "-0x720",
+        "Resins": "-0x718",
+        "Metals": "-0x710",
+        "Ceramics": "-0x708",
+        "Chemicals": "-0x700",
+        "Special Alloys": "-0x6f8"
+      },
+      "Timefall Farm": {
+        "Chiral Crystals": "-0xb48",
+        "Resins": "-0xb40",
+        "Metals": "-0xb38",
+        "Ceramics": "-0xb30",
+        "Chemicals": "-0xb28",
+        "Special Alloys": "-0xb20"
+      },
+      "Veteran Porter": {
+        "Chiral Crystals": "-0x4c0",
+        "Resins": "-0x4b8",
+        "Metals": "-0x4b0",
+        "Ceramics": "-0x4a8",
+        "Chemicals": "-0x4a0",
+        "Special Alloys": "-0x498"
+      },
+      "Waystation North of Mountain Knot City": {
+        "Chiral Crystals": "-0x980",
+        "Resins": "-0x978",
+        "Metals": "-0x970",
+        "Ceramics": "-0x968",
+        "Chemicals": "-0x960",
+        "Special Alloys": "-0x958"
+      },
+      "Waystation West of Capital Knot City": {
+        "Chiral Crystals": "-0x10a0",
+        "Resins": "-0x1098",
+        "Metals": "-0x1090",
+        "Ceramics": "-0x1088",
+        "Chemicals": "-0x1080",
+        "Special Alloys": "-0x1078"
+      },
+      "Weather Station": {
+        "Chiral Crystals": "0x130",
+        "Resins": "0x138",
+        "Metals": "0x140",
+        "Ceramics": "0x148",
+        "Chemicals": "0x150",
+        "Special Alloys": "0x158"
+      },
+      "Wind Farm": {
+        "Chiral Crystals": "-0xf70",
+        "Resins": "-0xf68",
+        "Metals": "-0xf60",
+        "Ceramics": "-0xf58",
+        "Chemicals": "-0xf50",
+        "Special Alloys": "-0xf48"
+      }
     }
   }
 }

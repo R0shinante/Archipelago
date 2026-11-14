@@ -122,3 +122,9 @@ TRAP_ITEMS: dict[str, int] = {
     "BT Spawn Trap": 20,
     "Cargo Drop Trap": 40,
 }
+
+# Ajoutes apres les pieges pour ne pas decaler les IDs d'objets existants
+EXTRA_FILLER_ITEMS: dict[str, int] = {
+    "Chemicals": 20,
+    "Special Alloys": 10,
+}

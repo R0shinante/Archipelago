@@ -5,7 +5,7 @@
   * sauvegardes (savewatch): detecte les commandes terminees d'apres le titre des checkpoints ;
   * mode manuel            : /check <lieu> envoie un check a la main.
 
-Commandes de diagnostic : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_items, /ds_resigner, /ds_saves, /ds_selftest, /ds_catchup.
+Commandes de diagnostic : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_items, /ds_resigner, /ds_saves, /ds_selftest, /ds_catchup.
 """
 from __future__ import annotations
 
@@ -131,6 +131,20 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
             return
         new = self.ctx.memory.add_resource(resource, n)
         self.output(f"{resource} -> {new}" if new is not None else "Echec (voir /ds_status).")
+
+    def _cmd_ds_hp(self) -> None:
+        """Lit la vie du joueur en memoire (test avant d'activer DeathLink)."""
+        ctx = self.ctx
+        if not ctx.backend.attached() and not ctx.backend.attach():
+            self.output("Jeu introuvable (ds.exe).")
+            return
+        v = ctx.memory.read_vitals()
+        self.output(f"Vie : {v[0]:.0f} / {v[1]:.0f}" if v else "Vie introuvable (menu ? chargement ? sauvegarde pas chargee ?).")
+
+    def _cmd_ds_kill(self) -> None:
+        """Test : met la vie de Sam a 0 (verifie si cela le tue vraiment)."""
+        ok = self.ctx.memory.kill_player()
+        self.output("Vie mise a 0." if ok else "Impossible (jeu non charge ou valeurs incoherentes). Voir /ds_hp.")
 
     def _cmd_ds_items(self) -> None:
         """Diagnostic : objets recus du serveur et objets deja appliques en jeu."""
@@ -320,6 +334,9 @@ class DeathStrandingContext(CommonContext):
         self.backend = PymemBackend(self.map.get("process_name", "ds.exe"))
         self.memory = GameMemory(self.map, self.backend)
         self._warned_item: typing.Optional[int] = None
+        self.death_pending = False
+        self.alive_polls = 0
+        self.death_suppress_until = 0.0
         self.saves: SaveWatcher
         self.setup_saves()
 
@@ -379,7 +396,8 @@ class DeathStrandingContext(CommonContext):
 
     def on_deathlink(self, data: dict):
         super().on_deathlink(data)
-        # TODO : tuer le joueur (Blood/Conscience du personnage) une fois verifie.
+        if self.slot_data.get("death_link"):
+            self.death_pending = True
 
     def run_gui(self):
         from kvui import GameManager
@@ -395,6 +413,26 @@ class DeathStrandingContext(CommonContext):
         data = _json_load(PROGRESS_FILE)
         data[self._progress_key()] = self.applied_index
         _json_save(PROGRESS_FILE, data)
+
+
+def death_step(vitals: typing.Optional[typing.Tuple[float, float]], alive_polls: int, pending: bool,
+               now: float, suppress_until: float) -> typing.Tuple[typing.Optional[str], int, bool, float]:
+    """Logique DeathLink pure. Renvoie (action, alive_polls, pending, suppress_until), action = "kill" | "send" | None.
+
+    - kill : un DeathLink recu attend et le joueur est vivant -> on le tue, et on ignore sa mort pendant 20 s.
+    - send : le joueur etait vivant sur 2 lectures consecutives puis sa vie tombe a 0 -> on previent les autres (30 s de repit).
+    """
+    if vitals is None:                       # menu, chargement : on ne decide rien
+        return None, 0, pending, suppress_until
+    hp, _ = vitals
+    if hp > 0.5:
+        if pending:
+            return "kill", 0, False, now + 20.0
+        return None, alive_polls + 1, pending, suppress_until
+    # mort en cours
+    if alive_polls >= 2 and now >= suppress_until:
+        return "send", 0, False, now + 30.0
+    return None, 0, False, suppress_until   # deja mort (ou mort provoquee) : un DeathLink en attente est caduc
 
 
 async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
@@ -457,6 +495,18 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 logger.info(f"Objet recu (sans effet en jeu pour l'instant) : {name}")
             ctx.applied_index += 1
             ctx.save_progress()
+
+        # 2b. DeathLink : mort recue -> tue le joueur ; mort du joueur -> previent les autres
+        if ctx.slot_data.get("death_link"):
+            action, ctx.alive_polls, ctx.death_pending, ctx.death_suppress_until = death_step(
+                ctx.memory.read_vitals(), ctx.alive_polls, ctx.death_pending, loop.time(), ctx.death_suppress_until)
+            if action == "kill":
+                if ctx.memory.kill_player():
+                    logger.info("DeathLink recu : Sam est mort.")
+                else:
+                    ctx.death_pending = True
+            elif action == "send":
+                await ctx.send_death(f"{ctx.player_names.get(ctx.slot, 'Sam')} est mort dans Death Stranding.")
 
         # 3. Victoire : derniere commande de l'episode but
         goal_ep = ctx.slot_data.get("goal_episode", 14)

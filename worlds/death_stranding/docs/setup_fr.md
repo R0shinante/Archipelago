@@ -41,4 +41,12 @@ Si ton jeu n'est pas en français, ajuste `saves.completed_words` dans `memory_m
 - Seules les commandes principales de la liste sont des checks (51). La liste vient d'une page communautaire
   et peut contenir des erreurs (n°17 absente, n°66 au nom approximatif).
 - Les objets reçus n'ont d'effet en jeu que pour les Chiral Crystals (+100, sac à dos) et les matériaux (stock d'une installation) ; le reste est affiché seulement.
-- Les pièges, DeathLink et les autres ressources ne sont pas encore branchés.
+- Les pièges et les autres ressources ne sont pas encore branchés (DeathLink : expérimental, voir plus bas).
+
+## DeathLink (expérimental)
+Activez l'option `death_link` dans le YAML, puis régénérez la partie. Le client lit la vie de Sam en mémoire :
+- quand elle tombe à 0, il prévient les autres joueurs ;
+- quand un DeathLink est reçu, il met la vie de Sam à 0 (dès qu'elle est lisible : pas pendant un chargement ou un menu).
+Une mort provoquée par un DeathLink n'est pas renvoyée (20 s de répit), et une mort envoyée bloque les envois pendant 30 s.
+**Avant de l'activer**, testez à la main : `/ds_hp` doit afficher la vie, puis `/ds_kill` doit tuer Sam. Si la vie affichée est
+juste mais que Sam ne meurt pas, signalez-le : la mort passera alors par une autre valeur (conscience).

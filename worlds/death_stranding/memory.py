@@ -85,6 +85,7 @@ class GameMemory:
         self._aob_cache: typing.Optional[typing.List[int]] = None
         self.fac = config.get("facilities", {})
         self._stock_base: typing.Optional[int] = None
+        self.player = config.get("player", {})
 
     # -- lecture de base ---------------------------------------------------
     def _u64(self, addr: int) -> typing.Optional[int]:
@@ -245,3 +246,37 @@ class GameMemory:
             return None
         new = max(0, min(cur + delta, int(self.fac.get("max_stock", 99999))))
         return new if self.backend.write(addr, struct.pack("<i", new)) else None
+
+    # -- sante du joueur (DeathLink) ---------------------------------------
+    def _f32(self, addr: int) -> typing.Optional[float]:
+        data = self.backend.read(addr, 4)
+        return struct.unpack("<f", data)[0] if data and len(data) == 4 else None
+
+    def _player_object(self) -> typing.Optional[int]:
+        """Objet des stats du joueur : meme racine que l'inventaire, autre branche (chaine `player.chain`)."""
+        if not self.player or self.resolve_object() is None or self._good_global is None:
+            return None
+        a = self._u64(self._good_global)
+        for off in self.player.get("chain", []):
+            if not self._plausible(a):
+                return None
+            a = self._u64(a + _num(off))
+        return a if self._plausible(a) else None
+
+    def read_vitals(self) -> typing.Optional[typing.Tuple[float, float]]:
+        """(vie, vie max) du joueur, ou None si introuvable ou incoherent (menu, chargement...)."""
+        obj = self._player_object()
+        if obj is None:
+            return None
+        hp, mx = self._f32(obj + _num(self.player["health"])), self._f32(obj + _num(self.player["max_health"]))
+        if hp is None or mx is None or not (0 < mx <= 100_000) or not (-1.0 <= hp <= mx + 1.0):
+            return None
+        return hp, mx
+
+    def kill_player(self) -> bool:
+        """Met la vie du joueur a 0 (seulement si les valeurs sont coherentes)."""
+        obj = self._player_object()
+        if obj is None or self.read_vitals() is None:
+            return False
+        return bool(self.backend.write(obj + _num(self.player["health"]), struct.pack("<f", 0.0)))
+

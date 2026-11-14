@@ -394,5 +394,16 @@
       }
     },
     "stock_mode": "random"
+  },
+  "player": {
+    "_comment": "Stats du joueur : meme racine que l'inventaire, branche +0x54E0 au lieu de +0x54C8 (table communautaire). Vie en float.",
+    "chain": [
+      "0x48",
+      "0x10",
+      "0x54E0"
+    ],
+    "health": "0xC0",
+    "max_health": "0xC4",
+    "consciousness": "0xDC"
   }
 }

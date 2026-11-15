@@ -26,9 +26,27 @@ class StartingEpisodes(Range):
     default = 0
 
 
+class LikesChecks(Range):
+    """Nombre de paliers de likes qui sont des checks (0 = désactivé). Les likes obtenus via des objets Archipelago ne comptent pas."""
+    display_name = "Paliers de likes (nombre de checks)"
+    range_start = 0
+    range_end = 50
+    default = 0
+
+
+class LikesStep(Range):
+    """Nombre de likes à gagner pour chaque palier (palier n = n × cette valeur)."""
+    display_name = "Likes par palier"
+    range_start = 100
+    range_end = 10000
+    default = 1000
+
+
 @dataclass
 class DeathStrandingOptions(DeathLinkMixin, PerGameCommonOptions):
     goal: Goal
     trap_percentage: TrapPercentage
     starting_episodes: StartingEpisodes
+    likes_checks: LikesChecks
+    likes_step: LikesStep
     start_inventory_from_pool: StartInventoryPool

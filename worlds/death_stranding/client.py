@@ -5,7 +5,7 @@
   * sauvegardes (savewatch): detecte les commandes terminees d'apres le titre des checkpoints ;
   * mode manuel            : /check <lieu> envoie un check a la main.
 
-Commandes de diagnostic : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_effect, /ds_trap (alias), /ds_find, /ds_findobj, /ds_findval, /ds_findlikes, /ds_likes, /ds_likes_give, /ds_trace, /ds_items, /ds_resigner, /ds_saves, /ds_selftest, /ds_catchup.
+Commandes de diagnostic : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_effect, /ds_trap (alias), /ds_find, /ds_findobj, /ds_findval, /ds_findlikes, /ds_likes, /ds_likes_give, /ds_likes_rebase, /ds_trace, /ds_items, /ds_resigner, /ds_saves, /ds_selftest, /ds_catchup.
 """
 from __future__ import annotations
 
@@ -258,7 +258,25 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
     def _cmd_ds_likes(self) -> None:
         """Likes lus en memoire (PNJ / autres joueurs / total)."""
         v = self.ctx.memory.read_likes()
-        self.output("Likes illisibles (jeu non charge ?)." if v is None else f"Likes : PNJ {v[0]} + joueurs {v[1]} = {v[0] + v[1]}")
+        if v is None:
+            self.output("Likes illisibles (jeu non charge ?).")
+            return
+        self.output(f"Likes : PNJ {v[0]} + joueurs {v[1]} = {v[0] + v[1]}")
+        st, step = self.ctx.likes_state, int(self.ctx.slot_data.get("likes_step", 0))
+        if "baseline" in st and step:
+            gained = max(0, v[0] + v[1] - int(st["baseline"]) - int(st.get("granted", 0)))
+            self.output(f"Paliers : {gained} likes gagnes depuis la base ({st['baseline']}), prochain palier a {(gained // step + 1) * step} "
+                        f"(paliers atteints : {len(self.ctx.likes_checks)}/{self.ctx.slot_data.get('likes_checks', 0)})")
+
+    def _cmd_ds_likes_rebase(self) -> None:
+        """Refixe la base des paliers de likes au total actuel (les checks deja envoyes restent envoyes)."""
+        v = self.ctx.memory.read_likes()
+        if v is None:
+            self.output("Likes illisibles (jeu non charge ?).")
+            return
+        self.ctx.likes_state.update(baseline=v[0] + v[1], granted=0)
+        self.ctx.save_progress()
+        self.output(f"Base des paliers de likes : {v[0] + v[1]}.")
 
     def _cmd_ds_likes_give(self, which: str = "", amount: str = "") -> None:
         """Test d'ecriture : /ds_likes_give <npc|players> <quantite>"""
@@ -491,6 +509,9 @@ class DeathStrandingContext(CommonContext):
         self.sent_at: dict[int, float] = {}
         self.warned_unknown: set[int] = set()
         self.applied_index = 0
+        self.likes_checks: set[int] = set()
+        self.likes_state: dict = {}
+        self.likes_history: typing.List[int] = []
         self.slot_data: dict = {}
         self.finished = False
         self.map = load_map()
@@ -555,6 +576,8 @@ class DeathStrandingContext(CommonContext):
             self.slot_data = args.get("slot_data", {})
             self.sent_at.clear()
             self.applied_index = _json_load(PROGRESS_FILE).get(self._progress_key(), 0)
+            self.likes_state = _json_load(PROGRESS_FILE).get(self._progress_key() + ":likes") or {}
+            self.likes_checks.clear()
             if self.slot_data.get("death_link"):
                 Utils.async_start(self.update_death_link(True))
 
@@ -576,7 +599,24 @@ class DeathStrandingContext(CommonContext):
     def save_progress(self) -> None:
         data = _json_load(PROGRESS_FILE)
         data[self._progress_key()] = self.applied_index
+        if self.likes_state:
+            data[self._progress_key() + ":likes"] = self.likes_state
         _json_save(PROGRESS_FILE, data)
+
+
+def likes_baseline_ready(history: typing.List[int], in_game: bool, needed: int = 3) -> bool:
+    """La base n'est fixee que si Sam est en jeu (vie lisible) et que le total est identique sur `needed` lectures
+    consecutives : pendant un chargement, les compteurs valent brievement 0."""
+    return in_game and len(history) >= needed and len(set(history[-needed:])) == 1
+
+
+def likes_milestones(total: int, baseline: int, granted: int, step: int, count: int) -> typing.List[int]:
+    """Codes des paliers de likes atteints. Gain = total - baseline - likes accordes par des objets AP (jamais negatif)."""
+    from .locations import LIKES_BASE_ID
+    if step <= 0 or count <= 0:
+        return []
+    gained = max(0, total - baseline - granted)
+    return [LIKES_BASE_ID + n for n in range(1, count + 1) if n * step <= gained]
 
 
 def apply_trap(memory, spec: dict) -> typing.Tuple[str, typing.Optional[typing.Tuple[float, float]]]:
@@ -638,6 +678,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
     grants = ctx.map.get("item_grants", {})
     loop = asyncio.get_running_loop()
     last_save_poll = 0.0
+    last_likes_poll = 0.0
     while not ctx.exit_event.is_set():
         await asyncio.sleep(0.5)
         if ctx.slot is None:
@@ -655,7 +696,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 logger.warning(f"Surveillance des sauvegardes : {e}")
                 done = []
             ctx.register_completed_orders(done)
-        to_send, unknown = plan_location_sends(ctx.manual_checks | ctx.save_checks, ctx.checked_locations,
+        to_send, unknown = plan_location_sends(ctx.manual_checks | ctx.save_checks | ctx.likes_checks, ctx.checked_locations,
                                                ctx.server_locations, ctx.sent_at, loop.time())
         for code in unknown:
             if code not in ctx.warned_unknown:
@@ -683,12 +724,18 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 logger.info(f"Objet applique : {name} (+{grant['amount']} {grant['stock']} -> "
                             + ", ".join(f"{f} : {r}" for f, r in zip(targets, results)) + ")")
             elif isinstance(grant, dict) and "likes" in grant:
+                if int(ctx.slot_data.get("likes_checks", 0)) > 0 and "baseline" not in ctx.likes_state:
+                    if ctx._warned_item != ctx.applied_index:   # la base des paliers doit etre fixee avant d'ajouter des likes
+                        logger.info(f"En attente de la base des paliers de likes pour appliquer : {name}")
+                        ctx._warned_item = ctx.applied_index
+                    break
                 new_likes = ctx.memory.add_likes(grant["likes"], int(grant["amount"]))
                 if new_likes is None:
                     if ctx._warned_item != ctx.applied_index:
                         logger.info(f"En attente du jeu pour appliquer : {name}")
                         ctx._warned_item = ctx.applied_index
                     break
+                ctx.likes_state["granted"] = int(ctx.likes_state.get("granted", 0)) + int(grant["amount"])
                 logger.info(f"Objet applique : {name} ({grant['amount']:+d} likes {grant['likes']} -> {new_likes})")
             elif name in ctx.map.get("traps", {}) or name in ctx.map.get("boosts", {}):
                 is_trap = name in ctx.map.get("traps", {})
@@ -727,6 +774,29 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                     ctx.death_pending = True
             elif action == "send":
                 await ctx.send_death(f"{ctx.player_names.get(ctx.slot, 'Sam')} est mort dans Death Stranding.")
+
+        # 2c. Paliers de likes (optionnels) : gain organique = total - base - likes accordes par des objets
+        step, count = int(ctx.slot_data.get("likes_step", 0)), int(ctx.slot_data.get("likes_checks", 0))
+        if count > 0 and step > 0 and loop.time() - last_likes_poll >= SAVE_POLL_SECONDS:
+            last_likes_poll = loop.time()
+            lk = ctx.memory.read_likes()
+            if lk is not None:
+                total = lk[0] + lk[1]
+                ctx.likes_history = (ctx.likes_history + [total])[-5:]
+                if "baseline" not in ctx.likes_state:
+                    if not likes_baseline_ready(ctx.likes_history, ctx.memory.read_vitals() is not None):
+                        continue_likes = False
+                    else:
+                        ctx.likes_state.update(baseline=total, granted=0)
+                        ctx.save_progress()
+                        logger.info(f"Paliers de likes : base fixee a {total} likes (palier = {step} likes gagnes).")
+                        continue_likes = True
+                else:
+                    continue_likes = True
+                new = set() if not continue_likes else set(likes_milestones(total, int(ctx.likes_state["baseline"]), int(ctx.likes_state.get("granted", 0)), step, count))
+                for code in sorted(new - ctx.likes_checks):
+                    logger.info(f"Palier de likes atteint : {code - 7_771_000} ({(code - 7_771_000) * step} likes gagnes)")
+                ctx.likes_checks |= new
 
         # 3. Victoire : derniere commande de l'episode but
         goal_ep = ctx.slot_data.get("goal_episode", 14)

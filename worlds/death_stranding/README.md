@@ -16,6 +16,7 @@ Projet non officiel, sans lien avec Kojima Productions, 505 Games ni l'équipe d
 | Matériaux (résines, métaux, céramiques, chimiques, alliages) crédités au stock d'une installation tirée au hasard | 🧪 à valider en jeu |
 | DeathLink (envoi et réception de la mort du joueur) | 🧪 à valider en jeu |
 | Objets utiles avec effet : Blood Bag (soin), Energy Drink (fatigue), Repair Spray (bottes + combinaison), Cryptobiote Pack, D-Cryptobiote Pack, Sandalweed Bundle | 🧪 à valider en jeu |
+| Paliers de likes comme checks (option `likes_checks` / `likes_step`, jusqu'à 50 paliers) | 🧪 à valider en jeu |
 | Objet « Likes Pack » (+500 likes, compteur écrit directement, sans injection) | 🧪 à valider en jeu |
 | Pièges : Injury, Fatigue, Boot Wear, Rust, Pickpocket | 🧪 à valider en jeu |
 | Commandes standard / optionnelles comme checks | ❌ |
@@ -57,7 +58,8 @@ Si vous utilisez l'installateur officiel d'Archipelago, installez `pymem` dans l
 2. Ouvrez `Death Stranding.yaml`, vérifiez `game: Death Stranding` et renseignez votre `name:`.
 3. Placez-le dans le dossier `Players`.
 
-Options : objectif (`finish_episode_14` ou `finish_episode_12`), pourcentage de pièges, épisodes de départ, DeathLink.
+Options : objectif (`finish_episode_14` ou `finish_episode_12`), pourcentage de pièges, épisodes de départ, DeathLink, paliers de likes (`likes_checks` : nombre de checks, 0 = désactivé ; `likes_step` : likes par palier, 1000 par défaut).
+Les checks « Likes Milestone N » se débloquent quand vous gagnez N × `likes_step` likes **depuis la première connexion** (la base est fixée à ce moment-là) ; les likes reçus par des objets « Likes Pack » ne comptent pas. `/ds_likes` affiche la progression.
 
 ### 4. Générer et héberger la partie
 1. Launcher → **Generate**. Le fichier `AP_xxxxxxxx.zip` apparaît dans `output`.

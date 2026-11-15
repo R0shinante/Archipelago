@@ -12,4 +12,15 @@ def _build_location_table() -> dict[str, tuple[int, int]]:
 
 
 location_table = _build_location_table()
-location_name_to_id = {name: data[0] for name, data in location_table.items()}
+
+# Paliers de likes (optionnels) : id = LIKES_BASE_ID + n. Le palier n correspond a n * likes_step likes (option).
+LIKES_BASE_ID = 7_771_000
+MAX_LIKES_CHECKS = 50
+
+
+def likes_location_name(n: int) -> str:
+    return f"Likes Milestone {n}"
+
+
+likes_location_table = {likes_location_name(n): LIKES_BASE_ID + n for n in range(1, MAX_LIKES_CHECKS + 1)}
+location_name_to_id = {**{name: data[0] for name, data in location_table.items()}, **likes_location_table}

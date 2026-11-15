@@ -27,7 +27,7 @@ class DeathStrandingWeb(WebWorld):
         "Français",
         "setup_fr.md",
         "setup/fr",
-        ["Death Stranding AP contributors"],
+        ["Roshinante"],
     )]
 
 

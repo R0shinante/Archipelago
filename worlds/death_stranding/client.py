@@ -5,7 +5,7 @@
   * sauvegardes (savewatch): detecte les commandes terminees d'apres le titre des checkpoints ;
   * mode manuel            : /check <lieu> envoie un check a la main.
 
-Commandes de diagnostic : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_trap, /ds_items, /ds_resigner, /ds_saves, /ds_selftest, /ds_catchup.
+Commandes de diagnostic : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_effect, /ds_trap (alias), /ds_find, /ds_items, /ds_resigner, /ds_saves, /ds_selftest, /ds_catchup.
 """
 from __future__ import annotations
 
@@ -133,10 +133,10 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         self.output(f"{resource} -> {new}" if new is not None else "Echec (voir /ds_status).")
 
     @mark_raw
-    def _cmd_ds_trap(self, name: str = "") -> None:
-        """Test d'un piege : /ds_trap <nom>  (ex : /ds_trap Injury). Sans nom : liste les pieges."""
+    def _cmd_ds_effect(self, name: str = "") -> None:
+        """Test d'un piege ou d'un effet : /ds_effect <nom>  (ex : /ds_effect Injury, /ds_effect Blood Bag). Sans nom : liste."""
         ctx = self.ctx
-        traps = {k: v for k, v in ctx.map.get("traps", {}).items() if not k.startswith("_")}
+        traps = {k: v for d in ("traps", "boosts") for k, v in ctx.map.get(d, {}).items() if not k.startswith("_")}
         all_names = list(traps) + [k for k, v in ctx.map.get("item_grants", {}).items()
                                    if k.endswith("Trap")]
         q = name.strip().lower()
@@ -146,14 +146,34 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
             return
         n = match[0]
         if n in traps:
-            status, res = apply_trap(ctx.memory, traps[n])
-            self.output({"ok": f"{n} : {traps[n]['field']} {res[0]:.1f} -> {res[1]:.1f}" if res else "",
+            status, done = apply_effects(ctx.memory, traps[n])
+            self.output({"ok": f"{n} : " + ", ".join(f"{f} {r[0]:.1f} -> {r[1]:.1f}" for f, r in done),
                          "wait": "Joueur illisible (menu ? chargement ?). Voir /ds_hp.",
-                         "fail": "Valeur incoherente : piege abandonne."}[status])
+                         "fail": "Valeur incoherente : effet abandonne."}[status])
         else:
             g = ctx.map["item_grants"][n]
             q2 = ctx.memory.add_resource(g["resource"], int(g["amount"]))
             self.output(f"{n} : {g['resource']} -> {q2}" if q2 is not None else "Inventaire illisible (voir /ds_status).")
+
+    @mark_raw
+    def _cmd_ds_trap(self, name: str = "") -> None:
+        """Alias de /ds_effect (ancien nom)."""
+        self._cmd_ds_effect(name)
+
+    def _cmd_ds_find(self, qty: str = "", mx: str = "") -> None:
+        """Aide : /ds_find <quantite> <maximum>  cherche une paire (quantite, maximum) dans l'inventaire (ex : sandalweed : /ds_find 12 99)"""
+        try:
+            q, m = int(qty), int(mx)
+        except ValueError:
+            self.output("Usage : /ds_find <quantite actuelle> <maximum>   ex : /ds_find 12 99")
+            return
+        hits = self.ctx.memory.find_pair(q, m)
+        if not hits:
+            self.output("Aucune correspondance (jeu charge ? valeurs exactes ?).")
+            return
+        self.output(f"{len(hits)} correspondance(s) (decalage depuis l'objet d'inventaire) :")
+        for off, kind in hits[:20]:
+            self.output(f"  +0x{off:X} ({kind})")
 
     def _cmd_ds_hp(self) -> None:
         """Lit la vie du joueur en memoire (test avant d'activer DeathLink)."""
@@ -453,8 +473,24 @@ def apply_trap(memory, spec: dict) -> typing.Tuple[str, typing.Optional[typing.T
             delta = float(spec["frac"]) * ref
         if "floor_frac" in spec:
             floor = float(spec["floor_frac"]) * ref
+        if "ceil_frac" in spec:
+            ceil = float(spec["ceil_frac"]) * ref
     res = memory.adjust_player(spec["field"], delta, floor, ceil)
     return ("ok", res) if res else ("fail", None)
+
+
+def apply_effects(memory, spec) -> typing.Tuple[str, typing.List[typing.Tuple[str, typing.Optional[typing.Tuple[float, float]]]]]:
+    """Applique un effet (dict) ou plusieurs (liste de dicts). ("wait", []) si le joueur est illisible ; sinon ("ok", [(champ, (avant, apres))...])
+    si au moins un effet a ete applique, ("fail", []) sinon."""
+    specs = spec if isinstance(spec, list) else [spec]
+    if not memory.player_ready():
+        return "wait", []
+    done = []
+    for s in specs:
+        st, res = apply_trap(memory, s)
+        if st == "ok":
+            done.append((s["field"], res))
+    return ("ok", done) if done else ("fail", [])
 
 
 def death_step(vitals: typing.Optional[typing.Tuple[float, float]], alive_polls: int, pending: bool,
@@ -525,17 +561,19 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 results = [ctx.memory.add_stock(f, grant["stock"], int(grant["amount"])) for f in targets]
                 logger.info(f"Objet applique : {name} (+{grant['amount']} {grant['stock']} -> "
                             + ", ".join(f"{f} : {r}" for f, r in zip(targets, results)) + ")")
-            elif name in ctx.map.get("traps", {}):
-                status, res = apply_trap(ctx.memory, ctx.map["traps"][name])
+            elif name in ctx.map.get("traps", {}) or name in ctx.map.get("boosts", {}):
+                is_trap = name in ctx.map.get("traps", {})
+                status, done = apply_effects(ctx.memory, (ctx.map["traps"] if is_trap else ctx.map["boosts"])[name])
                 if status == "wait":
                     if ctx._warned_item != ctx.applied_index:
                         logger.info(f"En attente du jeu pour appliquer : {name}")
                         ctx._warned_item = ctx.applied_index
                     break
+                label = "Piege" if is_trap else "Effet"
                 if status == "ok":
-                    logger.info(f"Piege applique : {name} ({ctx.map['traps'][name]['field']} : {res[0]:.0f} -> {res[1]:.0f})")
+                    logger.info(f"{label} applique : {name} (" + ", ".join(f"{f} : {r[0]:.0f} -> {r[1]:.0f}" for f, r in done) + ")")
                 else:
-                    logger.warning(f"Piege ignore : {name} (valeur du jeu incoherente, voir /ds_trap)")
+                    logger.warning(f"{label} ignore : {name} (valeur du jeu incoherente, voir /ds_effect)")
             elif isinstance(grant, dict):
                 new_qty = ctx.memory.add_resource(grant["resource"], int(grant["amount"]))
                 if new_qty is None:

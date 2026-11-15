@@ -193,6 +193,27 @@ class GameMemory:
         new = max(0, min(q + delta, m))
         return new if self.backend.write(obj + _num(res["qty"]), struct.pack("<i", new)) else None
 
+    def find_pair(self, qty: int, mx: int, span: int = 0x6000) -> typing.List[typing.Tuple[int, str]]:
+        """Aide a la decouverte : cherche (quantite, maximum) en 4 octets (qty, puis max a +4) ou 2 octets (qty, max a +4)
+        dans l'objet d'inventaire. Renvoie [(decalage, "4o"|"2o")]. Sert a localiser un objet du sac a dos."""
+        obj = self.resolve_object()
+        if obj is None:
+            return []
+        hits: typing.List[typing.Tuple[int, str]] = []
+        for page in range(0, span, 0x1000):
+            data = self.backend.read(obj + page, 0x1000 + 8)
+            if not data or len(data) < 8:
+                continue
+            for off in range(0, min(0x1000, len(data) - 8) + 1, 2):
+                if off + 8 > len(data):
+                    break
+                if off % 4 == 0 and struct.unpack_from("<ii", data, off) == (qty, mx):
+                    hits.append((page + off, "4o"))
+                a, b = struct.unpack_from("<H", data, off)[0], struct.unpack_from("<H", data, off + 4)[0]
+                if (a, b) == (qty, mx) and not (off % 4 == 0 and struct.unpack_from("<ii", data, off) == (qty, mx)):
+                    hits.append((page + off, "2o"))
+        return hits
+
     # -- stocks de materiaux par installation ------------------------------
     def _stock_sane(self, base: int) -> bool:
         """Controle : les 6 valeurs de la premiere installation sont des quantites plausibles (0..10 millions)."""

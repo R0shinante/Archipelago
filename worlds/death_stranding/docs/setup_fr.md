@@ -41,7 +41,7 @@ Si ton jeu n'est pas en français, ajuste `saves.completed_words` dans `memory_m
 - Seules les commandes principales de la liste sont des checks (51). La liste vient d'une page communautaire
   et peut contenir des erreurs (n°17 absente, n°66 au nom approximatif).
 - Les objets reçus n'ont d'effet en jeu que pour les Chiral Crystals (+100, sac à dos) et les matériaux (stock d'une installation) ; le reste est affiché seulement.
-- Les autres ressources (sandalweed, cryptobiotes…) ne sont pas encore branchées. DeathLink et pièges : expérimentaux, voir plus bas.
+- DeathLink, pièges et effets des objets : expérimentaux, voir plus bas.
 
 ## DeathLink (expérimental)
 Activez l'option `death_link` dans le YAML, puis régénérez la partie. Le client lit la vie de Sam en mémoire :
@@ -63,3 +63,21 @@ Les pièges sont des objets du multimonde qui modifient l'état de Sam en mémoi
 
 Un piège attend que Sam soit lisible (pas pendant un chargement ou un menu). `/ds_trap` liste les pièges et en applique un à la
 main pour tester. Les valeurs sont dans `memory_map.default.json` (section `traps`). Le pourcentage de pièges se règle dans le YAML.
+
+## Objets utiles avec effet (expérimental)
+| Objet | Effet |
+|---|---|
+| Blood Bag | +40 % de la vie maximale (plafonné) |
+| Energy Drink | −3000 de fatigue (minimum 0) |
+| Repair Spray | +50 % de durabilité des bottes et +1500 d'état de la combinaison (plafonnés) |
+| Cryptobiote Pack | +5 cryptobiotes dans le sac à dos |
+| D-Cryptobiote Pack | +3 cryptobiotes D dans le sac à dos |
+| Sandalweed Bundle | +5 sandalweed dans le sac à dos |
+
+Même mécanique que les pièges : l'effet attend que Sam soit lisible. `/ds_effect Blood Bag` permet de tester.
+Les valeurs sont dans `memory_map.default.json` (sections `boosts` et `item_grants`).
+
+### Localiser une valeur du sac à dos (aide)
+`/ds_find <quantité> <maximum>` cherche, dans l'objet d'inventaire, un compteur de la forme (quantité, maximum à +4). Exemple : avec 12 sandalweed
+sur un maximum de 99, `/ds_find 12 99` liste les décalages trouvés ; recommencez avec une autre quantité pour ne garder que le décalage commun.
+(La sandalweed est à +0x388C, trouvée ainsi.)

@@ -1,5 +1,5 @@
 from BaseClasses import Item, ItemClassification
-from .data import BASE_ID, EPISODES, USEFUL_ITEMS, FILLER_ITEMS, TRAP_ITEMS, EXTRA_FILLER_ITEMS, EXTRA_TRAP_ITEMS
+from .data import BASE_ID, EPISODES, USEFUL_ITEMS, FILLER_ITEMS, TRAP_ITEMS, EXTRA_FILLER_ITEMS, EXTRA_FILLER2_ITEMS, EXTRA_FILLER3_ITEMS, EXTRA_TRAP_ITEMS
 
 
 class DeathStrandingItem(Item):
@@ -29,6 +29,12 @@ def _build_item_table() -> dict[str, tuple[int, ItemClassification]]:
         code += 1
     for name in EXTRA_TRAP_ITEMS:
         table[name] = (code, ItemClassification.trap)
+        code += 1
+    for name in EXTRA_FILLER2_ITEMS:
+        table[name] = (code, ItemClassification.filler)
+        code += 1
+    for name in EXTRA_FILLER3_ITEMS:
+        table[name] = (code, ItemClassification.filler)
         code += 1
     return table
 

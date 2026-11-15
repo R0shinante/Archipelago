@@ -135,3 +135,14 @@ EXTRA_TRAP_ITEMS: dict[str, int] = {
     "Rust Trap": 20,          # -1500 d'etat de la combinaison (rouille)
     "Pickpocket Trap": 15,    # -50 cristaux chiraux du sac a dos
 }
+
+# Objets de sac a dos ajoutes en dernier (IDs stables)
+EXTRA_FILLER2_ITEMS: dict[str, int] = {
+    "Cryptobiote Pack": 10,     # +5 cryptobiotes
+    "D-Cryptobiote Pack": 5,    # +3 cryptobiotes D
+}
+
+# Ajoute en dernier (IDs stables)
+EXTRA_FILLER3_ITEMS: dict[str, int] = {
+    "Sandalweed Bundle": 10,    # +5 sandalweed
+}

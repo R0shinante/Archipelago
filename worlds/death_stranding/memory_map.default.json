@@ -76,7 +76,18 @@
     "Sandalweed Bundle": {
       "resource": "Sandalweed",
       "amount": 5
+    },
+    "Likes Pack": {
+      "likes": "npc",
+      "amount": 500
     }
+  },
+  "likes": {
+    "_comment": "Compteurs de likes (entiers 8 octets) : adresse = lire64(module + global_module_offset) + npc/players. Trouves par /ds_findlikes.",
+    "global_module_offset": "0x7BF83B0",
+    "npc": "0x18",
+    "players": "0x20",
+    "max": 999999999
   },
   "facilities": {
     "_comment": "Stocks de materiaux PAR INSTALLATION (valeurs de 4 octets). adresse = P + shift + stock[installation][materiau], avec P = lire64(lire64(module+global_module_offset) + chain...). 'layouts' : deux lectures possibles de la liste de decalages de la table communautaire ; la premiere qui passe le controle de coherence est retenue.",

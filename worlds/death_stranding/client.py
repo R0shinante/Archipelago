@@ -5,12 +5,13 @@
   * sauvegardes (savewatch): detecte les commandes terminees d'apres le titre des checkpoints ;
   * mode manuel            : /check <lieu> envoie un check a la main.
 
-Commandes de diagnostic : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_effect, /ds_trap (alias), /ds_find, /ds_items, /ds_resigner, /ds_saves, /ds_selftest, /ds_catchup.
+Commandes de diagnostic : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_effect, /ds_trap (alias), /ds_find, /ds_findobj, /ds_findval, /ds_findlikes, /ds_likes, /ds_likes_give, /ds_trace, /ds_items, /ds_resigner, /ds_saves, /ds_selftest, /ds_catchup.
 """
 from __future__ import annotations
 
 import asyncio
 import random
+import time
 import json
 import os
 import typing
@@ -22,6 +23,7 @@ from NetUtils import ClientStatus
 
 from .data import EPISODES, ORDER_TO_LOCATION
 from .locations import location_name_to_id
+from . import memscan
 from .memory import GameMemory, PymemBackend
 from .savewatch import DEFAULT_COMPLETED_WORDS, ResignerCli, SaveWatcher, autodetect_root, parse_title, read_header
 
@@ -159,6 +161,125 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
     def _cmd_ds_trap(self, name: str = "") -> None:
         """Alias de /ds_effect (ancien nom)."""
         self._cmd_ds_effect(name)
+
+    def _cmd_ds_findobj(self, *args: str) -> None:
+        """Aide : /ds_findobj <decalage>=<valeur> ...  cherche un objet dont les entiers 8 octets valent ces valeurs (ex : /ds_findobj 0x18=1234 0x20=567)"""
+        checks = {}
+        try:
+            for a in args:
+                off, val = a.split("=")
+                checks[int(off, 0)] = int(val)
+        except ValueError:
+            self.output("Usage : /ds_findobj 0x18=1234 0x20=567   (decalage=valeur, valeurs exactes affichees en jeu)")
+            return
+        if not checks:
+            self.output("Usage : /ds_findobj 0x18=1234 0x20=567")
+            return
+        self.output("Recherche en cours (jusqu'a 20 s)...")
+        hits = self.ctx.memory.find_object(checks)
+        if not hits:
+            self.output("Aucun objet trouve (jeu charge ? valeurs exactes et a jour ? objet non relie a la chaine connue ?).")
+            return
+        for desc, addr in hits[:10]:
+            self.output(f"  {desc} (adresse 0x{addr:X})")
+
+    def _cmd_ds_trace(self, *args: str) -> None:
+        """Recherche complete (lecture seule, 1 a 3 min) : /ds_trace 0x18=25390 0x20=1741  -> trouve l'objet dans TOUTE la memoire du jeu
+        puis remonte les pointeurs jusqu'a une racine statique. Necessite numpy (py -3.12 -m pip install numpy)."""
+        checks = {}
+        try:
+            for a in args:
+                off, val = a.split("=")
+                checks[int(off, 0)] = int(val)
+        except ValueError:
+            checks = {}
+        if not checks:
+            self.output("Usage : /ds_trace 0x18=25390 0x20=1741   (decalage=valeur ; valeurs exactes affichees en jeu)")
+            return
+        if not self.ctx.backend.attached() and not self.ctx.backend.attach():
+            self.output("Jeu introuvable (ds.exe).")
+            return
+        Utils.async_start(self._run_trace(checks))
+
+    async def _run_trace(self, checks: typing.Dict[int, int]) -> None:
+        loop = asyncio.get_running_loop()
+        say = lambda msg: loop.call_soon_threadsafe(self.output, msg)     # noqa: E731 (appel depuis le thread de travail)
+        backend = self.ctx.backend
+
+        def work() -> None:
+            deadline = time.time() + 240
+            say("Etape 1/2 : recherche des valeurs dans toute la memoire (garde le jeu charge, ne change pas de menu)...")
+            bases: typing.List[int] = []
+            for width in (8, 4):
+                bases = memscan.find_object_bases(backend, checks, width=width, limit=10, deadline=deadline)
+                if bases:
+                    say(f"{len(bases)} objet(s) trouve(s) (entiers de {width} octets) : " + ", ".join(f"0x{b:X}" for b in bases[:5]))
+                    break
+            if not bases:
+                say("Aucun objet avec ces valeurs. Verifie les nombres affiches (sans arrondi) et que le jeu est charge.")
+                return
+            say("Etape 2/2 : remontee des pointeurs vers le module du jeu (jusqu'a 4 niveaux)...")
+            shown = 0
+            for b in bases[:5]:
+                chains = memscan.reverse_chains(backend, b, deadline=deadline, progress=say)
+                for rel, offs in chains[:3]:
+                    ok = memscan.eval_chain(backend, rel, offs) == b
+                    say(f"  objet 0x{b:X} : ds.exe+0x{rel:X} -> " + " -> ".join(f"+0x{o:X}" for o in offs)
+                        + ("  (verifie)" if ok else "  (a reverifier)"))
+                    shown += 1
+            if not shown:
+                say("Aucune racine statique trouvee : l'objet n'est atteignable que par un pointeur temporaire. Resultat negatif.")
+
+        try:
+            await loop.run_in_executor(None, work)
+        except Exception as e:
+            self.output(f"Recherche interrompue : {e}")
+
+    def _cmd_ds_findval(self, *args: str) -> None:
+        """Aide : /ds_findval <valeur> [<valeur> ...]  cherche ces entiers (4 ou 8 octets) dans les objets proches de la chaine connue"""
+        try:
+            vals = [int(a) for a in args]
+        except ValueError:
+            vals = []
+        if not vals:
+            self.output("Usage : /ds_findval 25390 1741 27131   (valeurs exactes affichees en jeu)")
+            return
+        self.output("Recherche en cours (jusqu'a 40 s)...")
+        found = self.ctx.memory.find_values(vals)
+        if not found:
+            self.output("Aucune des valeurs n'a ete trouvee (jeu charge ? valeurs exactes et a jour ?).")
+            return
+        for path, addr, hit in found[:8]:
+            parts = ", ".join(f"{v} @ " + "/".join(f"+0x{o:X}({w}o)" for o, w in offs[:3]) for v, offs in hit.items())
+            self.output(f"  {path} (0x{addr:X}) : {parts}")
+        if len(found) > 8:
+            self.output(f"  ... {len(found) - 8} autre(s) objet(s) avec moins de valeurs communes")
+
+    def _cmd_ds_likes(self) -> None:
+        """Likes lus en memoire (PNJ / autres joueurs / total)."""
+        v = self.ctx.memory.read_likes()
+        self.output("Likes illisibles (jeu non charge ?)." if v is None else f"Likes : PNJ {v[0]} + joueurs {v[1]} = {v[0] + v[1]}")
+
+    def _cmd_ds_likes_give(self, which: str = "", amount: str = "") -> None:
+        """Test d'ecriture : /ds_likes_give <npc|players> <quantite>"""
+        try:
+            n = int(amount)
+        except ValueError:
+            n = None
+        if which not in ("npc", "players") or n is None:
+            self.output("Usage : /ds_likes_give <npc|players> <quantite>")
+            return
+        r = self.ctx.memory.add_likes(which, n)
+        self.output(f"Likes {which} -> {r}" if r is not None else "Likes illisibles (jeu non charge ?).")
+
+    def _cmd_ds_findlikes(self, npc: str = "", players: str = "") -> None:
+        """Aide : /ds_findlikes <likes PNJ> <likes autres joueurs>  (cherche les deux valeurs et leur total)"""
+        try:
+            n, p = int(npc), int(players)
+        except ValueError:
+            self.output("Usage : /ds_findlikes <likes recus des PNJ> <likes recus d'autres joueurs>")
+            return
+        self._cmd_ds_findval(str(n), str(p), str(n + p))
 
     def _cmd_ds_find(self, qty: str = "", mx: str = "") -> None:
         """Aide : /ds_find <quantite> <maximum>  cherche une paire (quantite, maximum) dans l'inventaire (ex : sandalweed : /ds_find 12 99)"""
@@ -561,6 +682,14 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 results = [ctx.memory.add_stock(f, grant["stock"], int(grant["amount"])) for f in targets]
                 logger.info(f"Objet applique : {name} (+{grant['amount']} {grant['stock']} -> "
                             + ", ".join(f"{f} : {r}" for f, r in zip(targets, results)) + ")")
+            elif isinstance(grant, dict) and "likes" in grant:
+                new_likes = ctx.memory.add_likes(grant["likes"], int(grant["amount"]))
+                if new_likes is None:
+                    if ctx._warned_item != ctx.applied_index:
+                        logger.info(f"En attente du jeu pour appliquer : {name}")
+                        ctx._warned_item = ctx.applied_index
+                    break
+                logger.info(f"Objet applique : {name} ({grant['amount']:+d} likes {grant['likes']} -> {new_likes})")
             elif name in ctx.map.get("traps", {}) or name in ctx.map.get("boosts", {}):
                 is_trap = name in ctx.map.get("traps", {})
                 status, done = apply_effects(ctx.memory, (ctx.map["traps"] if is_trap else ctx.map["boosts"])[name])

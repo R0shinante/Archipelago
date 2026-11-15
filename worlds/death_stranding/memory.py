@@ -66,6 +66,30 @@ class PymemBackend:
         except Exception:
             return None
 
+    def regions(self) -> typing.Iterator[typing.Tuple[int, int]]:
+        """Regions memoire lisibles du processus (VirtualQueryEx) : (base, taille)."""
+        if not self._pm:
+            return
+        import ctypes
+        from ctypes import wintypes as w
+
+        class MBI(ctypes.Structure):
+            _fields_ = [("BaseAddress", ctypes.c_void_p), ("AllocationBase", ctypes.c_void_p),
+                        ("AllocationProtect", w.DWORD), ("PartitionId", w.WORD), ("RegionSize", ctypes.c_size_t),
+                        ("State", w.DWORD), ("Protect", w.DWORD), ("Type", w.DWORD)]
+
+        query = ctypes.windll.kernel32.VirtualQueryEx
+        query.argtypes = [w.HANDLE, ctypes.c_void_p, ctypes.POINTER(MBI), ctypes.c_size_t]
+        handle, addr, mbi = self._pm.process_handle, 0, MBI()
+        while addr < 0x7FFFFFFFFFFF:
+            if not query(handle, ctypes.c_void_p(addr), ctypes.byref(mbi), ctypes.sizeof(mbi)):
+                break
+            base, size = int(mbi.BaseAddress or 0), int(mbi.RegionSize)
+            readable = mbi.State == 0x1000 and (mbi.Protect & 0xEE) and not (mbi.Protect & 0x101)
+            if readable and size:
+                yield base, size
+            addr = base + size
+
     def write(self, address: int, data: bytes) -> bool:
         if not self._pm:
             return False
@@ -214,6 +238,137 @@ class GameMemory:
                     hits.append((page + off, "2o"))
         return hits
 
+    def find_object(self, checks: typing.Dict[int, int], budget_s: float = 20.0) -> typing.List[typing.Tuple[str, int]]:
+        """Aide a la decouverte (lecture seule) : cherche un objet dont les entiers de 8 octets aux decalages `checks`
+        valent les valeurs donnees. Explore les objets de la chaine connue (A=[global], B, C, D) et, pour chacun, les objets
+        qu'il pointe (premiers 0x8000 octets), plus les pointeurs voisins du global dans le module.
+        Renvoie [(description du chemin, adresse)]."""
+        import time
+        if not checks or self.resolve_object() is None or self._good_global is None:
+            return []
+        t_end = time.time() + budget_s
+        span = max(checks) + 8
+        seen: typing.Set[int] = set()
+        hits: typing.List[typing.Tuple[str, int]] = []
+
+        def match(addr: int) -> bool:
+            data = self.backend.read(addr, span)
+            if not data or len(data) < span:
+                return False
+            return all(struct.unpack_from("<q", data, off)[0] == val for off, val in checks.items())
+
+        def pointers(addr: int, size: int) -> typing.Iterator[typing.Tuple[int, int]]:
+            for page in range(0, size, 0x1000):
+                data = self.backend.read(addr + page, 0x1000)
+                if not data:
+                    continue
+                for off in range(0, len(data) - 7, 8):
+                    p = struct.unpack_from("<Q", data, off)[0]
+                    if self._plausible(p):
+                        yield page + off, p
+
+        def explore(name: str, obj: int, size: int = 0x8000) -> None:
+            if obj in seen:
+                return
+            seen.add(obj)
+            if match(obj):
+                hits.append((f"{name} lui-meme", obj))
+            for off, p in pointers(obj, size):
+                if time.time() > t_end:
+                    return
+                if p not in seen and match(p):
+                    seen.add(p)
+                    hits.append((f"{name}+0x{off:X} -> objet", p))
+
+        names = []
+        a = self._u64(self._good_global)
+        chain = [_num(o) for o in self.inv.get("chain", [])]
+        objs = [("A=[global]", a)]
+        for k, off in enumerate(chain):
+            nxt = self._u64(objs[-1][1] + off) if self._plausible(objs[-1][1]) else None
+            objs.append((f"{'BCD'[k] if k < 3 else k}=[{objs[-1][0][0]}+0x{off:X}]", nxt))
+        for name, obj in objs:
+            if self._plausible(obj) and time.time() < t_end:
+                explore(name.split("=")[0], obj)
+        rng = self.backend.module_range()
+        if rng:
+            g = self._good_global
+            for off, p in pointers(g - 0x2000, 0x4000):          # singletons voisins du global
+                if time.time() > t_end:
+                    break
+                if p not in seen and match(p):
+                    seen.add(p)
+                    hits.append((f"module+0x{g - rng[0] - 0x2000 + off:X} -> objet", p))
+        return hits
+
+    def find_values(self, values: typing.List[int], budget_s: float = 40.0, window: int = 0x80000
+                    ) -> typing.List[typing.Tuple[str, int, typing.Dict[int, typing.List[typing.Tuple[int, int]]]]]:
+        """Aide a la decouverte (lecture seule) : cherche des objets dont les 0x1000 premiers octets contiennent ces valeurs
+        (entiers de 4 ou 8 octets, a n'importe quel decalage). Candidats : objets de la chaine connue (A, B, C, D), objets qu'ils
+        pointent (0x8000 premiers octets) et objets pointes par la zone de donnees du module autour du global (+-`window`).
+        Renvoie [(chemin, adresse, {valeur: [(decalage, largeur)]})], les objets contenant le plus de valeurs distinctes d'abord."""
+        import time
+        if not values or self.resolve_object() is None or self._good_global is None:
+            return []
+        t_end = time.time() + budget_s
+        pats = {v: [(struct.pack("<q", v), 8), (struct.pack("<i", v), 4)] for v in values if -2**31 <= v < 2**31}
+        seen: typing.Set[int] = set()
+        found: typing.List[typing.Tuple[str, int, typing.Dict[int, typing.List[typing.Tuple[int, int]]]]] = []
+
+        def scan_obj(path: str, addr: int) -> None:
+            if addr in seen:
+                return
+            seen.add(addr)
+            data = self.backend.read(addr, 0x1000)
+            if not data:
+                return
+            hit: typing.Dict[int, typing.List[typing.Tuple[int, int]]] = {}
+            for v, plist in pats.items():
+                for pat, width in plist:
+                    i = data.find(pat)
+                    while i != -1:
+                        if i % 4 == 0:
+                            hit.setdefault(v, []).append((i, width))
+                        i = data.find(pat, i + 1)
+            if hit:
+                found.append((path, addr, hit))
+
+        def pointers(addr: int, size: int) -> typing.Iterator[typing.Tuple[int, int]]:
+            for page in range(0, size, 0x1000):
+                data = self.backend.read(addr + page, 0x1000)
+                if not data:
+                    continue
+                for off in range(0, len(data) - 7, 8):
+                    p = struct.unpack_from("<Q", data, off)[0]
+                    if self._plausible(p):
+                        yield page + off, p
+
+        a = self._u64(self._good_global)
+        chain = [_num(o) for o in self.inv.get("chain", [])]
+        roots = [("A", a)]
+        for k, off in enumerate(chain):
+            prev = roots[-1][1]
+            roots.append(("BCD"[k] if k < 3 else str(k), self._u64(prev + off) if self._plausible(prev) else 0))
+        for name, obj in roots:
+            if self._plausible(obj):
+                scan_obj(name, obj)
+        for name, obj in roots:
+            if not self._plausible(obj):
+                continue
+            for off, p in pointers(obj, 0x8000):
+                if time.time() > t_end:
+                    break
+                scan_obj(f"{name}+0x{off:X}", p)
+        rng = self.backend.module_range()
+        if rng:
+            g = self._good_global
+            for off, p in pointers(g - window, 2 * window):
+                if time.time() > t_end:
+                    break
+                scan_obj(f"module+0x{g - rng[0] - window + off:X}", p)
+        found.sort(key=lambda x: -len(x[2]))
+        return found
+
     # -- stocks de materiaux par installation ------------------------------
     def _stock_sane(self, base: int) -> bool:
         """Controle : les 6 valeurs de la premiere installation sont des quantites plausibles (0..10 millions)."""
@@ -267,6 +422,41 @@ class GameMemory:
             return None
         new = max(0, min(cur + delta, int(self.fac.get("max_stock", 99999))))
         return new if self.backend.write(addr, struct.pack("<i", new)) else None
+
+    # -- likes -------------------------------------------------------------
+    def _likes_addr(self, which: str) -> typing.Optional[int]:
+        cfg, rng = self.cfg.get("likes", {}), self.backend.module_range()
+        if not cfg or not rng or which not in ("npc", "players") or which not in cfg:
+            return None
+        obj = self._u64(rng[0] + _num(cfg["global_module_offset"]))
+        return obj + _num(cfg[which]) if self._plausible(obj) else None
+
+    def _i64(self, addr: int) -> typing.Optional[int]:
+        data = self.backend.read(addr, 8)
+        return struct.unpack("<q", data)[0] if data and len(data) == 8 else None
+
+    def read_likes(self) -> typing.Optional[typing.Tuple[int, int]]:
+        """(likes PNJ, likes autres joueurs), ou None si illisible ou incoherent."""
+        mx = int(self.cfg.get("likes", {}).get("max", 999_999_999))
+        out = []
+        for w in ("npc", "players"):
+            a = self._likes_addr(w)
+            v = None if a is None else self._i64(a)
+            if v is None or not 0 <= v <= mx:
+                return None
+            out.append(v)
+        return out[0], out[1]
+
+    def add_likes(self, which: str, delta: int) -> typing.Optional[int]:
+        """Ajoute `delta` au compteur `which` (plafonne 0..max). Renvoie la nouvelle valeur ou None."""
+        if self.read_likes() is None:
+            return None
+        a = self._likes_addr(which)
+        cur = None if a is None else self._i64(a)
+        if cur is None:
+            return None
+        new = max(0, min(cur + delta, int(self.cfg["likes"].get("max", 999_999_999))))
+        return new if self.backend.write(a, struct.pack("<q", new)) else None
 
     # -- sante du joueur (DeathLink) ---------------------------------------
     def _f32(self, addr: int) -> typing.Optional[float]:

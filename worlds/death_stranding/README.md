@@ -16,6 +16,7 @@ Projet non officiel, sans lien avec Kojima Productions, 505 Games ni l'équipe d
 | Matériaux (résines, métaux, céramiques, chimiques, alliages) crédités au stock d'une installation tirée au hasard | 🧪 à valider en jeu |
 | DeathLink (envoi et réception de la mort du joueur) | 🧪 à valider en jeu |
 | Objets utiles avec effet : Blood Bag (soin), Energy Drink (fatigue), Repair Spray (bottes + combinaison), Cryptobiote Pack, D-Cryptobiote Pack, Sandalweed Bundle | 🧪 à valider en jeu |
+| Objet « Likes Pack » (+500 likes, compteur écrit directement, sans injection) | 🧪 à valider en jeu |
 | Pièges : Injury, Fatigue, Boot Wear, Rust, Pickpocket | 🧪 à valider en jeu |
 | Commandes standard / optionnelles comme checks | ❌ |
 
@@ -99,6 +100,12 @@ distribue les objets. Les objets reçus s'affichent dans la console du client.
 | `/ds_give <ressource> <quantité>` | Test d'écriture en mémoire (sac à dos) |
 | `/ds_effect [nom]` | Test d'un piège ou d'un effet d'objet (sans nom : liste) ; `/ds_trap` reste un alias |
 | `/ds_find <quantité> <maximum>` | Aide : localise une paire quantité/maximum dans l'inventaire (ex. sandalweed) |
+| `/ds_findobj 0x18=<val> 0x20=<val>` | Aide : cherche un objet dont les entiers 8 octets valent ces valeurs |
+| `/ds_findval <valeur> ...` | Aide : cherche des entiers (4 ou 8 octets) dans les objets proches de la chaîne connue |
+| `/ds_trace 0x18=<val> 0x20=<val>` | Aide : recherche complète (1 à 3 min) dans toute la mémoire du jeu, puis remontée des pointeurs vers une racine statique (nécessite `numpy`) |
+| `/ds_findlikes <likes PNJ> <likes joueurs>` | Aide : cherche les deux valeurs et leur total |
+| `/ds_likes` | Likes lus en mémoire (PNJ / joueurs / total) |
+| `/ds_likes_give <npc\|players> <n>` | Test d'écriture d'un compteur de likes |
 | `/ds_hp` | Vie du joueur lue en mémoire (test) |
 | `/ds_kill` | Test : met la vie de Sam à 0 |
 | `/ds_items` | Objets reçus / appliqués en jeu (diagnostic) |

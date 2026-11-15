@@ -146,3 +146,8 @@ EXTRA_FILLER2_ITEMS: dict[str, int] = {
 EXTRA_FILLER3_ITEMS: dict[str, int] = {
     "Sandalweed Bundle": 10,    # +5 sandalweed
 }
+
+# Ajoute en dernier (IDs stables)
+EXTRA_FILLER4_ITEMS: dict[str, int] = {
+    "Likes Pack": 10,           # +500 likes
+}

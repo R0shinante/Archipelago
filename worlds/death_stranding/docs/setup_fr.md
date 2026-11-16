@@ -76,19 +76,3 @@ main pour tester. Les valeurs sont dans `memory_map.default.json` (section `trap
 
 Même mécanique que les pièges : l'effet attend que Sam soit lisible. `/ds_effect Blood Bag` permet de tester.
 Les valeurs sont dans `memory_map.default.json` (sections `boosts` et `item_grants`).
-
-### Localiser une valeur du sac à dos (aide)
-`/ds_find <quantité> <maximum>` cherche, dans l'objet d'inventaire, un compteur de la forme (quantité, maximum à +4). Exemple : avec 12 sandalweed
-sur un maximum de 99, `/ds_find 12 99` liste les décalages trouvés ; recommencez avec une autre quantité pour ne garder que le décalage commun.
-(La sandalweed est à +0x388C, trouvée ainsi.)
-
-### Chercher l'objet des likes (aide, expérimental)
-Les compteurs de likes sont des entiers de 8 octets dans un objet que les tables communautaires ne localisent que par injection de code.
-`/ds_findlikes <likes reçus des PNJ> <likes reçus d'autres joueurs>` (valeurs exactes du menu, +0x18 et +0x20 dans l'objet) explore, en lecture
-seule, les objets voisins de la chaîne connue (20 s maximum). `/ds_findobj 0x18=<valeur> 0x20=<valeur>` est la version générale (décalages imposés) ; `/ds_findval <valeur> ...` cherche ces entiers (4 ou 8 octets)
-à n'importe quel décalage et classe en premier les objets qui en contiennent le plus.
-
-### Recherche complète avec `/ds_trace` (aide, expérimental)
-`/ds_trace 0x18=25390 0x20=1741` cherche l'objet dans **toute** la mémoire du jeu (lecture seule, 1 à 3 minutes, `ds.exe` doit être chargé
-et le menu ne doit pas changer), puis remonte les pointeurs jusqu'à une racine statique du module. Elle affiche des chaînes de la forme
-`ds.exe+0x… -> +0x… -> +0x…`. Cette commande nécessite `numpy` : `py -3.12 -m pip install numpy`.

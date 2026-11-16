@@ -17,6 +17,7 @@ Projet non officiel, sans lien avec Kojima Productions, 505 Games ni l'équipe d
 | DeathLink (envoi et réception de la mort du joueur) | 🧪 à valider en jeu |
 | Objets utiles avec effet : Blood Bag (soin), Energy Drink (fatigue), Repair Spray (bottes + combinaison), Cryptobiote Pack, D-Cryptobiote Pack, Sandalweed Bundle | 🧪 à valider en jeu |
 | Paliers de likes comme checks (option `likes_checks` / `likes_step`, jusqu'à 50 paliers) | 🧪 à valider en jeu |
+| Paliers de progression des commandes comme checks (option `order_checks` / `order_step`, jusqu'à 100 paliers, sans sauvegarde) | 🧪 à valider en jeu |
 | Objet « Likes Pack » (+500 likes, compteur écrit directement, sans injection) | 🧪 à valider en jeu |
 | Pièges : Injury, Fatigue, Boot Wear, Rust, Pickpocket | 🧪 à valider en jeu |
 | Commandes standard / optionnelles comme checks | ❌ |
@@ -61,6 +62,8 @@ Si vous utilisez l'installateur officiel d'Archipelago, installez `pymem` dans l
 Options : objectif (`finish_episode_14` ou `finish_episode_12`), pourcentage de pièges, épisodes de départ, DeathLink, paliers de likes (`likes_checks` : nombre de checks, 0 = désactivé ; `likes_step` : likes par palier, 1000 par défaut).
 Les checks « Likes Milestone N » se débloquent quand vous gagnez N × `likes_step` likes **depuis la première connexion** (la base est fixée à ce moment-là) ; les likes reçus par des objets « Likes Pack » ne comptent pas. `/ds_likes` affiche la progression.
 
+Progression des commandes : `order_checks` (nombre de checks, 0 = désactivé) et `order_step` (étapes de commande par palier, 3 par défaut). Les checks « Order Progress N » se débloquent quand le compteur d'étapes de commande (`[ds.exe+0x7BFA148]+0x168`, qui monte à chaque livraison de commande standard, commande de bot ou objectif de commande principale ; les livraisons hors commande ne comptent pas) gagne N × `order_step` **depuis la première connexion**. Ils fonctionnent en direct, sans sauvegarde, client connecté. `/ds_orders` affiche la progression, `/ds_orders_rebase` refixe la base.
+
 ### 4. Générer et héberger la partie
 1. Launcher → **Generate**. Le fichier `AP_xxxxxxxx.zip` apparaît dans `output`.
 2. Launcher → **Host**, puis choisissez ce zip. Notez l'adresse (par défaut `localhost:38281`).
@@ -101,13 +104,10 @@ distribue les objets. Les objets reçus s'affichent dans la console du client.
 | `/ds_status` | Quantités lues en mémoire |
 | `/ds_give <ressource> <quantité>` | Test d'écriture en mémoire (sac à dos) |
 | `/ds_effect [nom]` | Test d'un piège ou d'un effet d'objet (sans nom : liste) ; `/ds_trap` reste un alias |
-| `/ds_find <quantité> <maximum>` | Aide : localise une paire quantité/maximum dans l'inventaire (ex. sandalweed) |
-| `/ds_findobj 0x18=<val> 0x20=<val>` | Aide : cherche un objet dont les entiers 8 octets valent ces valeurs |
-| `/ds_findval <valeur> ...` | Aide : cherche des entiers (4 ou 8 octets) dans les objets proches de la chaîne connue |
-| `/ds_trace 0x18=<val> 0x20=<val>` | Aide : recherche complète (1 à 3 min) dans toute la mémoire du jeu, puis remontée des pointeurs vers une racine statique (nécessite `numpy`) |
-| `/ds_findlikes <likes PNJ> <likes joueurs>` | Aide : cherche les deux valeurs et leur total |
 | `/ds_likes` | Likes lus en mémoire (PNJ / joueurs / total) |
 | `/ds_likes_give <npc\|players> <n>` | Test d'écriture d'un compteur de likes |
+| `/ds_orders` | Compteur d'étapes de commande et progression des paliers |
+| `/ds_orders_rebase` | Refixe la base des paliers de progression des commandes |
 | `/ds_hp` | Vie du joueur lue en mémoire (test) |
 | `/ds_kill` | Test : met la vie de Sam à 0 |
 | `/ds_items` | Objets reçus / appliqués en jeu (diagnostic) |

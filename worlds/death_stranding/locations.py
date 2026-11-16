@@ -23,4 +23,15 @@ def likes_location_name(n: int) -> str:
 
 
 likes_location_table = {likes_location_name(n): LIKES_BASE_ID + n for n in range(1, MAX_LIKES_CHECKS + 1)}
-location_name_to_id = {**{name: data[0] for name, data in location_table.items()}, **likes_location_table}
+
+# Paliers de progression des commandes (optionnels) : id = ORDER_PROGRESS_BASE_ID + n (palier n = n * order_step etapes de commande).
+ORDER_PROGRESS_BASE_ID = 7_772_000
+MAX_ORDER_CHECKS = 100
+
+
+def order_progress_location_name(n: int) -> str:
+    return f"Order Progress {n}"
+
+
+order_progress_location_table = {order_progress_location_name(n): ORDER_PROGRESS_BASE_ID + n for n in range(1, MAX_ORDER_CHECKS + 1)}
+location_name_to_id = {**{name: data[0] for name, data in location_table.items()}, **likes_location_table, **order_progress_location_table}

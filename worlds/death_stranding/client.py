@@ -5,7 +5,7 @@
   * sauvegardes (savewatch): detecte les commandes terminees d'apres le titre des checkpoints ;
   * mode manuel            : /check <lieu> envoie un check a la main.
 
-Commandes de diagnostic : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_effect, /ds_trap (alias), /ds_find, /ds_findobj, /ds_findval, /ds_findlikes, /ds_likes, /ds_likes_give, /ds_likes_rebase, /ds_trace, /ds_items, /ds_resigner, /ds_saves, /ds_selftest, /ds_catchup.
+Commandes : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_effect, /ds_trap (alias), /ds_likes, /ds_likes_give, /ds_likes_rebase, /ds_orders, /ds_orders_rebase, /ds_items, /ds_items_reset, /ds_resigner, /ds_saves, /ds_saves_dir, /ds_selftest, /ds_catchup.
 """
 from __future__ import annotations
 
@@ -22,8 +22,7 @@ from MultiServer import mark_raw
 from NetUtils import ClientStatus
 
 from .data import EPISODES, ORDER_TO_LOCATION
-from .locations import location_name_to_id
-from . import memscan
+from .locations import ORDER_PROGRESS_BASE_ID, location_name_to_id
 from .memory import GameMemory, PymemBackend
 from .savewatch import DEFAULT_COMPLETED_WORDS, ResignerCli, SaveWatcher, autodetect_root, parse_title, read_header
 
@@ -162,98 +161,40 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         """Alias de /ds_effect (ancien nom)."""
         self._cmd_ds_effect(name)
 
-    def _cmd_ds_findobj(self, *args: str) -> None:
-        """Aide : /ds_findobj <decalage>=<valeur> ...  cherche un objet dont les entiers 8 octets valent ces valeurs (ex : /ds_findobj 0x18=1234 0x20=567)"""
-        checks = {}
-        try:
-            for a in args:
-                off, val = a.split("=")
-                checks[int(off, 0)] = int(val)
-        except ValueError:
-            self.output("Usage : /ds_findobj 0x18=1234 0x20=567   (decalage=valeur, valeurs exactes affichees en jeu)")
-            return
-        if not checks:
-            self.output("Usage : /ds_findobj 0x18=1234 0x20=567")
-            return
-        self.output("Recherche en cours (jusqu'a 20 s)...")
-        hits = self.ctx.memory.find_object(checks)
-        if not hits:
-            self.output("Aucun objet trouve (jeu charge ? valeurs exactes et a jour ? objet non relie a la chaine connue ?).")
-            return
-        for desc, addr in hits[:10]:
-            self.output(f"  {desc} (adresse 0x{addr:X})")
 
-    def _cmd_ds_trace(self, *args: str) -> None:
-        """Recherche complete (lecture seule, 1 a 3 min) : /ds_trace 0x18=25390 0x20=1741  -> trouve l'objet dans TOUTE la memoire du jeu
-        puis remonte les pointeurs jusqu'a une racine statique. Necessite numpy (py -3.12 -m pip install numpy)."""
-        checks = {}
-        try:
-            for a in args:
-                off, val = a.split("=")
-                checks[int(off, 0)] = int(val)
-        except ValueError:
-            checks = {}
-        if not checks:
-            self.output("Usage : /ds_trace 0x18=25390 0x20=1741   (decalage=valeur ; valeurs exactes affichees en jeu)")
-            return
-        if not self.ctx.backend.attached() and not self.ctx.backend.attach():
-            self.output("Jeu introuvable (ds.exe).")
-            return
-        Utils.async_start(self._run_trace(checks))
 
-    async def _run_trace(self, checks: typing.Dict[int, int]) -> None:
-        loop = asyncio.get_running_loop()
-        say = lambda msg: loop.call_soon_threadsafe(self.output, msg)     # noqa: E731 (appel depuis le thread de travail)
-        backend = self.ctx.backend
 
-        def work() -> None:
-            deadline = time.time() + 240
-            say("Etape 1/2 : recherche des valeurs dans toute la memoire (garde le jeu charge, ne change pas de menu)...")
-            bases: typing.List[int] = []
-            for width in (8, 4):
-                bases = memscan.find_object_bases(backend, checks, width=width, limit=10, deadline=deadline)
-                if bases:
-                    say(f"{len(bases)} objet(s) trouve(s) (entiers de {width} octets) : " + ", ".join(f"0x{b:X}" for b in bases[:5]))
-                    break
-            if not bases:
-                say("Aucun objet avec ces valeurs. Verifie les nombres affiches (sans arrondi) et que le jeu est charge.")
-                return
-            say("Etape 2/2 : remontee des pointeurs vers le module du jeu (jusqu'a 4 niveaux)...")
-            shown = 0
-            for b in bases[:5]:
-                chains = memscan.reverse_chains(backend, b, deadline=deadline, progress=say)
-                for rel, offs in chains[:3]:
-                    ok = memscan.eval_chain(backend, rel, offs) == b
-                    say(f"  objet 0x{b:X} : ds.exe+0x{rel:X} -> " + " -> ".join(f"+0x{o:X}" for o in offs)
-                        + ("  (verifie)" if ok else "  (a reverifier)"))
-                    shown += 1
-            if not shown:
-                say("Aucune racine statique trouvee : l'objet n'est atteignable que par un pointeur temporaire. Resultat negatif.")
 
-        try:
-            await loop.run_in_executor(None, work)
-        except Exception as e:
-            self.output(f"Recherche interrompue : {e}")
 
-    def _cmd_ds_findval(self, *args: str) -> None:
-        """Aide : /ds_findval <valeur> [<valeur> ...]  cherche ces entiers (4 ou 8 octets) dans les objets proches de la chaine connue"""
-        try:
-            vals = [int(a) for a in args]
-        except ValueError:
-            vals = []
-        if not vals:
-            self.output("Usage : /ds_findval 25390 1741 27131   (valeurs exactes affichees en jeu)")
-            return
-        self.output("Recherche en cours (jusqu'a 40 s)...")
-        found = self.ctx.memory.find_values(vals)
-        if not found:
-            self.output("Aucune des valeurs n'a ete trouvee (jeu charge ? valeurs exactes et a jour ?).")
-            return
-        for path, addr, hit in found[:8]:
-            parts = ", ".join(f"{v} @ " + "/".join(f"+0x{o:X}({w}o)" for o, w in offs[:3]) for v, offs in hit.items())
-            self.output(f"  {path} (0x{addr:X}) : {parts}")
-        if len(found) > 8:
-            self.output(f"  ... {len(found) - 8} autre(s) objet(s) avec moins de valeurs communes")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def _cmd_ds_likes(self) -> None:
         """Likes lus en memoire (PNJ / autres joueurs / total)."""
@@ -267,6 +208,29 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
             gained = max(0, v[0] + v[1] - int(st["baseline"]) - int(st.get("granted", 0)))
             self.output(f"Paliers : {gained} likes gagnes depuis la base ({st['baseline']}), prochain palier a {(gained // step + 1) * step} "
                         f"(paliers atteints : {len(self.ctx.likes_checks)}/{self.ctx.slot_data.get('likes_checks', 0)})")
+
+    def _cmd_ds_orders(self) -> None:
+        """Compteur d'etapes de commande lu en memoire et etat des paliers de progression des commandes."""
+        v = self.ctx.memory.read_order_progress()
+        if v is None:
+            self.output("Compteur de commandes illisible (jeu non charge ?).")
+            return
+        self.output(f"Compteur d'etapes de commande : {v}")
+        st, step = self.ctx.order_state, int(self.ctx.slot_data.get("order_step", 0))
+        if "baseline" in st and step > 0:
+            gained = max(0, v - int(st["baseline"]))
+            self.output(f"Paliers : {gained} etapes depuis la base ({st['baseline']}), prochain palier a {(gained // step + 1) * step} "
+                        f"(paliers atteints : {len(self.ctx.order_checks)}/{self.ctx.slot_data.get('order_checks', 0)})")
+
+    def _cmd_ds_orders_rebase(self) -> None:
+        """Refixe la base des paliers de progression des commandes au compteur actuel (les checks deja envoyes restent envoyes)."""
+        v = self.ctx.memory.read_order_progress()
+        if v is None:
+            self.output("Compteur de commandes illisible (jeu non charge ?).")
+            return
+        self.ctx.order_state["baseline"] = v
+        self.ctx.save_progress()
+        self.output(f"Base de progression des commandes : {v}.")
 
     def _cmd_ds_likes_rebase(self) -> None:
         """Refixe la base des paliers de likes au total actuel (les checks deja envoyes restent envoyes)."""
@@ -290,29 +254,7 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         r = self.ctx.memory.add_likes(which, n)
         self.output(f"Likes {which} -> {r}" if r is not None else "Likes illisibles (jeu non charge ?).")
 
-    def _cmd_ds_findlikes(self, npc: str = "", players: str = "") -> None:
-        """Aide : /ds_findlikes <likes PNJ> <likes autres joueurs>  (cherche les deux valeurs et leur total)"""
-        try:
-            n, p = int(npc), int(players)
-        except ValueError:
-            self.output("Usage : /ds_findlikes <likes recus des PNJ> <likes recus d'autres joueurs>")
-            return
-        self._cmd_ds_findval(str(n), str(p), str(n + p))
 
-    def _cmd_ds_find(self, qty: str = "", mx: str = "") -> None:
-        """Aide : /ds_find <quantite> <maximum>  cherche une paire (quantite, maximum) dans l'inventaire (ex : sandalweed : /ds_find 12 99)"""
-        try:
-            q, m = int(qty), int(mx)
-        except ValueError:
-            self.output("Usage : /ds_find <quantite actuelle> <maximum>   ex : /ds_find 12 99")
-            return
-        hits = self.ctx.memory.find_pair(q, m)
-        if not hits:
-            self.output("Aucune correspondance (jeu charge ? valeurs exactes ?).")
-            return
-        self.output(f"{len(hits)} correspondance(s) (decalage depuis l'objet d'inventaire) :")
-        for off, kind in hits[:20]:
-            self.output(f"  +0x{off:X} ({kind})")
 
     def _cmd_ds_hp(self) -> None:
         """Lit la vie du joueur en memoire (test avant d'activer DeathLink)."""
@@ -512,6 +454,9 @@ class DeathStrandingContext(CommonContext):
         self.likes_checks: set[int] = set()
         self.likes_state: dict = {}
         self.likes_history: typing.List[int] = []
+        self.order_checks: set[int] = set()
+        self.order_state: dict = {}
+        self.order_history: typing.List[int] = []
         self.slot_data: dict = {}
         self.finished = False
         self.map = load_map()
@@ -578,6 +523,8 @@ class DeathStrandingContext(CommonContext):
             self.applied_index = _json_load(PROGRESS_FILE).get(self._progress_key(), 0)
             self.likes_state = _json_load(PROGRESS_FILE).get(self._progress_key() + ":likes") or {}
             self.likes_checks.clear()
+            self.order_state = _json_load(PROGRESS_FILE).get(self._progress_key() + ":orders") or {}
+            self.order_checks.clear()
             if self.slot_data.get("death_link"):
                 Utils.async_start(self.update_death_link(True))
 
@@ -601,6 +548,8 @@ class DeathStrandingContext(CommonContext):
         data[self._progress_key()] = self.applied_index
         if self.likes_state:
             data[self._progress_key() + ":likes"] = self.likes_state
+        if self.order_state:
+            data[self._progress_key() + ":orders"] = self.order_state
         _json_save(PROGRESS_FILE, data)
 
 
@@ -617,6 +566,15 @@ def likes_milestones(total: int, baseline: int, granted: int, step: int, count: 
         return []
     gained = max(0, total - baseline - granted)
     return [LIKES_BASE_ID + n for n in range(1, count + 1) if n * step <= gained]
+
+
+def order_progress_milestones(current: int, baseline: int, step: int, count: int) -> typing.List[int]:
+    """Codes des paliers de progression des commandes atteints (gain = compteur - base, jamais negatif)."""
+    from .locations import ORDER_PROGRESS_BASE_ID
+    if step <= 0 or count <= 0:
+        return []
+    gained = max(0, current - baseline)
+    return [ORDER_PROGRESS_BASE_ID + n for n in range(1, count + 1) if n * step <= gained]
 
 
 def apply_trap(memory, spec: dict) -> typing.Tuple[str, typing.Optional[typing.Tuple[float, float]]]:
@@ -679,6 +637,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
     loop = asyncio.get_running_loop()
     last_save_poll = 0.0
     last_likes_poll = 0.0
+    last_order_poll = 0.0
     while not ctx.exit_event.is_set():
         await asyncio.sleep(0.5)
         if ctx.slot is None:
@@ -696,7 +655,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 logger.warning(f"Surveillance des sauvegardes : {e}")
                 done = []
             ctx.register_completed_orders(done)
-        to_send, unknown = plan_location_sends(ctx.manual_checks | ctx.save_checks | ctx.likes_checks, ctx.checked_locations,
+        to_send, unknown = plan_location_sends(ctx.manual_checks | ctx.save_checks | ctx.likes_checks | ctx.order_checks, ctx.checked_locations,
                                                ctx.server_locations, ctx.sent_at, loop.time())
         for code in unknown:
             if code not in ctx.warned_unknown:
@@ -797,6 +756,28 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 for code in sorted(new - ctx.likes_checks):
                     logger.info(f"Palier de likes atteint : {code - 7_771_000} ({(code - 7_771_000) * step} likes gagnes)")
                 ctx.likes_checks |= new
+
+        # 2d. Progression des commandes (optionnelle) : compteur d'etapes de commande ([module+0x7BFA148]+0x168), gain depuis la base
+        ostep, ocount = int(ctx.slot_data.get("order_step", 0)), int(ctx.slot_data.get("order_checks", 0))
+        if ocount > 0 and ostep > 0 and loop.time() - last_order_poll >= SAVE_POLL_SECONDS:
+            last_order_poll = loop.time()
+            cur = ctx.memory.read_order_progress()
+            if cur is not None:
+                ctx.order_history = (ctx.order_history + [cur])[-5:]
+                ready = True
+                if "baseline" not in ctx.order_state:
+                    if likes_baseline_ready(ctx.order_history, ctx.memory.read_vitals() is not None):
+                        ctx.order_state["baseline"] = cur
+                        ctx.save_progress()
+                        logger.info(f"Progression des commandes : base fixee a {cur} (palier = {ostep} etapes de commande).")
+                    else:
+                        ready = False
+                if ready:
+                    new = set(order_progress_milestones(cur, int(ctx.order_state["baseline"]), ostep, ocount))
+                    for code in sorted(new - ctx.order_checks):
+                        logger.info(f"Palier de progression des commandes atteint : {code - ORDER_PROGRESS_BASE_ID} "
+                                    f"({(code - ORDER_PROGRESS_BASE_ID) * ostep} etapes)")
+                    ctx.order_checks |= new
 
         # 3. Victoire : derniere commande de l'episode but
         goal_ep = ctx.slot_data.get("goal_episode", 14)

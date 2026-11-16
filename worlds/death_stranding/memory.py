@@ -217,158 +217,7 @@ class GameMemory:
         new = max(0, min(q + delta, m))
         return new if self.backend.write(obj + _num(res["qty"]), struct.pack("<i", new)) else None
 
-    def find_pair(self, qty: int, mx: int, span: int = 0x6000) -> typing.List[typing.Tuple[int, str]]:
-        """Aide a la decouverte : cherche (quantite, maximum) en 4 octets (qty, puis max a +4) ou 2 octets (qty, max a +4)
-        dans l'objet d'inventaire. Renvoie [(decalage, "4o"|"2o")]. Sert a localiser un objet du sac a dos."""
-        obj = self.resolve_object()
-        if obj is None:
-            return []
-        hits: typing.List[typing.Tuple[int, str]] = []
-        for page in range(0, span, 0x1000):
-            data = self.backend.read(obj + page, 0x1000 + 8)
-            if not data or len(data) < 8:
-                continue
-            for off in range(0, min(0x1000, len(data) - 8) + 1, 2):
-                if off + 8 > len(data):
-                    break
-                if off % 4 == 0 and struct.unpack_from("<ii", data, off) == (qty, mx):
-                    hits.append((page + off, "4o"))
-                a, b = struct.unpack_from("<H", data, off)[0], struct.unpack_from("<H", data, off + 4)[0]
-                if (a, b) == (qty, mx) and not (off % 4 == 0 and struct.unpack_from("<ii", data, off) == (qty, mx)):
-                    hits.append((page + off, "2o"))
-        return hits
-
-    def find_object(self, checks: typing.Dict[int, int], budget_s: float = 20.0) -> typing.List[typing.Tuple[str, int]]:
-        """Aide a la decouverte (lecture seule) : cherche un objet dont les entiers de 8 octets aux decalages `checks`
-        valent les valeurs donnees. Explore les objets de la chaine connue (A=[global], B, C, D) et, pour chacun, les objets
-        qu'il pointe (premiers 0x8000 octets), plus les pointeurs voisins du global dans le module.
-        Renvoie [(description du chemin, adresse)]."""
-        import time
-        if not checks or self.resolve_object() is None or self._good_global is None:
-            return []
-        t_end = time.time() + budget_s
-        span = max(checks) + 8
-        seen: typing.Set[int] = set()
-        hits: typing.List[typing.Tuple[str, int]] = []
-
-        def match(addr: int) -> bool:
-            data = self.backend.read(addr, span)
-            if not data or len(data) < span:
-                return False
-            return all(struct.unpack_from("<q", data, off)[0] == val for off, val in checks.items())
-
-        def pointers(addr: int, size: int) -> typing.Iterator[typing.Tuple[int, int]]:
-            for page in range(0, size, 0x1000):
-                data = self.backend.read(addr + page, 0x1000)
-                if not data:
-                    continue
-                for off in range(0, len(data) - 7, 8):
-                    p = struct.unpack_from("<Q", data, off)[0]
-                    if self._plausible(p):
-                        yield page + off, p
-
-        def explore(name: str, obj: int, size: int = 0x8000) -> None:
-            if obj in seen:
-                return
-            seen.add(obj)
-            if match(obj):
-                hits.append((f"{name} lui-meme", obj))
-            for off, p in pointers(obj, size):
-                if time.time() > t_end:
-                    return
-                if p not in seen and match(p):
-                    seen.add(p)
-                    hits.append((f"{name}+0x{off:X} -> objet", p))
-
-        names = []
-        a = self._u64(self._good_global)
-        chain = [_num(o) for o in self.inv.get("chain", [])]
-        objs = [("A=[global]", a)]
-        for k, off in enumerate(chain):
-            nxt = self._u64(objs[-1][1] + off) if self._plausible(objs[-1][1]) else None
-            objs.append((f"{'BCD'[k] if k < 3 else k}=[{objs[-1][0][0]}+0x{off:X}]", nxt))
-        for name, obj in objs:
-            if self._plausible(obj) and time.time() < t_end:
-                explore(name.split("=")[0], obj)
-        rng = self.backend.module_range()
-        if rng:
-            g = self._good_global
-            for off, p in pointers(g - 0x2000, 0x4000):          # singletons voisins du global
-                if time.time() > t_end:
-                    break
-                if p not in seen and match(p):
-                    seen.add(p)
-                    hits.append((f"module+0x{g - rng[0] - 0x2000 + off:X} -> objet", p))
-        return hits
-
-    def find_values(self, values: typing.List[int], budget_s: float = 40.0, window: int = 0x80000
-                    ) -> typing.List[typing.Tuple[str, int, typing.Dict[int, typing.List[typing.Tuple[int, int]]]]]:
-        """Aide a la decouverte (lecture seule) : cherche des objets dont les 0x1000 premiers octets contiennent ces valeurs
-        (entiers de 4 ou 8 octets, a n'importe quel decalage). Candidats : objets de la chaine connue (A, B, C, D), objets qu'ils
-        pointent (0x8000 premiers octets) et objets pointes par la zone de donnees du module autour du global (+-`window`).
-        Renvoie [(chemin, adresse, {valeur: [(decalage, largeur)]})], les objets contenant le plus de valeurs distinctes d'abord."""
-        import time
-        if not values or self.resolve_object() is None or self._good_global is None:
-            return []
-        t_end = time.time() + budget_s
-        pats = {v: [(struct.pack("<q", v), 8), (struct.pack("<i", v), 4)] for v in values if -2**31 <= v < 2**31}
-        seen: typing.Set[int] = set()
-        found: typing.List[typing.Tuple[str, int, typing.Dict[int, typing.List[typing.Tuple[int, int]]]]] = []
-
-        def scan_obj(path: str, addr: int) -> None:
-            if addr in seen:
-                return
-            seen.add(addr)
-            data = self.backend.read(addr, 0x1000)
-            if not data:
-                return
-            hit: typing.Dict[int, typing.List[typing.Tuple[int, int]]] = {}
-            for v, plist in pats.items():
-                for pat, width in plist:
-                    i = data.find(pat)
-                    while i != -1:
-                        if i % 4 == 0:
-                            hit.setdefault(v, []).append((i, width))
-                        i = data.find(pat, i + 1)
-            if hit:
-                found.append((path, addr, hit))
-
-        def pointers(addr: int, size: int) -> typing.Iterator[typing.Tuple[int, int]]:
-            for page in range(0, size, 0x1000):
-                data = self.backend.read(addr + page, 0x1000)
-                if not data:
-                    continue
-                for off in range(0, len(data) - 7, 8):
-                    p = struct.unpack_from("<Q", data, off)[0]
-                    if self._plausible(p):
-                        yield page + off, p
-
-        a = self._u64(self._good_global)
-        chain = [_num(o) for o in self.inv.get("chain", [])]
-        roots = [("A", a)]
-        for k, off in enumerate(chain):
-            prev = roots[-1][1]
-            roots.append(("BCD"[k] if k < 3 else str(k), self._u64(prev + off) if self._plausible(prev) else 0))
-        for name, obj in roots:
-            if self._plausible(obj):
-                scan_obj(name, obj)
-        for name, obj in roots:
-            if not self._plausible(obj):
-                continue
-            for off, p in pointers(obj, 0x8000):
-                if time.time() > t_end:
-                    break
-                scan_obj(f"{name}+0x{off:X}", p)
-        rng = self.backend.module_range()
-        if rng:
-            g = self._good_global
-            for off, p in pointers(g - window, 2 * window):
-                if time.time() > t_end:
-                    break
-                scan_obj(f"module+0x{g - rng[0] - window + off:X}", p)
-        found.sort(key=lambda x: -len(x[2]))
-        return found
-
+    # -- instantanes et comparaison (decouverte, lecture seule) -------------
     # -- stocks de materiaux par installation ------------------------------
     def _stock_sane(self, base: int) -> bool:
         """Controle : les 6 valeurs de la premiere installation sont des quantites plausibles (0..10 millions)."""
@@ -430,6 +279,17 @@ class GameMemory:
             return None
         obj = self._u64(rng[0] + _num(cfg["global_module_offset"]))
         return obj + _num(cfg[which]) if self._plausible(obj) else None
+
+    def read_order_progress(self) -> typing.Optional[int]:
+        """Compteur d'etapes de commande accomplies ([module+global] + counter, int32), ou None si illisible ou incoherent."""
+        cfg, rng = self.cfg.get("order_progress", {}), self.backend.module_range()
+        if not cfg or not rng:
+            return None
+        obj = self._u64(rng[0] + _num(cfg["global_module_offset"]))
+        if not self._plausible(obj):
+            return None
+        v = self._i32(obj + _num(cfg["counter"]))
+        return v if v is not None and 0 <= v <= 1_000_000 else None
 
     def _i64(self, addr: int) -> typing.Optional[int]:
         data = self.backend.read(addr, 8)

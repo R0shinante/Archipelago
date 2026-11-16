@@ -492,5 +492,9 @@
         "ceil": 5000
       }
     ]
+  },
+  "order_progress": {
+    "global_module_offset": "0x7BFA148",
+    "counter": "0x168"
   }
 }

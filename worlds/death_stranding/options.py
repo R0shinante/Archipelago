@@ -42,6 +42,23 @@ class LikesStep(Range):
     default = 1000
 
 
+class OrderChecks(Range):
+    """Nombre de paliers de progression des commandes qui sont des checks (0 = désactivé). Le compteur monte à chaque étape de commande accomplie
+    (livraison standard, commande de bot, objectif d'une commande principale). Les livraisons hors commande ne comptent pas."""
+    display_name = "Paliers de progression des commandes (nombre de checks)"
+    range_start = 0
+    range_end = 100
+    default = 0
+
+
+class OrderStep(Range):
+    """Nombre d'étapes de commande à accomplir pour chaque palier (palier n = n × cette valeur)."""
+    display_name = "Étapes de commande par palier"
+    range_start = 1
+    range_end = 50
+    default = 3
+
+
 @dataclass
 class DeathStrandingOptions(DeathLinkMixin, PerGameCommonOptions):
     goal: Goal
@@ -49,4 +66,6 @@ class DeathStrandingOptions(DeathLinkMixin, PerGameCommonOptions):
     starting_episodes: StartingEpisodes
     likes_checks: LikesChecks
     likes_step: LikesStep
+    order_checks: OrderChecks
+    order_step: OrderStep
     start_inventory_from_pool: StartInventoryPool

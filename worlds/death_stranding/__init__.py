@@ -6,7 +6,8 @@ from worlds.LauncherComponents import Component, Type, components, launch_subpro
 
 from .data import EPISODE_TITLES, EPISODES, EXTRA_FILLER_ITEMS, EXTRA_FILLER2_ITEMS, EXTRA_FILLER3_ITEMS, EXTRA_FILLER4_ITEMS, EXTRA_TRAP_ITEMS, FILLER_ITEMS, TRAP_ITEMS, USEFUL_ITEMS
 from .items import DeathStrandingItem, item_name_to_id, item_table
-from .locations import DeathStrandingLocation, likes_location_name, likes_location_table, location_name_to_id, location_table
+from .locations import (DeathStrandingLocation, likes_location_name, likes_location_table, location_name_to_id, location_table,
+                        order_progress_location_name, order_progress_location_table)
 from .options import DeathStrandingOptions
 
 
@@ -83,6 +84,13 @@ class DeathStrandingWorld(World):
                 likes_region.locations.append(DeathStrandingLocation(self.player, name, likes_location_table[name], likes_region))
             self.multiworld.regions.append(likes_region)
             menu.connect(likes_region, "Menu -> Likes")
+        if self.options.order_checks.value > 0:
+            order_region = Region("Order Progress", self.player, self.multiworld)
+            for n in range(1, self.options.order_checks.value + 1):
+                name = order_progress_location_name(n)
+                order_region.locations.append(DeathStrandingLocation(self.player, name, order_progress_location_table[name], order_region))
+            self.multiworld.regions.append(order_region)
+            menu.connect(order_region, "Menu -> Order Progress")
         # Événement de victoire
         victory = DeathStrandingLocation(self.player, "Victoire", None, previous)
         victory.place_locked_item(DeathStrandingItem("Victoire", ItemClassification.progression, None, self.player))
@@ -131,6 +139,8 @@ class DeathStrandingWorld(World):
             "death_link": bool(self.options.death_link.value),
             "likes_checks": self.options.likes_checks.value,
             "likes_step": self.options.likes_step.value,
+            "order_checks": self.options.order_checks.value,
+            "order_step": self.options.order_step.value,
             "location_to_episode": {str(code): ep for code, ep in
                                     (location_table[n] for n in location_table)},
         }

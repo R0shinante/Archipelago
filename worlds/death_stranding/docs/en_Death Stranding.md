@@ -15,4 +15,9 @@ The client reads the title of each checkpoint save ("Order completed: No. N ..."
 with DeathStrandingSaveDataResigner (command-line version). Your saves are never modified.
 
 ## What happens when an item is received?
-Chiral Crystals are added to the in-game inventory through memory access; other items are only displayed for now.
+Chiral Crystals, materials, traps and several one-shot item effects (Blood Bag, Energy Drink, Repair Spray, Boot Upgrade, Power Skeleton,
+Speed Skeleton, Cryptobiote and Sandalweed packs) are applied in game through memory access. Other items are only displayed for now.
+
+## Optional checks
+Likes milestones (`likes_checks`, `likes_step`) and order-progress milestones (`order_checks`, `order_step`) can be enabled in the YAML.
+DeathLink is supported (`death_link`).

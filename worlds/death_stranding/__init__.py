@@ -29,6 +29,13 @@ class DeathStrandingWeb(WebWorld):
         "setup_fr.md",
         "setup/fr",
         ["Roshinante"],
+    ), Tutorial(
+        "Setup guide",
+        "How to set up Death Stranding Director's Cut (PC) with Archipelago.",
+        "English",
+        "setup_en.md",
+        "setup/en",
+        ["Roshinante"],
     )]
 
 

@@ -70,9 +70,14 @@ main pour tester. Les valeurs sont dans `memory_map.default.json` (section `trap
 | Blood Bag | +40 % de la vie maximale (plafonné) |
 | Energy Drink | −3000 de fatigue (minimum 0) |
 | Repair Spray | +50 % de durabilité des bottes et +1500 d'état de la combinaison (plafonnés) |
+| Boot Upgrade | bottes réparées à 100 % de leur durabilité maximale (effet ponctuel, aucun bonus permanent) |
+| Power Skeleton | stamina remplie (effet ponctuel) |
+| Speed Skeleton | −2000 de fatigue (minimum 0, effet ponctuel) |
 | Cryptobiote Pack | +5 cryptobiotes dans le sac à dos |
 | D-Cryptobiote Pack | +3 cryptobiotes D dans le sac à dos |
 | Sandalweed Bundle | +5 sandalweed dans le sac à dos |
+
+Les autres objets d'équipement (Cargo Skeleton, Trike, Truck, Road Paver, ancrages, échelles, armes, grenades) n'ont **pas d'effet en jeu pour l'instant** : ils sont reçus mais n'agissent pas.
 
 Même mécanique que les pièges : l'effet attend que Sam soit lisible. `/ds_effect Blood Bag` permet de tester.
 Les valeurs sont dans `memory_map.default.json` (sections `boosts` et `item_grants`).

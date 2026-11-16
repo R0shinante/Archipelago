@@ -15,7 +15,7 @@ Projet non officiel, sans lien avec Kojima Productions, 505 Games ni l'équipe d
 | Cristaux chiraux appliqués en jeu | ✅ |
 | Matériaux (résines, métaux, céramiques, chimiques, alliages) crédités au stock d'une installation tirée au hasard | 🧪 à valider en jeu |
 | DeathLink (envoi et réception de la mort du joueur) | 🧪 à valider en jeu |
-| Objets utiles avec effet : Blood Bag (soin), Energy Drink (fatigue), Repair Spray (bottes + combinaison), Cryptobiote Pack, D-Cryptobiote Pack, Sandalweed Bundle | 🧪 à valider en jeu |
+| Objets utiles avec effet : Blood Bag (soin), Energy Drink (fatigue), Repair Spray (bottes + combinaison), Boot Upgrade (bottes), Power Skeleton (stamina), Speed Skeleton (fatigue), Cryptobiote Pack, D-Cryptobiote Pack, Sandalweed Bundle | 🧪 à valider en jeu |
 | Paliers de likes comme checks (option `likes_checks` / `likes_step`, jusqu'à 50 paliers) | 🧪 à valider en jeu |
 | Paliers de progression des commandes comme checks (option `order_checks` / `order_step`, jusqu'à 100 paliers, sans sauvegarde) | 🧪 à valider en jeu |
 | Objet « Likes Pack » (+500 likes, compteur écrit directement, sans injection) | 🧪 à valider en jeu |

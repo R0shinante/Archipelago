@@ -439,7 +439,9 @@
     "fatigue": "0x130",
     "boots": "0x32C",
     "max_boots": "0x330",
-    "suit": "0x358"
+    "suit": "0x358",
+    "stamina": "0x110",
+    "max_stamina": "0x104"
   },
   "traps": {
     "_comment": "Pieges appliques en memoire. delta absolu, ou frac * (champ 'of') ; floor/ceil absolus, ou floor_frac * (champ 'of'). Fatigue : 0 = aucune, 10000 = pleine ; combinaison : 5000 = sans rouille.",
@@ -467,7 +469,7 @@
     }
   },
   "boosts": {
-    "_comment": "Effets positifs appliques par certains objets, memes regles que 'traps'.",
+    "_comment": "Effets positifs ponctuels appliques par certains objets (aucun bonus permanent), memes regles que 'traps'.",
     "Blood Bag": {
       "field": "health",
       "frac": 0.4,
@@ -491,7 +493,24 @@
         "delta": 1500,
         "ceil": 5000
       }
-    ]
+    ],
+    "Boot Upgrade": {
+      "field": "boots",
+      "frac": 1.0,
+      "of": "max_boots",
+      "ceil_frac": 1.0
+    },
+    "Power Skeleton": {
+      "field": "stamina",
+      "frac": 1.0,
+      "of": "max_stamina",
+      "ceil_frac": 1.0
+    },
+    "Speed Skeleton": {
+      "field": "fatigue",
+      "delta": -2000,
+      "floor": 0
+    }
   },
   "order_progress": {
     "global_module_offset": "0x7BFA148",

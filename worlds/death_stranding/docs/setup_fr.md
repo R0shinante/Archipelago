@@ -41,9 +41,9 @@ Si ton jeu n'est pas en français, ajuste `saves.completed_words` dans `memory_m
 - Seules les commandes principales de la liste sont des checks (51). La liste vient d'une page communautaire
   et peut contenir des erreurs (n°17 absente, n°66 au nom approximatif).
 - Les objets reçus n'ont d'effet en jeu que pour les Chiral Crystals (+100, sac à dos) et les matériaux (stock d'une installation) ; le reste est affiché seulement.
-- DeathLink, pièges et effets des objets : expérimentaux, voir plus bas.
+- Pièges et effets des objets : expérimentaux, voir plus bas. DeathLink est validé en jeu (envoi et réception).
 
-## DeathLink (expérimental)
+## DeathLink
 Activez l'option `death_link` dans le YAML, puis régénérez la partie. Le client lit la vie de Sam en mémoire :
 - quand elle tombe à 0, il prévient les autres joueurs ;
 - quand un DeathLink est reçu, il met la vie de Sam à 0 (dès qu'elle est lisible : pas pendant un chargement ou un menu).

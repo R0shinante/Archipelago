@@ -33,15 +33,17 @@ objets du multimonde (cristaux, matériaux, équipement, pièges) sont appliqué
 | Paliers de progression des commandes comme checks (`order_checks` / `order_step`, jusqu'à 100, sans sauvegarde) | ✅ validé en jeu : compte les étapes de commande, tous types confondus |
 | Paliers de commandes standard livrées comme checks (`standard_checks` / `standard_step`, jusqu'à 100, sans sauvegarde) | ✅ validé en jeu : compteur exact du jeu (clé 17 de la table de statistiques) |
 | Effets ponctuels : Blood Bag, Energy Drink, Repair Spray, Boot Upgrade, Power Skeleton, Speed Skeleton, Cryptobiote Pack, D-Cryptobiote Pack, Sandalweed Bundle | ✅ validé en jeu |
-| Objet « Likes Pack » (+500 likes) | 🧪 à valider en jeu |
-| Matériaux (résines, métaux, céramiques, chimiques, alliages) crédités au stock d'une installation | 🧪 à valider en jeu |
-| Pièges : Injury, Fatigue, Boot Wear, Rust, Pickpocket | 🧪 à valider en jeu |
+| Objet « Likes Pack » (+500 likes) | ✅ validé en jeu |
+| Matériaux (résines, métaux, céramiques, chimiques, alliages) crédités au stock d'une installation | ✅ validé en jeu |
+| Pièges : Injury, Fatigue, Boot Wear, Rust, Pickpocket | ✅ validé en jeu |
 | Paliers de commandes de bot livrées comme checks (`bot_checks` / `bot_step`, jusqu'à 100, sans sauvegarde) | ✅ validé en jeu : déduit de compteurs internes du jeu ; le check arrive environ 90 s après la livraison |
-| Détection des commandes principales terminées en lisant la mémoire du jeu (sans outil de déchiffrement) | ✅ validé sur quelques commandes, jeu en français ; le déchiffrement des sauvegardes reste disponible en secours |
+| Détection des commandes principales terminées en lisant la mémoire du jeu (sans outil ni déchiffrement) | ✅ validé en jeu (français) ; le déchiffrement des sauvegardes reste disponible en option |
 | Checks nominatifs par commande standard / optionnelle | ❌ |
 
-Les checks sont identifiés par `7 770 000 + numéro de commande`. Le client détecte une commande principale terminée grâce au **titre des
-sauvegardes de checkpoint** (« Commande terminée : nº N … »). Il le lit directement dans la mémoire du jeu (jeu en français) ; si vous configurez en plus l'outil de déchiffrement ci-dessous, il le lit aussi dans les sauvegardes, ce qui sert de secours (`/ds_resigner off` désactive le déchiffrement). Au démarrage, la recherche en mémoire parcourt environ 10 Go en une minute, puis surveille une petite zone et refait une recherche complète toutes les 4 minutes, ou dès qu'une livraison principale est comptée.
+Les checks sont identifiés par `7 770 000 + numéro de commande`. Le client détecte une commande principale terminée en lisant, **directement dans la mémoire du jeu**,
+le titre du point de contrôle (« Commande terminée : nº N … ») : aucun outil supplémentaire n'est nécessaire. La première recherche prend environ une minute ; le client
+mémorise ensuite la zone de mémoire utilisée et la fouille en premier aux lancements suivants (quelques secondes). Si le jeu déplace ses données (autre sauvegarde,
+redémarrage), la recherche complète reprend toute seule. Le déchiffrement des sauvegardes reste disponible en option, en secours ([voir plus bas](#déchiffrement-des-sauvegardes-optionnel)).
 
 ## Installation
 
@@ -49,11 +51,10 @@ sauvegardes de checkpoint** (« Commande terminée : nº N … »). Il le lit di
 
 | Élément | Détail |
 |---|---|
-| Système | **Windows**, avec Death Stranding Director's Cut (Steam), en français par défaut (voir [Autres langues](#autres-langues)) |
+| Système | **Windows**, avec Death Stranding Director's Cut (Steam), en français (voir [Autres langues](#autres-langues)) |
 | Archipelago | **0.6.x**, de préférence **depuis les sources** (<https://github.com/ArchipelagoMW/Archipelago>) |
 | Python | **3.12 ou 3.13** si vous utilisez les sources (3.10 et 3.11 ne conviennent pas) |
 | pymem | Bibliothèque Python qui permet au client d'accéder à la mémoire du jeu |
-| Outil de déchiffrement | [DeathStrandingSaveDataResigner](https://github.com/mi5hmash/DeathStrandingSaveDataResigner), version en ligne de commande (`death-stranding-savedata-resigner-cli.exe`, onglet *Releases*). Projet tiers, non inclus ici. Le client ne travaille que sur une **copie temporaire** de vos checkpoints : vos sauvegardes ne sont jamais modifiées. |
 
 ### Étape 1 — Installer l'APWorld
 
@@ -71,11 +72,6 @@ py -3.12 -m pip install pymem
 ```
 
 Avec l'installateur officiel d'Archipelago, installez `pymem` dans le Python qui lance le client ; les sources sont recommandées pour ce monde.
-
-### Étape 3 — Préparer l'outil de déchiffrement
-
-1. Téléchargez et décompressez l'outil, par exemple dans `C:\Games`.
-2. Notez le chemin complet de l'exécutable : vous le donnerez au client à l'étape « Lancer une partie ».
 
 ## Configuration (YAML)
 
@@ -125,24 +121,28 @@ l'adresse (par défaut `localhost:38281`).
 1. Lancez Death Stranding **hors ligne** et chargez votre sauvegarde dédiée.
 2. Dans le Launcher d'Archipelago, ouvrez **Death Stranding Client** et connectez-vous : `/connect localhost:38281`.
 3. **Vérifiez l'accès à la mémoire :** `/ds_status` doit afficher vos quantités de cristaux chiraux. Test d'écriture : `/ds_give Chiral Crystals 10`.
-4. **Configurez la détection des sauvegardes** (une seule fois) :
-   ```
-   /ds_resigner C:\Games\death-stranding-savedata-resigner-cli.exe
-   ```
-   Si le dossier des sauvegardes n'est pas trouvé automatiquement :
-   ```
-   /ds_saves_dir C:\Users\<vous>\AppData\Local\KojimaProductions\DeathStrandingDC\<identifiant Steam>
-   ```
-   C'est le dossier qui contient les sous-dossiers `quicksave…` et `checkpoint…`, chacun avec un `checkpoint.dat`.
-5. **Vérifiez toute la chaîne :** `/ds_selftest` déchiffre le dernier checkpoint et affiche son titre, par exemple `Commande terminée : nº 61 « … »`.
-6. **Jouez.** Terminez une commande principale : le jeu écrit un checkpoint, le client lit le titre, envoie le check et le serveur distribue les objets.
-   Les objets reçus s'affichent dans la console du client. Seules les commandes terminées **après** le démarrage du client comptent ; `/ds_catchup` traite aussi
-   les checkpoints déjà présents (avec prudence).
+4. **Attendez la fin de la première recherche :** le log affiche « Commandes principales : lecture en mémoire active … » (environ une minute la première fois, quelques secondes ensuite).
+5. **Jouez.** Terminez une commande principale : le client lit son titre en mémoire, envoie le check et le serveur distribue les objets.
+   Les objets reçus s'affichent dans la console du client. Seules les commandes terminées **après** le démarrage du client comptent.
+
+### Déchiffrement des sauvegardes (optionnel)
+
+Inutile en temps normal. Il sert de secours, ou si votre jeu n'est pas en français. Le client utilise alors l'outil tiers
+[DeathStrandingSaveDataResigner](https://github.com/mi5hmash/DeathStrandingSaveDataResigner) (version en ligne de commande, onglet *Releases*, non inclus ici) sur une **copie
+temporaire** de vos checkpoints : vos sauvegardes ne sont jamais modifiées.
+```
+/ds_resigner C:\Games\death-stranding-savedata-resigner-cli.exe
+/ds_selftest
+```
+`/ds_selftest` déchiffre le dernier checkpoint et affiche son titre. Si le dossier des sauvegardes n'est pas trouvé automatiquement :
+`/ds_saves_dir C:\Users\<vous>\AppData\Local\KojimaProductions\DeathStrandingDC\<identifiant Steam>` (le dossier qui contient les sous-dossiers `checkpoint…`).
+`/ds_resigner off` désactive le déchiffrement, `/ds_resigner on` le réactive, `/ds_catchup` traite aussi les checkpoints déjà présents (avec prudence).
 
 ### Autres langues
 
-Le titre des sauvegardes dépend de la langue du jeu. Si votre jeu n'est pas en français, ajustez `saves.completed_words` dans `memory_map.json`
-(mots signifiant « terminée »). Pour modifier les offsets, copiez `memory_map.default.json` en `memory_map.json` dans le dossier utilisateur d'Archipelago.
+La lecture en mémoire a été validée sur le jeu en **français**. Pour une autre langue, les mots signifiant « terminée » se règlent dans `saves.completed_words`
+de `memory_map.json` ; en cas de doute, utilisez le déchiffrement des sauvegardes. Pour modifier les offsets, copiez `memory_map.default.json` en `memory_map.json`
+dans le dossier utilisateur d'Archipelago.
 
 ## Commandes du client
 
@@ -174,11 +174,11 @@ Le titre des sauvegardes dépend de la langue du jeu. Si votre jeu n'est pas en 
 | `/ds_stock_pool Nom1; Nom2` | Limite le tirage au hasard à certaines installations (`all` = toutes) |
 | `/ds_stock_target <installation>` | Installation créditée en mode `target` |
 | `/ds_stock_give <matériau> <quantité>` | Test d'écriture d'un stock |
-| `/ds_resigner <exe>` | Chemin de l'outil de déchiffrement (optionnel). `/ds_resigner off` / `on` : désactive / réactive le déchiffrement |
-| `/ds_saves_dir <dossier>` | Dossier des sauvegardes |
-| `/ds_saves` | État de la surveillance (checkpoints vus, commandes détectées) |
-| `/ds_selftest` | Teste le déchiffrement et la lecture du titre |
-| `/ds_catchup` | Traite aussi les checkpoints déjà présents (avec prudence) |
+| `/ds_resigner <exe>` | (optionnel) Chemin de l'outil de déchiffrement. `/ds_resigner off` / `on` : désactive / réactive le déchiffrement |
+| `/ds_saves_dir <dossier>` | (optionnel) Dossier des sauvegardes |
+| `/ds_saves` | (optionnel) État du déchiffrement (checkpoints vus, commandes détectées) |
+| `/ds_selftest` | (optionnel) Teste le déchiffrement et la lecture du titre |
+| `/ds_catchup` | (optionnel) Traite aussi les checkpoints déjà présents (avec prudence) |
 
 </details>
 
@@ -188,9 +188,9 @@ Le titre des sauvegardes dépend de la langue du jeu. Si votre jeu n'est pas en 
 |---|---|
 | « Le lieu … n'existe pas dans la partie hébergée » | Régénérez la partie avec la dernière version de l'APWorld |
 | `/ds_status` n'affiche rien | Le jeu doit être lancé et la sauvegarde chargée. Les offsets peuvent changer après une mise à jour du jeu (voir `memory_map.default.json`) |
-| « Fichier introuvable » avec `/ds_resigner` | Vérifiez le chemin complet jusqu'au `.exe` (les antislashs sont acceptés tels quels) |
-| Code retour étrange du déchiffrement (ex. `3762504530`) | L'outil plante à sa sortie : sans conséquence tant que `/ds_selftest` affiche un titre |
-| Rien n'est détecté | Lancez `/ds_selftest`, puis `/ds_saves`. Seules les modifications faites après le démarrage du client comptent |
+| Une commande principale terminée n'est pas détectée | Attendez la ligne « lecture en mémoire active » au démarrage ; le check part dans les secondes qui suivent la sauvegarde du jeu. Seules les commandes terminées après le démarrage du client comptent. En dernier recours, configurez le déchiffrement des sauvegardes (voir plus haut) |
+| « aucun titre de sauvegarde en mémoire pour l'instant » | Normal tant que le jeu n'a pas écrit de point de contrôle ; le client réessaie chaque minute |
+| Les compteurs de commandes (standard, bot) restent muets | Le client retrouve la table en mémoire (jusqu'à une minute) après un redémarrage du jeu ou un changement de sauvegarde ; `/ds_bot` indique l'état |
 | Un effet ou piège ne s'applique pas | Il attend que Sam soit lisible (pas pendant un chargement ou un menu). Testez avec `/ds_effect <nom>` |
 
 ## Limites connues

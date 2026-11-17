@@ -33,15 +33,17 @@ equipment, traps) are applied in game by the client, which accesses the game's m
 | Order progress milestones as checks (`order_checks` / `order_step`, up to 100, no save needed) | ✅ validated in game: counts order steps, all order types combined |
 | Standard orders delivered milestones as checks (`standard_checks` / `standard_step`, up to 100, no save needed) | ✅ validated in game: the game's exact counter (key 17 of the statistics table) |
 | One-shot effects: Blood Bag, Energy Drink, Repair Spray, Boot Upgrade, Power Skeleton, Speed Skeleton, Cryptobiote Pack, D-Cryptobiote Pack, Sandalweed Bundle | ✅ validated in game |
-| "Likes Pack" item (+500 likes) | 🧪 to be validated in game |
-| Materials (resins, metals, ceramics, chemicals, special alloys) credited to a facility's stock | 🧪 to be validated in game |
-| Traps: Injury, Fatigue, Boot Wear, Rust, Pickpocket | 🧪 to be validated in game |
+| "Likes Pack" item (+500 likes) | ✅ validated in game |
+| Materials (resins, metals, ceramics, chemicals, special alloys) credited to a facility's stock | ✅ validated in game |
+| Traps: Injury, Fatigue, Boot Wear, Rust, Pickpocket | ✅ validated in game |
 | Bot orders delivered milestones as checks (`bot_checks` / `bot_step`, up to 100, no save needed) | ✅ validated in game: derived from internal game counters; the check arrives about 90 s after the delivery |
-| Detection of completed main orders by reading the game's memory (no decryption tool) | ✅ validated on a few orders, French game; save decryption remains available as a fallback |
+| Detection of completed main orders by reading the game's memory (no tool, no decryption) | ✅ validated in game (French); save decryption remains available as an option |
 | Named checks per standard / optional order | ❌ |
 
-Checks are identified by `7,770,000 + order number`. The client detects a completed main order from the **title of the checkpoint saves**
-("Order completed: No. N …"). It reads it directly from the game's memory (French game); if you also configure the decryption tool below, it reads it from the saves as well, as a fallback (`/ds_resigner off` disables decryption). At startup the memory search scans about 10 GB in a minute, then watches a small area and redoes a full search every 4 minutes, or as soon as a main-order delivery is counted.
+Checks are identified by `7,770,000 + order number`. The client detects a completed main order by reading, **directly from the game's memory**, the checkpoint title
+("Order completed: No. N …"): no extra tool is needed. The first search takes about a minute; the client then remembers the memory area it used and searches it first on later
+launches (a few seconds). If the game moves its data (another save, a restart), the full search resumes by itself. Save decryption remains available as an option, as a fallback
+([see below](#save-decryption-optional)).
 
 ## Installation
 
@@ -49,11 +51,10 @@ Checks are identified by `7,770,000 + order number`. The client detects a comple
 
 | Item | Details |
 |---|---|
-| System | **Windows**, with Death Stranding Director's Cut (Steam). The game is expected in French by default (see [Other languages](#other-languages)) |
+| System | **Windows**, with Death Stranding Director's Cut (Steam). The game is expected in French (see [Other languages](#other-languages)) |
 | Archipelago | **0.6.x**, preferably **from source** (<https://github.com/ArchipelagoMW/Archipelago>) |
 | Python | **3.12 or 3.13** when running from source (3.10 and 3.11 will not work) |
 | pymem | Python library that lets the client access the game's memory |
-| Decryption tool | [DeathStrandingSaveDataResigner](https://github.com/mi5hmash/DeathStrandingSaveDataResigner), command-line version (`death-stranding-savedata-resigner-cli.exe`, *Releases* tab). Third-party project, not included here. The client only works on a **temporary copy** of your checkpoints: your saves are never modified. |
 
 ### Step 1 — Install the APWorld
 
@@ -71,11 +72,6 @@ py -3.12 -m pip install pymem
 ```
 
 With the official Archipelago installer, install `pymem` into the Python that runs the client; running from source is recommended for this world.
-
-### Step 3 — Prepare the decryption tool
-
-1. Download and unzip the tool, for example into `C:\Games`.
-2. Note the full path to the executable: you will give it to the client in the "Starting a game" section.
 
 ## Configuration (YAML)
 
@@ -124,24 +120,27 @@ address (`localhost:38281` by default).
 1. Launch Death Stranding **offline** and load your dedicated save.
 2. In the Archipelago Launcher, open **Death Stranding Client** and connect: `/connect localhost:38281`.
 3. **Check memory access:** `/ds_status` should show your Chiral Crystal amounts. Write test: `/ds_give Chiral Crystals 10`.
-4. **Set up save detection** (once):
-   ```
-   /ds_resigner C:\Games\death-stranding-savedata-resigner-cli.exe
-   ```
-   If the saves folder is not found automatically:
-   ```
-   /ds_saves_dir C:\Users\<you>\AppData\Local\KojimaProductions\DeathStrandingDC\<Steam ID>
-   ```
-   This is the folder containing the `quicksave…` and `checkpoint…` subfolders, each with a `checkpoint.dat`.
-5. **Check the whole chain:** `/ds_selftest` decrypts the latest checkpoint and shows its title, for example `Commande terminée : nº 61 « … »`.
-6. **Play.** Complete a main order: the game writes a checkpoint, the client reads the title, sends the check, and the server hands out items.
-   Received items are shown in the client console. Only orders completed **after** the client starts count; `/ds_catchup` also processes
-   checkpoints that already exist (use with care).
+4. **Wait for the first search to finish:** the log shows "Commandes principales : lecture en memoire active …" (about a minute the first time, a few seconds afterwards).
+5. **Play.** Complete a main order: the client reads its title from memory, sends the check, and the server hands out items.
+   Received items are shown in the client console. Only orders completed **after** the client starts count.
+
+### Save decryption (optional)
+
+Not needed normally. It serves as a fallback, or if your game is not in French. The client then uses the third-party tool
+[DeathStrandingSaveDataResigner](https://github.com/mi5hmash/DeathStrandingSaveDataResigner) (command-line version, *Releases* tab, not included here) on a **temporary copy**
+of your checkpoints: your saves are never modified.
+```
+/ds_resigner C:\Games\death-stranding-savedata-resigner-cli.exe
+/ds_selftest
+```
+`/ds_selftest` decrypts the latest checkpoint and shows its title. If the saves folder is not found automatically:
+`/ds_saves_dir C:\Users\<you>\AppData\Local\KojimaProductions\DeathStrandingDC\<Steam ID>` (the folder containing the `checkpoint…` subfolders).
+`/ds_resigner off` disables decryption, `/ds_resigner on` re-enables it, `/ds_catchup` also processes checkpoints that already exist (use with care).
 
 ### Other languages
 
-The save title depends on the game language. If your game is not in French, adjust `saves.completed_words` in `memory_map.json`
-(words meaning "completed"). To change the memory offsets, copy `memory_map.default.json` to `memory_map.json` in Archipelago's user folder.
+Memory reading has been validated on the **French** game. For another language, the words meaning "completed" are set in `saves.completed_words` of `memory_map.json`;
+if in doubt, use save decryption. To change the memory offsets, copy `memory_map.default.json` to `memory_map.json` in Archipelago's user folder.
 
 ## Client commands
 
@@ -173,11 +172,11 @@ The save title depends on the game language. If your game is not in French, adju
 | `/ds_stock_pool Name1; Name2` | Limits the random draw to some facilities (`all` = all of them) |
 | `/ds_stock_target <facility>` | Facility credited in `target` mode |
 | `/ds_stock_give <material> <amount>` | Write test for a stock |
-| `/ds_resigner <exe>` | Path of the decryption tool (optional). `/ds_resigner off` / `on` disables / re-enables decryption |
-| `/ds_saves_dir <folder>` | Saves folder |
-| `/ds_saves` | Watcher status (checkpoints seen, orders detected) |
-| `/ds_selftest` | Tests decryption and title reading |
-| `/ds_catchup` | Also processes checkpoints that already exist (use with care) |
+| `/ds_resigner <exe>` | (optional) Path of the decryption tool. `/ds_resigner off` / `on` disables / re-enables decryption |
+| `/ds_saves_dir <folder>` | (optional) Saves folder |
+| `/ds_saves` | (optional) Decryption status (checkpoints seen, orders detected) |
+| `/ds_selftest` | (optional) Tests decryption and title reading |
+| `/ds_catchup` | (optional) Also processes checkpoints that already exist (use with care) |
 
 </details>
 
@@ -187,9 +186,9 @@ The save title depends on the game language. If your game is not in French, adju
 |---|---|
 | "Location … does not exist in the hosted game" (shown in French) | Regenerate the game with the latest APWorld version |
 | `/ds_status` shows nothing | The game must be running with your save loaded. Offsets may change after a game update (see `memory_map.default.json`) |
-| "File not found" with `/ds_resigner` | Check the full path to the `.exe` (backslashes are accepted as typed) |
-| Odd decryption return code (e.g. `3762504530`) | The tool crashes on exit: harmless as long as `/ds_selftest` shows a title |
-| Nothing is detected | Run `/ds_selftest`, then `/ds_saves`. Only changes made after the client starts count |
+| A completed main order is not detected | Wait for the "lecture en memoire active" line at startup; the check goes out within seconds of the game writing its checkpoint. Only orders completed after the client starts count. As a last resort, set up save decryption (see above) |
+| "aucun titre de sauvegarde en memoire pour l'instant" | Normal until the game has written a checkpoint; the client retries every minute |
+| Order counters (standard, bot) stay silent | After a game restart or a change of save, the client searches memory for the table (up to a minute); `/ds_bot` shows the state |
 | An effect or trap does not apply | It waits until Sam is readable (not during a loading screen or menu). Test with `/ds_effect <name>` |
 
 ## Known limitations

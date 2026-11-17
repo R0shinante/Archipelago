@@ -3,8 +3,6 @@
 ## Requirements
 - Archipelago 0.6.x (run from source: Python 3.12 or 3.13) and `pip install pymem`
 - Death Stranding Director's Cut (Steam), played **offline** on a **dedicated save**
-- DeathStrandingSaveDataResigner (command-line version, `death-stranding-savedata-resigner-cli.exe`):
-  the client uses it to decrypt checkpoints (temporary copy, your saves are never modified)
 
 ## Generating a game
 1. Generate your YAML from the Launcher ("Generate Template Options"), `game: Death Stranding`.
@@ -14,17 +12,17 @@
 ## First client launch
 1. Start the game and load your save, then open "Death Stranding Client" and connect: `/connect address:port`.
 2. **Inventory:** `/ds_status` should show the amounts; write test: `/ds_give Chiral Crystals 10`.
-3. **Saves:**
-   - `/ds_resigner C:\path\death-stranding-savedata-resigner-cli.exe` (once)
-   - `/ds_saves_dir <folder>` only if the folder is not found automatically
-     (the one containing the checkpoint subfolders, e.g. `...\KojimaProductions\DeathStrandingDC\<your Steam ID>`)
-   - `/ds_selftest` decrypts the latest checkpoint and shows its title: it checks the whole chain.
-   - `/ds_saves` shows the status (checkpoints seen, completed orders detected).
+3. **Main orders:** wait for the "Commandes principales : lecture en memoire active …" line (about a minute the first time, a few seconds afterwards). Completing a main order then sends its check.
 
 ## How checks are detected
-At every checkpoint the game writes "Commande terminée : nº N ..." (French) in the save title. The client reads that number and sends
-the matching "Order N - ..." check. Only changes made **after** the client starts count; `/ds_catchup` also processes existing checkpoints (use with care).
+At every checkpoint the game writes "Commande terminée : nº N ..." (French) in the save title. The client reads that title directly from the game's memory and sends
+the matching "Order N - ..." check. Only orders completed **after** the client starts count.
 If your game is not in French, adjust `saves.completed_words` in `memory_map.json`.
+
+### Save decryption (optional)
+As a fallback, or for another language: the third-party tool [DeathStrandingSaveDataResigner](https://github.com/mi5hmash/DeathStrandingSaveDataResigner) (command-line version)
+reads the checkpoints on a temporary copy (your saves are never modified). `/ds_resigner <path to the exe>`, then `/ds_selftest`;
+`/ds_saves_dir <folder>` if the folder is not found, `/ds_resigner off` / `on` to disable / re-enable it, `/ds_catchup` to process checkpoints that already exist.
 
 ## Optional checks
 - **Likes milestones:** `likes_checks` checks, one every `likes_step` likes earned since the first connection. `/ds_likes` shows progress.
@@ -44,7 +42,7 @@ Enable `death_link` in the YAML and regenerate. The client sends a DeathLink whe
 (once readable: not during loading or menus). A received death is not sent back (20 s) and a sent death blocks sends for 30 s. Validated in game.
 Test by hand first: `/ds_hp` shows health, `/ds_kill` kills Sam.
 
-## Traps (experimental)
+## Traps
 None can kill Sam.
 | Item | Effect |
 |---|---|

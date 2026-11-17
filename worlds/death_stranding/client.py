@@ -550,6 +550,9 @@ class DeathStrandingContext(CommonContext):
         self.title_seen: typing.Set[typing.Tuple[int, str]] = set()
         self.title_baselined = False
         self.title_force_full = False
+        self.title_hint_failed = False
+        self.types_source_logged = False
+        self.title_active_logged = False
         self.title_last_main: typing.Optional[int] = None
         self.title_none_logged = False
         self.slot_data: dict = {}
@@ -572,18 +575,31 @@ class DeathStrandingContext(CommonContext):
         root = self.settings.get("saves_root") or self.map.get("saves", {}).get("root") or autodetect_root()
         words = self.map.get("saves", {}).get("completed_words", DEFAULT_COMPLETED_WORDS)
         self.saves = SaveWatcher(root, ResignerCli(exe) if exe else None, words)
-        if self.settings.get("resigner_off"):
-            logger.info("Sauvegardes : dechiffrement desactive (/ds_resigner on pour le reactiver).")
-        elif not exe:
-            logger.info("Sauvegardes : outil de dechiffrement non configure. Tape /ds_resigner <chemin de l'exe>.")
-        if not root:
+        if exe and not root:
             logger.info("Sauvegardes : dossier introuvable. Tape /ds_saves_dir <dossier>.")
+
+    def hint_windows(self) -> typing.Optional[typing.List[typing.Tuple[int, int]]]:
+        """Zone de la memoire ou le jeu a place ses donnees lors de la derniere session (memorisee) : la recherche y commence."""
+        h = self.settings.get("mem_hint")
+        if isinstance(h, list) and len(h) == 2 and 0 < int(h[0]) < int(h[1]):
+            return [(int(h[0]), int(h[1]) - int(h[0]))]
+        return None
+
+    def update_hint(self, addresses: typing.Iterable[int], margin: int = 768 << 20) -> None:
+        addresses = list(addresses)
+        if not addresses:
+            return
+        new = [max(0, min(addresses) - margin), max(addresses) + margin]
+        old = self.settings.get("mem_hint")
+        if not (isinstance(old, list) and len(old) == 2 and abs(int(old[0]) - new[0]) < (128 << 20) and abs(int(old[1]) - new[1]) < (128 << 20)):
+            self.settings["mem_hint"] = new
+            _json_save(SETTINGS_FILE, self.settings)
 
     def register_completed_orders(self, numbers: typing.Iterable[int], source: str = "sauvegarde") -> None:
         for n in numbers:
             loc = ORDER_TO_LOCATION.get(n)
             if loc is None:
-                logger.info(f"Commande n°{n} terminee (hors liste des checks : ignoree).")
+                logger.debug(f"Commande n°{n} terminee (hors liste des checks : ignoree).")
                 continue
             code = location_name_to_id[loc]
             if code not in self.save_checks:
@@ -796,7 +812,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
             if full:
                 last_title_full = loop.time()
                 if ctx.title_zones is None:
-                    logger.info("Commandes principales : recherche des titres de sauvegarde en memoire (1 a 5 min)...")
+                    logger.info("Commandes principales : recherche en memoire (jusqu'a 1 min la premiere fois)...")
             title_running = True
 
             async def _titles(full: bool = full) -> None:
@@ -804,9 +820,21 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 try:
                     t0 = loop.time()
                     zones = None if full else ctx.title_zones
-                    titles, new_zones = await loop.run_in_executor(None, ctx.memory.scan_titles, ctx.saves.words, zones, 600.0, lambda msg: loop.call_soon_threadsafe(logger.info, msg))
+                    used_hint = False
+                    if full and not ctx.title_hint_failed:    # d'abord la zone memorisee de la derniere session, bien plus rapide
+                        zones = ctx.hint_windows()
+                        used_hint = zones is not None
+                    titles, new_zones = await loop.run_in_executor(None, ctx.memory.scan_titles, ctx.saves.words, zones, 600.0, lambda msg: loop.call_soon_threadsafe(logger.debug, msg))
                     if full:
                         ctx.title_zones = new_zones
+                        if used_hint and not new_zones:
+                            ctx.title_hint_failed = True     # la zone memorisee ne contient plus rien : recherche complete tout de suite
+                            ctx.title_force_full = True
+                            return
+                        if not used_hint and new_zones:
+                            ctx.title_hint_failed = False
+                        if new_zones:
+                            ctx.update_hint([z[0] for z in new_zones] + [z[0] + z[1] for z in new_zones], margin=256 << 20)
                         if ctx.title_baselined:      # nouvelle recherche complete : ce qui est apparu entre-temps compte
                             ctx.register_completed_orders([n for n, _ in sorted(titles - ctx.title_seen)], "memoire")
                         ctx.title_seen |= set(titles)
@@ -817,8 +845,10 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                                 logger.info(f"Commandes principales : aucun titre de sauvegarde en memoire pour l'instant (recherche en "
                                             f"{loop.time() - t0:.0f} s) : nouvel essai chaque minute, jusqu'a la prochaine sauvegarde du jeu.")
                         else:
-                            logger.info(f"Commandes principales : lecture en memoire active ({len(titles)} titre(s) connus, "
-                                        f"{sum(z[1] for z in new_zones) >> 20} Mo surveilles, recherche en {loop.time() - t0:.0f} s).")
+                            (logger.debug if ctx.title_active_logged else logger.info)(
+                                f"Commandes principales : lecture en memoire active ({sum(z[1] for z in new_zones) >> 20} Mo surveilles, "
+                                f"recherche en {loop.time() - t0:.0f} s).")
+                            ctx.title_active_logged = True
                     else:
                         fresh = sorted(t for t in titles if t not in ctx.title_seen)
                         ctx.title_seen |= set(titles)
@@ -992,7 +1022,12 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 async def _scan() -> None:
                     nonlocal table_scan_running
                     try:
-                        base = await loop.run_in_executor(None, ctx.memory.scan_named_table)
+                        hint = ctx.hint_windows()
+                        base = await loop.run_in_executor(None, ctx.memory.scan_named_table, 240.0, None, hint) if hint else None
+                        if base is None:
+                            base = await loop.run_in_executor(None, ctx.memory.scan_named_table)
+                        if base:
+                            ctx.update_hint([base])
                         logger.info(f"Compteurs de commandes : table retrouvee (0x{base:X})." if base else
                                     "Compteurs de commandes : table introuvable (sera retentee).")
                     except Exception as e:
@@ -1000,6 +1035,9 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                     finally:
                         table_scan_running = False
                 Utils.async_start(_scan())
+            if cur is not None and not ctx.types_source_logged:
+                ctx.types_source_logged = True
+                logger.debug(f"Compteurs de commandes : table lue [{ctx.memory.named_counters_report()[1]}].")
             if cur is not None:
                 snap = (cur["standard"], cur["main"], cur["bot"])
                 if ctx.title_last_main is not None and cur["main"] != ctx.title_last_main:
@@ -1068,6 +1106,9 @@ async def game_watcher(ctx: DeathStrandingContext) -> None:
 
 
 def launch(*launch_args: str) -> None:
+    import logging
+    for noisy in ("websockets", "websockets.client", "pymem", "asyncio"):
+        logging.getLogger(noisy).setLevel(logging.INFO)     # les echanges reseau et la memoire ne sont pas utiles a l'utilisateur
     async def main(args):
         ctx = DeathStrandingContext(args.connect, args.password)
         ctx.auth = args.name

@@ -11,8 +11,8 @@ behind "Episode N Access" items. Other items (equipment, resources, traps) are s
 Complete the last order of Episode 14 (or Episode 12, depending on the `goal` option).
 
 ## How are checks detected?
-The client reads the title of each checkpoint save ("Order completed: No. N ...") after decrypting a temporary copy
-with DeathStrandingSaveDataResigner (command-line version). Your saves are never modified.
+The client reads the title of each checkpoint ("Order completed: No. N ...") directly from the game's memory, with no extra tool. Decrypting the saves with
+DeathStrandingSaveDataResigner (command-line version) remains available as an optional fallback; your saves are never modified.
 
 ## What happens when an item is received?
 Chiral Crystals, materials, traps and several one-shot item effects (Blood Bag, Energy Drink, Repair Spray, Boot Upgrade, Power Skeleton,

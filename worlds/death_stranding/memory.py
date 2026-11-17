@@ -447,14 +447,8 @@ class GameMemory:
         import time
         stop, titles, spans = time.time() + deadline, set(), []
         chunk, overlap = 1 << 23, 512
-        try:
-            todo = list(self.backend.regions(private_only=True))
-        except TypeError:           # fausse memoire des tests
-            todo = list(self.backend.regions())
+        todo = self._regions_in(windows)
         grand, done, last_say = sum(t for _, t in todo), 0, time.time()
-        if windows is not None:      # zones surveillees : on ne garde que ce qui est reellement lisible
-            todo = [(max(b0, w0), min(b0 + sz, w0 + wl) - max(b0, w0)) for b0, sz in todo for w0, wl in windows
-                    if max(b0, w0) < min(b0 + sz, w0 + wl)]
         for base, total in todo:
             if time.time() > stop:
                 break
@@ -481,7 +475,19 @@ class GameMemory:
                 zones.append((lo, hi - lo))
         return titles, zones
 
-    def scan_named_table(self, deadline: float = 240.0, progress: typing.Optional[typing.Callable[[str], None]] = None) -> typing.Optional[int]:
+    def _regions_in(self, windows: typing.Optional[typing.List[typing.Tuple[int, int]]]) -> typing.List[typing.Tuple[int, int]]:
+        """Tas du jeu (memoire privee), limite aux fenetres (base, taille) si elles sont donnees."""
+        try:
+            todo = list(self.backend.regions(private_only=True))
+        except TypeError:           # fausse memoire des tests
+            todo = list(self.backend.regions())
+        if windows is not None:
+            todo = [(max(b0, w0), min(b0 + sz, w0 + wl) - max(b0, w0)) for b0, sz in todo for w0, wl in windows
+                    if max(b0, w0) < min(b0 + sz, w0 + wl)]
+        return todo
+
+    def scan_named_table(self, deadline: float = 240.0, progress: typing.Optional[typing.Callable[[str], None]] = None,
+                         windows: typing.Optional[typing.List[typing.Tuple[int, int]]] = None) -> typing.Optional[int]:
         """Retrouve la table de compteurs nommes dans la memoire du jeu par sa signature (hash + cle du premier compteur), quand les chaines de
         pointeurs ne marchent plus (redemarrage, changement de sauvegarde). Bloquant (de quelques secondes a quelques minutes) : a lancer hors de la boucle
         principale. Renvoie la base verifiee (cles et hash controles) ou None."""
@@ -496,7 +502,7 @@ class GameMemory:
         rng, stop = self.backend.module_range(), time.time() + deadline
         hits: typing.List[int] = []
         chunk = 1 << 24
-        for base, total in self.backend.regions(private_only=True):
+        for base, total in self._regions_in(windows):
             if time.time() > stop:
                 break
             if rng and rng[0] <= base < rng[0] + rng[1]:

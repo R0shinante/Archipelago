@@ -34,4 +34,15 @@ def order_progress_location_name(n: int) -> str:
 
 
 order_progress_location_table = {order_progress_location_name(n): ORDER_PROGRESS_BASE_ID + n for n in range(1, MAX_ORDER_CHECKS + 1)}
-location_name_to_id = {**{name: data[0] for name, data in location_table.items()}, **likes_location_table, **order_progress_location_table}
+# Paliers de commandes standard livrees (optionnels) : id = STANDARD_ORDER_BASE_ID + n (palier n = n * standard_step livraisons standard).
+STANDARD_ORDER_BASE_ID = 7_773_000
+MAX_STANDARD_CHECKS = 100
+
+
+def standard_order_location_name(n: int) -> str:
+    return f"Standard Orders {n}"
+
+
+standard_order_location_table = {standard_order_location_name(n): STANDARD_ORDER_BASE_ID + n for n in range(1, MAX_STANDARD_CHECKS + 1)}
+location_name_to_id = {**{name: data[0] for name, data in location_table.items()}, **likes_location_table, **order_progress_location_table,
+                       **standard_order_location_table}

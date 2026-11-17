@@ -291,6 +291,33 @@ class GameMemory:
         v = self._i32(obj + _num(cfg["counter"]))
         return v if v is not None and 0 <= v <= 1_000_000 else None
 
+    def read_standard_orders(self) -> typing.Optional[int]:
+        """Commandes standard livrees : valeur de la cle `key` dans la table de statistiques ([[module+global]+chain]), ou None si illisible ou incoherent."""
+        cfg, rng = self.cfg.get("standard_orders", {}), self.backend.module_range()
+        if not cfg or not rng:
+            return None
+        p = self._u64(rng[0] + _num(cfg["global_module_offset"]))
+        for off in cfg.get("chain", []):
+            if not self._plausible(p):
+                return None
+            p = self._u64(p + _num(off))
+        if not self._plausible(p):
+            return None
+        data = self.backend.read(p, _num(cfg.get("table_size", "0x280")))
+        if not data:
+            return None
+        key, found, known = int(cfg.get("key", 17)), None, 0
+        for o in range(0, len(data) - 15, 16):
+            k, flags, val = struct.unpack_from("<iii", data, o)
+            state = flags & 0xFF
+            if state in (1, 2):
+                known += 1
+            if k == key and state in (1, 2):
+                found = val if state == 2 else 0
+        if known < 5 or found is None:   # ce n'est pas la table attendue
+            return None
+        return found if 0 <= found <= 1_000_000 else None
+
     def _i64(self, addr: int) -> typing.Optional[int]:
         data = self.backend.read(addr, 8)
         return struct.unpack("<q", data)[0] if data and len(data) == 8 else None

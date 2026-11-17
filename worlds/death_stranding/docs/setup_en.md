@@ -31,6 +31,8 @@ If your game is not in French, adjust `saves.completed_words` in `memory_map.jso
 - **Order progress:** `order_checks` checks, one every `order_step` completed order steps since the first connection. The counter goes up on
   standard deliveries, bot orders, and acceptance and intermediate objectives of main orders (not lost-cargo deliveries). No save needed. `/ds_orders` shows progress.
 
+- **Standard orders:** `standard_checks` checks, one every `standard_step` standard orders delivered since the first connection (the game's exact counter). `/ds_standard` shows progress.
+
 ## Materials
 In game, resins, metals, ceramics, chemicals and special alloys are stored **per facility**, not in the backpack. Received items are credited to the stock of
 **one random facility** out of 39 (reproducible; the "applied item" message says which). `/ds_stock_mode target` credits the facility chosen with

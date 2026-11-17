@@ -5,7 +5,7 @@
   * sauvegardes (savewatch): detecte les commandes terminees d'apres le titre des checkpoints ;
   * mode manuel            : /check <lieu> envoie un check a la main.
 
-Commandes : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_effect, /ds_trap (alias), /ds_likes, /ds_likes_give, /ds_likes_rebase, /ds_orders, /ds_orders_rebase, /ds_items, /ds_items_reset, /ds_resigner, /ds_saves, /ds_saves_dir, /ds_selftest, /ds_catchup.
+Commandes : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_effect, /ds_trap (alias), /ds_likes, /ds_likes_give, /ds_likes_rebase, /ds_orders, /ds_orders_rebase, /ds_standard, /ds_standard_rebase, /ds_items, /ds_items_reset, /ds_resigner, /ds_saves, /ds_saves_dir, /ds_selftest, /ds_catchup.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from MultiServer import mark_raw
 from NetUtils import ClientStatus
 
 from .data import EPISODES, ORDER_TO_LOCATION
-from .locations import ORDER_PROGRESS_BASE_ID, location_name_to_id
+from .locations import ORDER_PROGRESS_BASE_ID, STANDARD_ORDER_BASE_ID, location_name_to_id
 from .memory import GameMemory, PymemBackend
 from .savewatch import DEFAULT_COMPLETED_WORDS, ResignerCli, SaveWatcher, autodetect_root, parse_title, read_header
 
@@ -231,6 +231,29 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         self.ctx.order_state["baseline"] = v
         self.ctx.save_progress()
         self.output(f"Base de progression des commandes : {v}.")
+
+    def _cmd_ds_standard(self) -> None:
+        """Commandes standard livrees (compteur exact du jeu) et etat des paliers « Standard Orders »."""
+        v = self.ctx.memory.read_standard_orders()
+        if v is None:
+            self.output("Compteur de commandes standard illisible (jeu non charge ?).")
+            return
+        self.output(f"Commandes standard livrees : {v}")
+        st, step = self.ctx.standard_state, int(self.ctx.slot_data.get("standard_step", 0))
+        if "baseline" in st and step > 0:
+            gained = max(0, v - int(st["baseline"]))
+            self.output(f"Paliers : {gained} livraison(s) depuis la base ({st['baseline']}), prochain palier a {(gained // step + 1) * step} "
+                        f"(paliers atteints : {len(self.ctx.standard_checks)}/{self.ctx.slot_data.get('standard_checks', 0)})")
+
+    def _cmd_ds_standard_rebase(self) -> None:
+        """Refixe la base des paliers de commandes standard au compteur actuel (les checks deja envoyes restent envoyes)."""
+        v = self.ctx.memory.read_standard_orders()
+        if v is None:
+            self.output("Compteur de commandes standard illisible (jeu non charge ?).")
+            return
+        self.ctx.standard_state["baseline"] = v
+        self.ctx.save_progress()
+        self.output(f"Base des commandes standard : {v}.")
 
     def _cmd_ds_likes_rebase(self) -> None:
         """Refixe la base des paliers de likes au total actuel (les checks deja envoyes restent envoyes)."""
@@ -457,6 +480,9 @@ class DeathStrandingContext(CommonContext):
         self.order_checks: set[int] = set()
         self.order_state: dict = {}
         self.order_history: typing.List[int] = []
+        self.standard_checks: set[int] = set()
+        self.standard_state: dict = {}
+        self.standard_history: typing.List[int] = []
         self.slot_data: dict = {}
         self.finished = False
         self.map = load_map()
@@ -525,6 +551,8 @@ class DeathStrandingContext(CommonContext):
             self.likes_checks.clear()
             self.order_state = _json_load(PROGRESS_FILE).get(self._progress_key() + ":orders") or {}
             self.order_checks.clear()
+            self.standard_state = _json_load(PROGRESS_FILE).get(self._progress_key() + ":standard") or {}
+            self.standard_checks.clear()
             if self.slot_data.get("death_link"):
                 Utils.async_start(self.update_death_link(True))
 
@@ -550,6 +578,8 @@ class DeathStrandingContext(CommonContext):
             data[self._progress_key() + ":likes"] = self.likes_state
         if self.order_state:
             data[self._progress_key() + ":orders"] = self.order_state
+        if self.standard_state:
+            data[self._progress_key() + ":standard"] = self.standard_state
         _json_save(PROGRESS_FILE, data)
 
 
@@ -575,6 +605,15 @@ def order_progress_milestones(current: int, baseline: int, step: int, count: int
         return []
     gained = max(0, current - baseline)
     return [ORDER_PROGRESS_BASE_ID + n for n in range(1, count + 1) if n * step <= gained]
+
+
+def standard_progress_milestones(current: int, baseline: int, step: int, count: int) -> typing.List[int]:
+    """Codes des paliers « Standard Orders » atteints (gain = compteur - base, jamais negatif)."""
+    from .locations import STANDARD_ORDER_BASE_ID
+    if step <= 0 or count <= 0:
+        return []
+    gained = max(0, current - baseline)
+    return [STANDARD_ORDER_BASE_ID + n for n in range(1, count + 1) if n * step <= gained]
 
 
 def apply_trap(memory, spec: dict) -> typing.Tuple[str, typing.Optional[typing.Tuple[float, float]]]:
@@ -638,6 +677,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
     last_save_poll = 0.0
     last_likes_poll = 0.0
     last_order_poll = 0.0
+    last_standard_poll = 0.0
     while not ctx.exit_event.is_set():
         await asyncio.sleep(0.5)
         if ctx.slot is None:
@@ -655,7 +695,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 logger.warning(f"Surveillance des sauvegardes : {e}")
                 done = []
             ctx.register_completed_orders(done)
-        to_send, unknown = plan_location_sends(ctx.manual_checks | ctx.save_checks | ctx.likes_checks | ctx.order_checks, ctx.checked_locations,
+        to_send, unknown = plan_location_sends(ctx.manual_checks | ctx.save_checks | ctx.likes_checks | ctx.order_checks | ctx.standard_checks, ctx.checked_locations,
                                                ctx.server_locations, ctx.sent_at, loop.time())
         for code in unknown:
             if code not in ctx.warned_unknown:
@@ -778,6 +818,28 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                         logger.info(f"Palier de progression des commandes atteint : {code - ORDER_PROGRESS_BASE_ID} "
                                     f"({(code - ORDER_PROGRESS_BASE_ID) * ostep} etapes)")
                     ctx.order_checks |= new
+
+        # 2e. Commandes standard livrees (optionnel) : cle 17 de la table de statistiques, gain depuis la base
+        sstep, scount = int(ctx.slot_data.get("standard_step", 0)), int(ctx.slot_data.get("standard_checks", 0))
+        if scount > 0 and sstep > 0 and loop.time() - last_standard_poll >= SAVE_POLL_SECONDS:
+            last_standard_poll = loop.time()
+            cur = ctx.memory.read_standard_orders()
+            if cur is not None:
+                ctx.standard_history = (ctx.standard_history + [cur])[-5:]
+                ready = True
+                if "baseline" not in ctx.standard_state:
+                    if likes_baseline_ready(ctx.standard_history, ctx.memory.read_vitals() is not None):
+                        ctx.standard_state["baseline"] = cur
+                        ctx.save_progress()
+                        logger.info(f"Commandes standard : base fixee a {cur} (palier = {sstep} livraison(s)).")
+                    else:
+                        ready = False
+                if ready:
+                    new = set(standard_progress_milestones(cur, int(ctx.standard_state["baseline"]), sstep, scount))
+                    for code in sorted(new - ctx.standard_checks):
+                        logger.info(f"Palier de commandes standard atteint : {code - STANDARD_ORDER_BASE_ID} "
+                                    f"({(code - STANDARD_ORDER_BASE_ID) * sstep} livraison(s))")
+                    ctx.standard_checks |= new
 
         # 3. Victoire : derniere commande de l'episode but
         goal_ep = ctx.slot_data.get("goal_episode", 14)

@@ -31,11 +31,12 @@ equipment, traps) are applied in game by the client, which accesses the game's m
 | DeathLink (sending and receiving the player's death) | ✅ validated in game |
 | Likes milestones as checks (`likes_checks` / `likes_step`, up to 50) | ✅ validated in game |
 | Order progress milestones as checks (`order_checks` / `order_step`, up to 100, no save needed) | 🔧 in progress: counts order steps, not per-type totals yet |
+| Standard orders delivered milestones as checks (`standard_checks` / `standard_step`, up to 100, no save needed) | 🧪 to be validated in game: the game's exact counter (key 17 of the statistics table) |
 | One-shot effects: Blood Bag, Energy Drink, Repair Spray, Boot Upgrade, Power Skeleton, Speed Skeleton, Cryptobiote Pack, D-Cryptobiote Pack, Sandalweed Bundle | ✅ validated in game |
 | "Likes Pack" item (+500 likes) | 🧪 to be validated in game |
 | Materials (resins, metals, ceramics, chemicals, special alloys) credited to a facility's stock | 🧪 to be validated in game |
 | Traps: Injury, Fatigue, Boot Wear, Rust, Pickpocket | 🧪 to be validated in game |
-| Standard / optional orders as checks | ❌ |
+| Named checks per standard / optional order; live milestones for main orders or bot orders alone | ❌ no live counter found (see `docs/RECHERCHE_compteurs_commandes.md`, in French) |
 
 Checks are identified by `7,770,000 + order number`. The client detects a completed main order from the **title of the checkpoint saves**
 ("Order completed: No. N …"), which it decrypts with a third-party tool.
@@ -90,6 +91,8 @@ With the official Archipelago installer, install `pymem` into the Python that ru
 | `likes_step` | 100 to 10000 | 1000 | Likes to earn per milestone |
 | `order_checks` | 0 to 100 | 0 | Number of order-progress checks (0 = disabled) |
 | `order_step` | 1 to 50 | 3 | Order steps per milestone |
+| `standard_checks` | 0 to 100 | 0 | Number of standard-orders-delivered checks (0 = disabled) |
+| `standard_step` | 1 to 50 | 3 | Standard orders to deliver per milestone |
 
 **Likes.** The "Likes Milestone N" check unlocks when you earn N × `likes_step` likes **since your first connection** (the baseline is fixed at that moment).
 Likes received through "Likes Pack" items do not count. `/ds_likes` shows your progress.
@@ -98,6 +101,8 @@ Likes received through "Likes Pack" items do not count. `/ds_likes` shows your p
 The counter goes up on every completed objective step: standard order delivery, bot order, and acceptance and intermediate objectives of a main order.
 It measures steps, all types combined, and does not count lost-cargo deliveries. It works live, with no save needed, while the client is connected.
 `/ds_orders` shows the progress and `/ds_orders_rebase` resets the baseline.
+
+**Standard orders.** The "Standard Orders N" check unlocks when you have delivered N × `standard_step` standard orders **since your first connection**. This is the game's exact counter, read live with no save needed: main orders, bot orders and lost-cargo deliveries do not count. `/ds_standard` shows the progress and `/ds_standard_rebase` resets the baseline.
 
 **DeathLink.** The client reads Sam's health: at 0 it notifies the other players; when a DeathLink is received it sets Sam's health to 0
 (as soon as it is readable, so not during a loading screen or a menu). A received death is not sent back (20 s grace) and a sent death blocks further sends for 30 s.
@@ -149,6 +154,8 @@ The save title depends on the game language. If your game is not in French, adju
 | `/ds_likes_rebase` | Resets the likes milestone baseline |
 | `/ds_orders` | Order-step counter and milestone progress |
 | `/ds_orders_rebase` | Resets the order-progress baseline |
+| `/ds_standard` | Standard orders delivered (game counter) and milestone progress |
+| `/ds_standard_rebase` | Resets the standard-orders baseline |
 | `/ds_hp` | Player health read from memory (test) |
 | `/ds_kill` | Test: sets Sam's health to 0 |
 | `/ds_items` | Items received / applied in game (diagnostics) |

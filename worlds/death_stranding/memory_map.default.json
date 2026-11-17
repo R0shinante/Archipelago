@@ -515,5 +515,12 @@
   "order_progress": {
     "global_module_offset": "0x7BFA148",
     "counter": "0x168"
+  },
+  "standard_orders": {
+    "_comment": "Table de statistiques [[module+global]+chain...] : entrees de 16 octets (cle, etat, valeur) ; etat 2 = valeur presente. Cle 17 = commandes standard livrees.",
+    "global_module_offset": "0x7BE6318",
+    "chain": ["0xC88"],
+    "table_size": "0x280",
+    "key": 17
   }
 }

@@ -59,6 +59,23 @@ class OrderStep(Range):
     default = 3
 
 
+class StandardChecks(Range):
+    """Nombre de paliers de commandes standard livrees qui sont des checks (0 = désactivé). Compteur exact du jeu, lu en direct, sans sauvegarde.
+    Les commandes principales, les commandes de bot et les marchandises perdues ne comptent pas."""
+    display_name = "Paliers de commandes standard (nombre de checks)"
+    range_start = 0
+    range_end = 100
+    default = 0
+
+
+class StandardStep(Range):
+    """Nombre de commandes standard à livrer pour chaque palier (palier n = n × cette valeur)."""
+    display_name = "Commandes standard par palier"
+    range_start = 1
+    range_end = 50
+    default = 3
+
+
 @dataclass
 class DeathStrandingOptions(DeathLinkMixin, PerGameCommonOptions):
     goal: Goal
@@ -68,4 +85,6 @@ class DeathStrandingOptions(DeathLinkMixin, PerGameCommonOptions):
     likes_step: LikesStep
     order_checks: OrderChecks
     order_step: OrderStep
+    standard_checks: StandardChecks
+    standard_step: StandardStep
     start_inventory_from_pool: StartInventoryPool

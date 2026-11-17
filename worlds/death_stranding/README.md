@@ -31,11 +31,12 @@ objets du multimonde (cristaux, matériaux, équipement, pièges) sont appliqué
 | DeathLink (envoi et réception de la mort du joueur) | ✅ validé en jeu |
 | Paliers de likes comme checks (`likes_checks` / `likes_step`, jusqu'à 50) | ✅ validé en jeu |
 | Paliers de progression des commandes comme checks (`order_checks` / `order_step`, jusqu'à 100, sans sauvegarde) | 🔧 en cours : compte les étapes de commande, pas encore les totaux par type |
+| Paliers de commandes standard livrées comme checks (`standard_checks` / `standard_step`, jusqu'à 100, sans sauvegarde) | 🧪 à valider en jeu : compteur exact du jeu (clé 17 de la table de statistiques) |
 | Effets ponctuels : Blood Bag, Energy Drink, Repair Spray, Boot Upgrade, Power Skeleton, Speed Skeleton, Cryptobiote Pack, D-Cryptobiote Pack, Sandalweed Bundle | ✅ validé en jeu |
 | Objet « Likes Pack » (+500 likes) | 🧪 à valider en jeu |
 | Matériaux (résines, métaux, céramiques, chimiques, alliages) crédités au stock d'une installation | 🧪 à valider en jeu |
 | Pièges : Injury, Fatigue, Boot Wear, Rust, Pickpocket | 🧪 à valider en jeu |
-| Commandes standard / optionnelles comme checks | ❌ |
+| Checks nominatifs par commande standard / optionnelle ; paliers en direct pour les commandes principales ou de bot seules | ❌ : aucun compteur lisible en direct n'a été trouvé (voir `docs/RECHERCHE_compteurs_commandes.md`) |
 
 Les checks sont identifiés par `7 770 000 + numéro de commande`. Le client détecte une commande principale terminée grâce au **titre des
 sauvegardes de checkpoint** (« Commande terminée : nº N … »), qu'il déchiffre avec un outil tiers.
@@ -90,6 +91,8 @@ Avec l'installateur officiel d'Archipelago, installez `pymem` dans le Python qui
 | `likes_step` | 100 à 10000 | 1000 | Likes à gagner par palier |
 | `order_checks` | 0 à 100 | 0 | Nombre de checks de progression des commandes (0 = désactivé) |
 | `order_step` | 1 à 50 | 3 | Étapes de commande par palier |
+| `standard_checks` | 0 à 100 | 0 | Nombre de checks de commandes standard livrées (0 = désactivé) |
+| `standard_step` | 1 à 50 | 3 | Commandes standard à livrer par palier |
 
 **Likes.** Le check « Likes Milestone N » se débloque quand vous gagnez N × `likes_step` likes **depuis la première connexion** (la base est fixée à ce moment-là).
 Les likes reçus par des objets « Likes Pack » ne comptent pas. `/ds_likes` affiche la progression.
@@ -98,6 +101,8 @@ Les likes reçus par des objets « Likes Pack » ne comptent pas. `/ds_likes` af
 Ce compteur monte à chaque étape d'objectif accomplie : livraison de commande standard, commande de bot, acceptation et objectifs intermédiaires d'une commande principale.
 Il mesure des étapes, tous types confondus, et ne compte pas les livraisons de marchandise perdue. Il fonctionne en direct, sans sauvegarde, client connecté.
 `/ds_orders` affiche la progression, `/ds_orders_rebase` refixe la base.
+
+**Commandes standard.** Le check « Standard Orders N » se débloque quand vous avez livré N × `standard_step` commandes standard **depuis la première connexion**. C'est le compteur exact du jeu, lu en direct, sans sauvegarde : les commandes principales, les commandes de bot et les marchandises perdues ne comptent pas. `/ds_standard` affiche la progression, `/ds_standard_rebase` refixe la base.
 
 **DeathLink.** Le client lit la vie de Sam : à 0, il prévient les autres joueurs ; à la réception d'un DeathLink, il met la vie de Sam à 0
 (dès qu'elle est lisible, donc pas pendant un chargement ou un menu). Une mort reçue n'est pas renvoyée (20 s de répit) et une mort envoyée bloque
@@ -150,6 +155,8 @@ Le titre des sauvegardes dépend de la langue du jeu. Si votre jeu n'est pas en 
 | `/ds_likes_rebase` | Refixe la base des paliers de likes |
 | `/ds_orders` | Compteur d'étapes de commande et progression des paliers |
 | `/ds_orders_rebase` | Refixe la base des paliers de progression des commandes |
+| `/ds_standard` | Commandes standard livrées (compteur du jeu) et progression des paliers |
+| `/ds_standard_rebase` | Refixe la base des paliers de commandes standard |
 | `/ds_hp` | Vie du joueur lue en mémoire (test) |
 | `/ds_kill` | Test : met la vie de Sam à 0 |
 | `/ds_items` | Objets reçus / appliqués en jeu (diagnostic) |

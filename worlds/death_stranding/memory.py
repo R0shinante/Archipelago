@@ -10,6 +10,46 @@ from __future__ import annotations
 import re
 import struct
 import typing
+import threading
+from urllib.parse import unquote
+
+_VQ_INIT = threading.Lock()
+
+_NB = rb"(?:\xc2\xa0|%C2%A0|\s)"
+# « ... : nº 62 « nom » - 22:48:17 » tel que le jeu l'ecrit en memoire (texte brut ou encode en %XX)
+_TITLE_RE = re.compile(
+    rb":" + _NB + rb"*(?:n(?:\xc2\xba|%C2%BA|\xc2\xb0|%C2%B0|o|r)|\#)\.?" + _NB + rb"*(\d{1,4})" + _NB
+    + rb"*(?:\xc2\xab|%C2%AB|\xe2\x80\x9c|%E2%80%9C|\")(.{0,200}?)(?:\xc2\xbb|%C2%BB|\xe2\x80\x9d|%E2%80%9D|\")"
+    + _NB + rb"*-" + _NB + rb"*(\d{1,3}:\d\d:\d\d)")
+
+
+def _fold(text: str) -> str:
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn").casefold()
+
+
+def parse_memory_titles(data: bytes, words: typing.Iterable[str]
+                        ) -> typing.Tuple[typing.List[typing.Tuple[int, str, int]], typing.List[int]]:
+    """Titres de points de controle « Title = Commande terminee : nº N « nom » - hh:mm:ss » presents dans `data`.
+    Renvoie ([(numero, heure de jeu, position)] des commandes TERMINEES, positions de toutes les lignes « Title = »). Les listes d'historique de
+    l'interface (sans « Title ») sont ignorees. Les positions de tous les titres servent a delimiter la zone ou le jeu ecrit ses points de controle,
+    meme quand la commande en cours n'est pas terminee."""
+    words = tuple(words)
+    found: typing.List[typing.Tuple[int, str, int]] = []
+    anchors: typing.List[int] = []
+    i = data.find(b"Title")      # recherche rapide du mot-cle d'abord ; l'expression reguliere ne tourne que sur 450 octets autour
+    while i >= 0:
+        seg = data[i:i + 450]
+        if seg[5:60].lstrip(b" \t").startswith(b"="):
+            anchors.append(i)
+            m = _TITLE_RE.search(seg)
+            if m and m.start() < 90:
+                state = _fold(unquote(seg[:m.start()].decode("utf-8", "replace")).replace("\xa0", " "))
+                if any(w in state for w in words):
+                    found.append((int(m.group(1)), m.group(3).decode("ascii"), i))
+        i = data.find(b"Title", i + 5)
+    return found, anchors
+
 
 PTR_MIN = 0x10000
 PTR_MAX = 0x7FFFFFFFFFFF
@@ -66,27 +106,41 @@ class PymemBackend:
         except Exception:
             return None
 
-    def regions(self) -> typing.Iterator[typing.Tuple[int, int]]:
-        """Regions memoire lisibles du processus (VirtualQueryEx) : (base, taille)."""
+    _vq: typing.Any = None
+
+    @classmethod
+    def _virtual_query(cls):
+        """VirtualQueryEx et sa structure, definis une seule fois : deux recherches en parallele (titres, table) ne doivent pas se marcher dessus."""
+        with _VQ_INIT:
+            if cls._vq is None:
+                import ctypes
+                from ctypes import wintypes as w
+
+                class MBI(ctypes.Structure):
+                    _fields_ = [("BaseAddress", ctypes.c_void_p), ("AllocationBase", ctypes.c_void_p),
+                                ("AllocationProtect", w.DWORD), ("PartitionId", w.WORD), ("RegionSize", ctypes.c_size_t),
+                                ("State", w.DWORD), ("Protect", w.DWORD), ("Type", w.DWORD)]
+
+                query = ctypes.WinDLL("kernel32", use_last_error=True).VirtualQueryEx
+                query.argtypes = [w.HANDLE, ctypes.c_void_p, ctypes.POINTER(MBI), ctypes.c_size_t]
+                query.restype = ctypes.c_size_t
+                cls._vq = (query, MBI)
+        return cls._vq
+
+    def regions(self, private_only: bool = False) -> typing.Iterator[typing.Tuple[int, int]]:
+        """Regions memoire lisibles du processus (VirtualQueryEx) : (base, taille). `private_only` : tas du jeu seulement (MEM_PRIVATE), sans
+        les fichiers mappes ni la memoire video, tres volumineux et lents a lire."""
         if not self._pm:
             return
         import ctypes
-        from ctypes import wintypes as w
-
-        class MBI(ctypes.Structure):
-            _fields_ = [("BaseAddress", ctypes.c_void_p), ("AllocationBase", ctypes.c_void_p),
-                        ("AllocationProtect", w.DWORD), ("PartitionId", w.WORD), ("RegionSize", ctypes.c_size_t),
-                        ("State", w.DWORD), ("Protect", w.DWORD), ("Type", w.DWORD)]
-
-        query = ctypes.windll.kernel32.VirtualQueryEx
-        query.argtypes = [w.HANDLE, ctypes.c_void_p, ctypes.POINTER(MBI), ctypes.c_size_t]
+        query, MBI = self._virtual_query()
         handle, addr, mbi = self._pm.process_handle, 0, MBI()
         while addr < 0x7FFFFFFFFFFF:
             if not query(handle, ctypes.c_void_p(addr), ctypes.byref(mbi), ctypes.sizeof(mbi)):
                 break
             base, size = int(mbi.BaseAddress or 0), int(mbi.RegionSize)
             readable = mbi.State == 0x1000 and (mbi.Protect & 0xEE) and not (mbi.Protect & 0x101)
-            if readable and size:
+            if readable and size and (not private_only or mbi.Type == 0x20000):
                 yield base, size
             addr = base + size
 
@@ -317,6 +371,217 @@ class GameMemory:
         if known < 5 or found is None:   # ce n'est pas la table attendue
             return None
         return found if 0 <= found <= 1_000_000 else None
+
+    def _follow_chain(self, rel: int, offs: typing.List[int]) -> typing.Tuple[typing.Optional[int], str]:
+        """Suit une chaine comme /ds_chain : tous les decalages sauf le dernier sont des pointeurs a suivre, le dernier s'ajoute. (adresse ou None, trace)."""
+        rng = self.backend.module_range()
+        p = self._u64(rng[0] + rel)
+        trace = f"ds.exe+0x{rel:X}=0x{p or 0:X}"
+        for off in offs[:-1]:
+            if not self._plausible(p):
+                return None, trace
+            p = self._u64(p + off)
+            trace += f" -> +0x{off:X}=0x{p or 0:X}"
+        if not self._plausible(p):
+            return None, trace
+        return p + (offs[-1] if offs else 0), trace
+
+    def _table_capacity(self, cfg: dict, base: int) -> typing.Tuple[typing.Optional[bytes], int]:
+        """Lit la table et devine sa capacite (puissance de 2) : la table de hachage grandit quand elle se remplit. Chaque case occupee doit se trouver
+        pres de `hash & (capacite - 1)` ; on garde la plus grande capacite coherente (au-dela de la vraie table, la memoire est vide ou incoherente)."""
+        size, lo = int(cfg.get("slot_size", 24)), int(cfg.get("slots", 512))
+        ho = _num(cfg.get("hash_offset", 0))
+        n = lo
+        cands = []
+        while n <= int(cfg.get("max_slots", 4096)):
+            cands.append(n)
+            n *= 2
+        for n in reversed(cands):
+            data = self.backend.read(base, n * size)
+            if not data or len(data) < n * size:
+                continue
+            occ = ok = 0
+            for s in range(n):
+                h = struct.unpack_from("<I", data, s * size + ho)[0]
+                if h:
+                    occ += 1
+                    if (s - (h & (n - 1))) % n < 64:
+                        ok += 1
+            if occ >= int(cfg.get("min_occupied", 100)) and ok * 10 >= occ * 9:
+                return data, n
+        return None, 0
+
+    def _read_counters_at(self, cfg: dict, base: int) -> typing.Tuple[typing.Optional[typing.Dict[str, int]], str]:
+        size = int(cfg.get("slot_size", 24))
+        data, slots = self._table_capacity(cfg, base)
+        if data is None:
+            return None, f"0x{base:X} : pas une table de compteurs (illisible, peu remplie ou incoherente)"
+        ko, vo = _num(cfg.get("key_offset", 4)), _num(cfg.get("value_offset", 20))
+        ho = _num(cfg.get("hash_offset", 0))
+        wanted = {name: (bytes.fromhex(c["key"]), _num(c["hash"])) for name, c in cfg.get("counters", {}).items()}
+        found: typing.Dict[str, typing.List[int]] = {name: [] for name in wanted}
+        seen_key: typing.Dict[str, typing.List[str]] = {name: [] for name in wanted}
+        for s in range(slots):
+            o = s * size
+            h = struct.unpack_from("<I", data, o + ho)[0]
+            key = data[o + ko:o + ko + 16]
+            for name, (k, kh) in wanted.items():
+                if key == k:
+                    v = struct.unpack_from("<i", data, o + vo)[0]
+                    seen_key[name].append(f"case {s} hash 0x{h:X} valeur {v}")
+                    if h == kh:
+                        found[name].append(v)
+        out = {}
+        for name, vals in found.items():
+            if len(vals) != 1:
+                return None, f"0x{base:X} ({slots} cases) : compteur « {name} » : {len(vals)} case(s) valides ; cases avec la cle : {'; '.join(seen_key[name]) or 'aucune'}"
+            if not 0 <= vals[0] <= 1_000_000:
+                return None, f"0x{base:X} : compteur « {name} » : valeur aberrante {vals[0]}"
+            out[name] = vals[0]
+        return out, f"{slots} cases"
+
+    def scan_titles(self, words: typing.Iterable[str], windows: typing.Optional[typing.List[typing.Tuple[int, int]]] = None,
+                    deadline: float = 600.0, progress: typing.Optional[typing.Callable[[str], None]] = None) -> typing.Tuple[typing.Set[typing.Tuple[int, str]], typing.List[typing.Tuple[int, int]]]:
+        """Cherche les titres de points de controle en memoire. `windows` None = toute la memoire (lent, 1 a 5 min), sinon seulement ces zones
+        (base, taille). Renvoie ({(numero, heure)}, zones ou des titres ont ete vus)."""
+        import time
+        stop, titles, spans = time.time() + deadline, set(), []
+        chunk, overlap = 1 << 23, 512
+        try:
+            todo = list(self.backend.regions(private_only=True))
+        except TypeError:           # fausse memoire des tests
+            todo = list(self.backend.regions())
+        grand, done, last_say = sum(t for _, t in todo), 0, time.time()
+        if windows is not None:      # zones surveillees : on ne garde que ce qui est reellement lisible
+            todo = [(max(b0, w0), min(b0 + sz, w0 + wl) - max(b0, w0)) for b0, sz in todo for w0, wl in windows
+                    if max(b0, w0) < min(b0 + sz, w0 + wl)]
+        for base, total in todo:
+            if time.time() > stop:
+                break
+            off = 0
+            while off < total:
+                n = min(chunk, total - off)
+                data = self.backend.read(base + off, n)
+                done += n
+                if progress and windows is None and time.time() - last_say >= 20:
+                    last_say = time.time()
+                    progress(f"Recherche des titres : {done >> 20} / {grand >> 20} Mo lus...")
+                if data:
+                    found, anchors = parse_memory_titles(data, words)
+                    titles.update((num, hhmmss) for num, hhmmss, _ in found)
+                    spans.extend(base + off + a for a in anchors)
+                off += n - overlap if off + n < total else n
+        zones: typing.List[typing.Tuple[int, int]] = []
+        margin = 6 << 20
+        for a in sorted(spans):
+            lo, hi = max(0, a - margin), a + margin
+            if zones and lo <= zones[-1][0] + zones[-1][1]:
+                zones[-1] = (zones[-1][0], max(zones[-1][1], hi - zones[-1][0]))
+            else:
+                zones.append((lo, hi - lo))
+        return titles, zones
+
+    def scan_named_table(self, deadline: float = 240.0, progress: typing.Optional[typing.Callable[[str], None]] = None) -> typing.Optional[int]:
+        """Retrouve la table de compteurs nommes dans la memoire du jeu par sa signature (hash + cle du premier compteur), quand les chaines de
+        pointeurs ne marchent plus (redemarrage, changement de sauvegarde). Bloquant (de quelques secondes a quelques minutes) : a lancer hors de la boucle
+        principale. Renvoie la base verifiee (cles et hash controles) ou None."""
+        import time
+        cfg = self.cfg.get("named_counters", {})
+        counters = cfg.get("counters", {})
+        if not cfg or not counters or not hasattr(self.backend, "regions"):
+            return None
+        first = next(iter(counters.values()))
+        h0, size = _num(first["hash"]), int(cfg.get("slot_size", 24))
+        pat = struct.pack("<I", h0) + bytes.fromhex(first["key"])
+        rng, stop = self.backend.module_range(), time.time() + deadline
+        hits: typing.List[int] = []
+        chunk = 1 << 24
+        for base, total in self.backend.regions(private_only=True):
+            if time.time() > stop:
+                break
+            if rng and rng[0] <= base < rng[0] + rng[1]:
+                continue
+            off = 0
+            while off < total:
+                n = min(chunk, total - off)
+                data = self.backend.read(base + off, n)
+                if data is None and n > (1 << 20):       # lecture partielle : on retente par blocs de 1 Mio
+                    for sub_off in range(0, n, 1 << 20):
+                        d = self.backend.read(base + off + sub_off, min(1 << 20, n - sub_off))
+                        i = d.find(pat) if d else -1
+                        while i >= 0:
+                            hits.append(base + off + sub_off + i)
+                            i = d.find(pat, i + 1)
+                elif data:
+                    i = data.find(pat)
+                    while i >= 0:
+                        hits.append(base + off + i)
+                        i = data.find(pat, i + 1)
+                off += n - (len(pat) - 1) if off + n < total else n
+        if progress:
+            progress(f"{len(hits)} occurrence(s) de la signature.")
+        lo, hi = int(cfg.get("slots", 512)), int(cfg.get("max_slots", 4096))
+        for hit in hits:
+            n = lo
+            while n <= hi:
+                home = h0 & (n - 1)
+                for d in range(0, 256):   # la case peut etre decalee par le sondage lineaire
+                    base = hit - (home + d) * size
+                    if base <= 0:
+                        break
+                    out, _ = self._read_counters_at(cfg, base)
+                    if out is not None:
+                        self._named_base = base
+                        return base
+                n *= 2
+        return None
+
+    def named_counters_report(self) -> typing.Tuple[typing.Optional[typing.Dict[str, int]], str]:
+        """(compteurs nommes {nom: valeur} ou None, explication). Essaie chaque racine configuree (la derniere qui a marche d'abord) ;
+        la table doit contenir les bonnes cles avec le bon hash."""
+        cfg, rng = self.cfg.get("named_counters", {}), self.backend.module_range()
+        if not cfg:
+            return None, "section « named_counters » absente de la configuration memoire"
+        if not rng:
+            return None, "module ds.exe introuvable (jeu non detecte)"
+        scanned = getattr(self, "_named_base", None)
+        if scanned is not None:      # base retrouvee par recherche memoire : on la reverifie a chaque lecture
+            out, why = self._read_counters_at(cfg, scanned)
+            if out is not None:
+                return out, f"ok (recherche memoire, {why})"
+            self._named_base = None
+        roots = cfg.get("roots") or []
+        order = list(range(len(roots)))
+        last = getattr(self, "_named_root", None)
+        if last in order:
+            order.remove(last)
+            order.insert(0, last)
+        reasons, table_level = [], []
+        for i in order:
+            r = roots[i]
+            base, trace = self._follow_chain(_num(r["global_module_offset"]), [_num(o) for o in r.get("chain", [])])
+            if base is None:
+                reasons.append(f"#{i + 1} {trace}")
+                continue
+            out, why = self._read_counters_at(cfg, base)
+            if out is not None:
+                self._named_root = i
+                return out, f"ok (chaine n°{i + 1}, {why})"
+            table_level.append(f"#{i + 1} {why}")
+        shown = (table_level + reasons)[:3]
+        return None, f"aucune des {len(roots)} chaine(s) ne mene a la table ; " + " | ".join(shown) + (" ..." if len(table_level) + len(reasons) > 3 else "")
+
+    def read_named_counters(self) -> typing.Optional[typing.Dict[str, int]]:
+        """Compteurs nommes du jeu ({nom: valeur}), ou None si illisible ou incoherent (voir named_counters_report)."""
+        return self.named_counters_report()[0]
+
+    def read_order_types(self) -> typing.Optional[typing.Dict[str, int]]:
+        """Totaux de livraisons par type, a une constante pres (seuls les ecarts comptent) : {"standard", "main", "bot"}, ou None.
+        main = nobot - standard ; bot = total - nobot. Lecture coherente exigee (les trois compteurs sont ecrits separement par le jeu)."""
+        named, std = self.read_named_counters(), self.read_standard_orders()
+        if named is None or std is None or "nobot" not in named or "total" not in named:
+            return None
+        return {"standard": std, "main": named["nobot"] - std, "bot": named["total"] - named["nobot"]}
 
     def _i64(self, addr: int) -> typing.Optional[int]:
         data = self.backend.read(addr, 8)

@@ -32,6 +32,7 @@ If your game is not in French, adjust `saves.completed_words` in `memory_map.jso
   standard deliveries, bot orders, and acceptance and intermediate objectives of main orders (not lost-cargo deliveries). No save needed. `/ds_orders` shows progress.
 
 - **Standard orders:** `standard_checks` checks, one every `standard_step` standard orders delivered since the first connection (the game's exact counter). `/ds_standard` shows progress.
+- **Bot orders:** `bot_checks` / `bot_step`, counted live since the first connection (derived from internal game counters). `/ds_bot` shows progress.
 
 ## Materials
 In game, resins, metals, ceramics, chemicals and special alloys are stored **per facility**, not in the backpack. Received items are credited to the stock of

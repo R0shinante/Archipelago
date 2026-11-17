@@ -5,7 +5,7 @@
   * sauvegardes (savewatch): detecte les commandes terminees d'apres le titre des checkpoints ;
   * mode manuel            : /check <lieu> envoie un check a la main.
 
-Commandes : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_effect, /ds_trap (alias), /ds_likes, /ds_likes_give, /ds_likes_rebase, /ds_orders, /ds_orders_rebase, /ds_standard, /ds_standard_rebase, /ds_items, /ds_items_reset, /ds_resigner, /ds_saves, /ds_saves_dir, /ds_selftest, /ds_catchup.
+Commandes : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_effect, /ds_trap (alias), /ds_likes, /ds_likes_give, /ds_likes_rebase, /ds_orders, /ds_orders_rebase, /ds_standard, /ds_standard_rebase, /ds_bot, /ds_bot_rebase, /ds_items, /ds_items_reset, /ds_resigner, /ds_saves, /ds_saves_dir, /ds_selftest, /ds_catchup.
 """
 from __future__ import annotations
 
@@ -22,9 +22,12 @@ from MultiServer import mark_raw
 from NetUtils import ClientStatus
 
 from .data import EPISODES, ORDER_TO_LOCATION
-from .locations import ORDER_PROGRESS_BASE_ID, STANDARD_ORDER_BASE_ID, location_name_to_id
+from .locations import BOT_ORDER_BASE_ID, ORDER_PROGRESS_BASE_ID, STANDARD_ORDER_BASE_ID, location_name_to_id
 from .memory import GameMemory, PymemBackend
 from .savewatch import DEFAULT_COMPLETED_WORDS, ResignerCli, SaveWatcher, autodetect_root, parse_title, read_header
+
+# Familles de checks par type de commande lues dans la table de compteurs nommes : (base d'id, prefixe d'option, libelle, nom du lieu)
+ORDER_TYPES = {"bot": (BOT_ORDER_BASE_ID, "bot", "commandes de bot", "Bot Orders")}
 
 MAP_FILE = "memory_map.json"
 PROGRESS_FILE = "DeathStranding_progress.json"
@@ -33,14 +36,20 @@ SAVE_POLL_SECONDS = 2.0
 
 
 def load_map() -> dict:
+    import pkgutil
+    default = json.loads(pkgutil.get_data(__name__, "memory_map.default.json").decode("utf-8"))
     path = Utils.user_path(MAP_FILE)
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
             logger.info(f"Configuration memoire : {path}")
-            return json.load(f)
-    import pkgutil
+            user = json.load(f)
+        missing = [k for k in default if k not in user and not k.startswith("_")]
+        if missing:   # un fichier d'une ancienne version ne doit pas masquer les sections ajoutees depuis
+            logger.info(f"Configuration memoire : sections absentes de votre fichier, valeurs du paquet utilisees : {', '.join(missing)}")
+            user = {**{k: default[k] for k in missing}, **user}
+        return user
     logger.info("Configuration memoire : valeurs par defaut du paquet.")
-    return json.loads(pkgutil.get_data(__name__, "memory_map.default.json").decode("utf-8"))
+    return default
 
 
 def _clean_path(text: str) -> str:
@@ -255,6 +264,45 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         self.ctx.save_progress()
         self.output(f"Base des commandes standard : {v}.")
 
+    def _explain_types_failure(self) -> None:
+        named, why = self.ctx.memory.named_counters_report()
+        if named is None:
+            self.output(f"Compteurs de commandes illisibles : {why}")
+        elif self.ctx.memory.read_standard_orders() is None:
+            self.output("Compteurs de commandes illisibles : le compteur de commandes standard (table de statistiques) est illisible.")
+        else:
+            self.output("Compteurs de commandes illisibles (jeu non charge ?).")
+
+    def _type_status(self, kind: str) -> None:
+        label, opt = ORDER_TYPES[kind][2], ORDER_TYPES[kind][1]
+        t = self.ctx.memory.read_order_types()
+        if t is None:
+            self._explain_types_failure()
+            return
+        self.output(f"Livraisons de {label} (compteur relatif, a une constante pres) : {t[kind]}  [{self.ctx.memory.named_counters_report()[1]}]")
+        st, step = self.ctx.type_state.get(kind, {}), int(self.ctx.slot_data.get(f"{opt}_step", 0))
+        if "baseline" in st and step > 0:
+            gained = max(0, t[kind] - int(st["baseline"]))
+            self.output(f"Paliers : {gained} livraison(s) depuis la base ({st['baseline']}), prochain palier a {(gained // step + 1) * step} "
+                        f"(paliers atteints : {len(self.ctx.type_checks[kind])}/{self.ctx.slot_data.get(f'{opt}_checks', 0)})")
+
+    def _type_rebase(self, kind: str) -> None:
+        t = self.ctx.memory.read_order_types()
+        if t is None:
+            self._explain_types_failure()
+            return
+        self.ctx.type_state.setdefault(kind, {})["baseline"] = t[kind]
+        self.ctx.save_progress()
+        self.output(f"Base des {ORDER_TYPES[kind][2]} : {t[kind]}.")
+
+    def _cmd_ds_bot(self) -> None:
+        """Commandes de bot livrees (compteur en direct) et etat des paliers « Bot Orders »."""
+        self._type_status("bot")
+
+    def _cmd_ds_bot_rebase(self) -> None:
+        """Refixe la base des paliers de commandes de bot au compteur actuel (les checks deja envoyes restent envoyes)."""
+        self._type_rebase("bot")
+
     def _cmd_ds_likes_rebase(self) -> None:
         """Refixe la base des paliers de likes au total actuel (les checks deja envoyes restent envoyes)."""
         v = self.ctx.memory.read_likes()
@@ -392,6 +440,18 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
     @mark_raw
     def _cmd_ds_resigner(self, path: str = "") -> None:
         """Indique l'outil de dechiffrement : /ds_resigner <chemin complet de death-stranding-savedata-resigner-cli.exe>"""
+        if path.strip().lower() in ("off", "non", "desactiver"):
+            self.ctx.settings["resigner_off"] = True
+            _json_save(SETTINGS_FILE, self.ctx.settings)
+            self.ctx.setup_saves()
+            self.output("Dechiffrement des sauvegardes DESACTIVE (les commandes principales ne viennent plus que de la memoire). /ds_resigner on pour le reactiver.")
+            return
+        if path.strip().lower() in ("on", "oui", "activer"):
+            self.ctx.settings["resigner_off"] = False
+            _json_save(SETTINGS_FILE, self.ctx.settings)
+            self.ctx.setup_saves()
+            self.output("Dechiffrement des sauvegardes reactive.")
+            return
         p = _clean_path(path)
         if not p or not os.path.isfile(p):
             self.output("Fichier introuvable. Exemple : /ds_resigner C:\\outils\\death-stranding-savedata-resigner-cli.exe")
@@ -483,6 +543,15 @@ class DeathStrandingContext(CommonContext):
         self.standard_checks: set[int] = set()
         self.standard_state: dict = {}
         self.standard_history: typing.List[int] = []
+        self.type_checks: typing.Dict[str, set] = {"bot": set()}
+        self.type_state: typing.Dict[str, dict] = {}
+        self.type_history: typing.List[tuple] = []
+        self.title_zones: typing.Optional[typing.List[typing.Tuple[int, int]]] = None
+        self.title_seen: typing.Set[typing.Tuple[int, str]] = set()
+        self.title_baselined = False
+        self.title_force_full = False
+        self.title_last_main: typing.Optional[int] = None
+        self.title_none_logged = False
         self.slot_data: dict = {}
         self.finished = False
         self.map = load_map()
@@ -498,15 +567,19 @@ class DeathStrandingContext(CommonContext):
 
     def setup_saves(self) -> None:
         exe = self.settings.get("resigner") or self.map.get("saves", {}).get("resigner")
+        if self.settings.get("resigner_off"):
+            exe = None
         root = self.settings.get("saves_root") or self.map.get("saves", {}).get("root") or autodetect_root()
         words = self.map.get("saves", {}).get("completed_words", DEFAULT_COMPLETED_WORDS)
         self.saves = SaveWatcher(root, ResignerCli(exe) if exe else None, words)
-        if not exe:
+        if self.settings.get("resigner_off"):
+            logger.info("Sauvegardes : dechiffrement desactive (/ds_resigner on pour le reactiver).")
+        elif not exe:
             logger.info("Sauvegardes : outil de dechiffrement non configure. Tape /ds_resigner <chemin de l'exe>.")
         if not root:
             logger.info("Sauvegardes : dossier introuvable. Tape /ds_saves_dir <dossier>.")
 
-    def register_completed_orders(self, numbers: typing.Iterable[int]) -> None:
+    def register_completed_orders(self, numbers: typing.Iterable[int], source: str = "sauvegarde") -> None:
         for n in numbers:
             loc = ORDER_TO_LOCATION.get(n)
             if loc is None:
@@ -515,7 +588,7 @@ class DeathStrandingContext(CommonContext):
             code = location_name_to_id[loc]
             if code not in self.save_checks:
                 self.save_checks.add(code)
-                logger.info(f"Commande terminee detectee : {loc}")
+                logger.info(f"Commande terminee detectee ({source}) : {loc}")
 
     def stock_targets(self) -> typing.List[str]:
         """Installations qui recoivent les materiaux : reglage utilisateur, sinon valeur par defaut du paquet."""
@@ -553,6 +626,8 @@ class DeathStrandingContext(CommonContext):
             self.order_checks.clear()
             self.standard_state = _json_load(PROGRESS_FILE).get(self._progress_key() + ":standard") or {}
             self.standard_checks.clear()
+            self.type_state = {k: (_json_load(PROGRESS_FILE).get(self._progress_key() + ":" + k) or {}) for k in ORDER_TYPES}
+            self.type_checks = {k: set() for k in ORDER_TYPES}
             if self.slot_data.get("death_link"):
                 Utils.async_start(self.update_death_link(True))
 
@@ -580,6 +655,9 @@ class DeathStrandingContext(CommonContext):
             data[self._progress_key() + ":orders"] = self.order_state
         if self.standard_state:
             data[self._progress_key() + ":standard"] = self.standard_state
+        for k, st in self.type_state.items():
+            if st:
+                data[self._progress_key() + ":" + k] = st
         _json_save(PROGRESS_FILE, data)
 
 
@@ -614,6 +692,14 @@ def standard_progress_milestones(current: int, baseline: int, step: int, count: 
         return []
     gained = max(0, current - baseline)
     return [STANDARD_ORDER_BASE_ID + n for n in range(1, count + 1) if n * step <= gained]
+
+
+def order_type_milestones(base_id: int, current: int, baseline: int, step: int, count: int) -> typing.List[int]:
+    """Codes des paliers atteints pour un type de commande (gain = compteur - base, jamais negatif)."""
+    if step <= 0 or count <= 0:
+        return []
+    gained = max(0, current - baseline)
+    return [base_id + n for n in range(1, count + 1) if n * step <= gained]
 
 
 def apply_trap(memory, spec: dict) -> typing.Tuple[str, typing.Optional[typing.Tuple[float, float]]]:
@@ -678,6 +764,10 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
     last_likes_poll = 0.0
     last_order_poll = 0.0
     last_standard_poll = 0.0
+    last_types_poll = 0.0
+    last_table_scan = -1e9
+    last_title_poll, last_title_full, title_running = 0.0, -1e9, False
+    table_scan_running = False
     while not ctx.exit_event.is_set():
         await asyncio.sleep(0.5)
         if ctx.slot is None:
@@ -695,7 +785,53 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 logger.warning(f"Surveillance des sauvegardes : {e}")
                 done = []
             ctx.register_completed_orders(done)
-        to_send, unknown = plan_location_sends(ctx.manual_checks | ctx.save_checks | ctx.likes_checks | ctx.order_checks | ctx.standard_checks, ctx.checked_locations,
+        # 1b. Commandes terminees lues directement en memoire (titre du point de controle) : pas de dechiffrement
+        if ctx.settings.get("memory_titles", True) and not title_running and ctx.backend.attached() \
+                and loop.time() - last_title_poll >= 4.0:
+            last_title_poll = loop.time()
+            since_full = loop.time() - last_title_full
+            # sans zone connue : nouvel essai complet chaque minute ; avec zone : rescan complet toutes les 4 min au cas ou le jeu ecrive ailleurs
+            full = ctx.title_zones is None or (not ctx.title_zones and since_full >= 60.0) or since_full >= 240.0 or ctx.title_force_full
+            ctx.title_force_full = False
+            if full:
+                last_title_full = loop.time()
+                if ctx.title_zones is None:
+                    logger.info("Commandes principales : recherche des titres de sauvegarde en memoire (1 a 5 min)...")
+            title_running = True
+
+            async def _titles(full: bool = full) -> None:
+                nonlocal title_running
+                try:
+                    t0 = loop.time()
+                    zones = None if full else ctx.title_zones
+                    titles, new_zones = await loop.run_in_executor(None, ctx.memory.scan_titles, ctx.saves.words, zones, 600.0, lambda msg: loop.call_soon_threadsafe(logger.info, msg))
+                    if full:
+                        ctx.title_zones = new_zones
+                        if ctx.title_baselined:      # nouvelle recherche complete : ce qui est apparu entre-temps compte
+                            ctx.register_completed_orders([n for n, _ in sorted(titles - ctx.title_seen)], "memoire")
+                        ctx.title_seen |= set(titles)
+                        ctx.title_baselined = True
+                        if not new_zones:
+                            if not ctx.title_none_logged:
+                                ctx.title_none_logged = True
+                                logger.info(f"Commandes principales : aucun titre de sauvegarde en memoire pour l'instant (recherche en "
+                                            f"{loop.time() - t0:.0f} s) : nouvel essai chaque minute, jusqu'a la prochaine sauvegarde du jeu.")
+                        else:
+                            logger.info(f"Commandes principales : lecture en memoire active ({len(titles)} titre(s) connus, "
+                                        f"{sum(z[1] for z in new_zones) >> 20} Mo surveilles, recherche en {loop.time() - t0:.0f} s).")
+                    else:
+                        fresh = sorted(t for t in titles if t not in ctx.title_seen)
+                        ctx.title_seen |= set(titles)
+                        # les zones suivent les points de controle les plus recents ; si on n'en voit plus, on refait une recherche complete
+                        ctx.title_zones = new_zones
+                        if fresh:
+                            ctx.register_completed_orders([n for n, _ in fresh], "memoire")
+                except Exception as e:
+                    logger.warning(f"Lecture des titres en memoire : {e}")
+                finally:
+                    title_running = False
+            Utils.async_start(_titles())
+        to_send, unknown = plan_location_sends(ctx.manual_checks | ctx.save_checks | ctx.likes_checks | ctx.order_checks | ctx.standard_checks | ctx.type_checks["bot"], ctx.checked_locations,
                                                ctx.server_locations, ctx.sent_at, loop.time())
         for code in unknown:
             if code not in ctx.warned_unknown:
@@ -840,6 +976,70 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                         logger.info(f"Palier de commandes standard atteint : {code - STANDARD_ORDER_BASE_ID} "
                                     f"({(code - STANDARD_ORDER_BASE_ID) * sstep} livraison(s))")
                     ctx.standard_checks |= new
+
+        # 2f. Commandes principales et de bot livrees (optionnel) : compteurs nommes du jeu, gain depuis la base
+        wanted = {k: (int(ctx.slot_data.get(f"{v[1]}_step", 0)), int(ctx.slot_data.get(f"{v[1]}_checks", 0))) for k, v in ORDER_TYPES.items()}
+        if any(step > 0 and cnt > 0 for step, cnt in wanted.values()) and loop.time() - last_types_poll >= SAVE_POLL_SECONDS:
+            last_types_poll = loop.time()
+            cur = ctx.memory.read_order_types()
+            if cur is None and not table_scan_running and ctx.memory.read_standard_orders() is not None \
+                    and loop.time() - last_table_scan >= 120.0:
+                # les chaines de pointeurs ne marchent plus (redemarrage, autre sauvegarde) : recherche de la table par sa signature, en arriere-plan
+                last_table_scan = loop.time()
+                table_scan_running = True
+                logger.info("Compteurs de commandes : recherche de la table en memoire (jusqu'a quelques minutes)...")
+
+                async def _scan() -> None:
+                    nonlocal table_scan_running
+                    try:
+                        base = await loop.run_in_executor(None, ctx.memory.scan_named_table)
+                        logger.info(f"Compteurs de commandes : table retrouvee (0x{base:X})." if base else
+                                    "Compteurs de commandes : table introuvable (sera retentee).")
+                    except Exception as e:
+                        logger.warning(f"Recherche de la table de compteurs : {e}")
+                    finally:
+                        table_scan_running = False
+                Utils.async_start(_scan())
+            if cur is not None:
+                snap = (cur["standard"], cur["main"], cur["bot"])
+                if ctx.title_last_main is not None and cur["main"] != ctx.title_last_main:
+                    ctx.title_force_full = True      # une livraison principale vient d'etre comptee : on relit toute la memoire sans attendre
+                ctx.title_last_main = cur["main"]
+                ctx.type_history = (ctx.type_history + [snap])[-60:]
+                # le jeu ecrit les compteurs separement et parfois a plusieurs secondes d'intervalle (le compteur total peut avancer seul
+                # un moment) : on ne tient compte d'une variation que si les trois valeurs sont restees identiques ~16 s
+                stable = len(ctx.type_history) >= 8 and len(set(ctx.type_history[-8:])) == 1
+                # pour le bot, le compteur "total" peut rester en avance pendant toute la livraison d'une commande principale :
+                # on exige ~90 s sans aucun changement avant de croire a une livraison de bot
+                stable_bot = len(ctx.type_history) >= 45 and len(set(ctx.type_history[-45:])) == 1
+                # coherence : un compteur de livraisons ne diminue pas. Pendant une livraison, le compteur "total" peut avancer avant le compteur
+                # "sans bot" (principales = sans bot - standard baisse, bot = total - sans bot monte) : on attend que le jeu ait fini d'ecrire.
+                consistent = True
+                if stable:
+                    prev = getattr(ctx, "type_prev", None)
+                    if prev is not None and (snap[1] < prev[1] or snap[2] < prev[2]) and getattr(ctx, "type_incoherent", 0) < 30:
+                        consistent = False
+                        ctx.type_incoherent = getattr(ctx, "type_incoherent", 0) + 1
+                    else:
+                        ctx.type_prev, ctx.type_incoherent = snap, 0
+                in_game = ctx.memory.read_vitals() is not None
+                for kind, (step, cnt) in wanted.items():
+                    if step <= 0 or cnt <= 0:
+                        continue
+                    state = ctx.type_state.setdefault(kind, {})
+                    if "baseline" not in state:
+                        if likes_baseline_ready(ctx.type_history, in_game):
+                            state["baseline"] = cur[kind]
+                            ctx.save_progress()
+                            logger.info(f"{ORDER_TYPES[kind][2].capitalize()} : base fixee a {cur[kind]} (palier = {step} livraison(s)).")
+                        continue
+                    if not (stable_bot if kind == "bot" else stable) or not consistent:
+                        continue
+                    base_id = ORDER_TYPES[kind][0]
+                    new = set(order_type_milestones(base_id, cur[kind], int(state["baseline"]), step, cnt))
+                    for code in sorted(new - ctx.type_checks[kind]):
+                        logger.info(f"Palier de {ORDER_TYPES[kind][2]} atteint : {code - base_id} ({(code - base_id) * step} livraison(s))")
+                    ctx.type_checks[kind] |= new
 
         # 3. Victoire : derniere commande de l'episode but
         goal_ep = ctx.slot_data.get("goal_episode", 14)

@@ -44,5 +44,15 @@ def standard_order_location_name(n: int) -> str:
 
 
 standard_order_location_table = {standard_order_location_name(n): STANDARD_ORDER_BASE_ID + n for n in range(1, MAX_STANDARD_CHECKS + 1)}
+# Paliers de commandes de bot livrees (optionnels) : id = BOT_ORDER_BASE_ID + n (palier n = n * bot_step livraisons de bot).
+BOT_ORDER_BASE_ID = 7_774_000
+MAX_BOT_CHECKS = 100
+
+
+def bot_order_location_name(n: int) -> str:
+    return f"Bot Orders {n}"
+
+
+bot_order_location_table = {bot_order_location_name(n): BOT_ORDER_BASE_ID + n for n in range(1, MAX_BOT_CHECKS + 1)}
 location_name_to_id = {**{name: data[0] for name, data in location_table.items()}, **likes_location_table, **order_progress_location_table,
-                       **standard_order_location_table}
+                       **standard_order_location_table, **bot_order_location_table}

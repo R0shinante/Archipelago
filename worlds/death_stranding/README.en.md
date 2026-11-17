@@ -30,16 +30,18 @@ equipment, traps) are applied in game by the client, which accesses the game's m
 | Chiral Crystals applied in game | ✅ |
 | DeathLink (sending and receiving the player's death) | ✅ validated in game |
 | Likes milestones as checks (`likes_checks` / `likes_step`, up to 50) | ✅ validated in game |
-| Order progress milestones as checks (`order_checks` / `order_step`, up to 100, no save needed) | 🔧 in progress: counts order steps, not per-type totals yet |
-| Standard orders delivered milestones as checks (`standard_checks` / `standard_step`, up to 100, no save needed) | 🧪 to be validated in game: the game's exact counter (key 17 of the statistics table) |
+| Order progress milestones as checks (`order_checks` / `order_step`, up to 100, no save needed) | ✅ validated in game: counts order steps, all order types combined |
+| Standard orders delivered milestones as checks (`standard_checks` / `standard_step`, up to 100, no save needed) | ✅ validated in game: the game's exact counter (key 17 of the statistics table) |
 | One-shot effects: Blood Bag, Energy Drink, Repair Spray, Boot Upgrade, Power Skeleton, Speed Skeleton, Cryptobiote Pack, D-Cryptobiote Pack, Sandalweed Bundle | ✅ validated in game |
 | "Likes Pack" item (+500 likes) | 🧪 to be validated in game |
 | Materials (resins, metals, ceramics, chemicals, special alloys) credited to a facility's stock | 🧪 to be validated in game |
 | Traps: Injury, Fatigue, Boot Wear, Rust, Pickpocket | 🧪 to be validated in game |
-| Named checks per standard / optional order; live milestones for main orders or bot orders alone | ❌ no live counter found (see `docs/RECHERCHE_compteurs_commandes.md`, in French) |
+| Bot orders delivered milestones as checks (`bot_checks` / `bot_step`, up to 100, no save needed) | ✅ validated in game: derived from internal game counters; the check arrives about 90 s after the delivery |
+| Detection of completed main orders by reading the game's memory (no decryption tool) | ✅ validated on a few orders, French game; save decryption remains available as a fallback |
+| Named checks per standard / optional order | ❌ |
 
 Checks are identified by `7,770,000 + order number`. The client detects a completed main order from the **title of the checkpoint saves**
-("Order completed: No. N …"), which it decrypts with a third-party tool.
+("Order completed: No. N …"). It reads it directly from the game's memory (French game); if you also configure the decryption tool below, it reads it from the saves as well, as a fallback (`/ds_resigner off` disables decryption). At startup the memory search scans about 10 GB in a minute, then watches a small area and redoes a full search every 4 minutes, or as soon as a main-order delivery is counted.
 
 ## Installation
 
@@ -93,6 +95,8 @@ With the official Archipelago installer, install `pymem` into the Python that ru
 | `order_step` | 1 to 50 | 3 | Order steps per milestone |
 | `standard_checks` | 0 to 100 | 0 | Number of standard-orders-delivered checks (0 = disabled) |
 | `standard_step` | 1 to 50 | 3 | Standard orders to deliver per milestone |
+| `bot_checks` | 0 to 100 | 0 | Number of bot-orders-delivered checks (0 = disabled) |
+| `bot_step` | 1 to 50 | 3 | Bot orders to deliver per milestone |
 
 **Likes.** The "Likes Milestone N" check unlocks when you earn N × `likes_step` likes **since your first connection** (the baseline is fixed at that moment).
 Likes received through "Likes Pack" items do not count. `/ds_likes` shows your progress.
@@ -103,6 +107,8 @@ It measures steps, all types combined, and does not count lost-cargo deliveries.
 `/ds_orders` shows the progress and `/ds_orders_rebase` resets the baseline.
 
 **Standard orders.** The "Standard Orders N" check unlocks when you have delivered N × `standard_step` standard orders **since your first connection**. This is the game's exact counter, read live with no save needed: main orders, bot orders and lost-cargo deliveries do not count. `/ds_standard` shows the progress and `/ds_standard_rebase` resets the baseline.
+
+**Bot orders.** The "Bot Orders N" check unlocks after N × `bot_step` bot deliveries **since your first connection**, with no save needed. The counter is derived from two internal game counters (total and non-bot) that are not written at the same moment: the client waits about 90 s without change before confirming, to avoid false positives during a delivery. Lost-cargo deliveries and equipment requests have not been tested. `/ds_bot` shows the progress and `/ds_bot_rebase` resets the baseline. Main orders are not affected: they have their named checks.
 
 **DeathLink.** The client reads Sam's health: at 0 it notifies the other players; when a DeathLink is received it sets Sam's health to 0
 (as soon as it is readable, so not during a loading screen or a menu). A received death is not sent back (20 s grace) and a sent death blocks further sends for 30 s.
@@ -156,6 +162,8 @@ The save title depends on the game language. If your game is not in French, adju
 | `/ds_orders_rebase` | Resets the order-progress baseline |
 | `/ds_standard` | Standard orders delivered (game counter) and milestone progress |
 | `/ds_standard_rebase` | Resets the standard-orders baseline |
+| `/ds_bot` | Bot orders delivered (live counter) and milestone progress |
+| `/ds_bot_rebase` | Resets the bot-orders baseline |
 | `/ds_hp` | Player health read from memory (test) |
 | `/ds_kill` | Test: sets Sam's health to 0 |
 | `/ds_items` | Items received / applied in game (diagnostics) |
@@ -165,7 +173,7 @@ The save title depends on the game language. If your game is not in French, adju
 | `/ds_stock_pool Name1; Name2` | Limits the random draw to some facilities (`all` = all of them) |
 | `/ds_stock_target <facility>` | Facility credited in `target` mode |
 | `/ds_stock_give <material> <amount>` | Write test for a stock |
-| `/ds_resigner <exe>` | Path of the decryption tool |
+| `/ds_resigner <exe>` | Path of the decryption tool (optional). `/ds_resigner off` / `on` disables / re-enables decryption |
 | `/ds_saves_dir <folder>` | Saves folder |
 | `/ds_saves` | Watcher status (checkpoints seen, orders detected) |
 | `/ds_selftest` | Tests decryption and title reading |

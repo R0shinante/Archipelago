@@ -76,6 +76,22 @@ class StandardStep(Range):
     default = 3
 
 
+class BotChecks(Range):
+    """Nombre de paliers de commandes de bot livrees qui sont des checks (0 = désactivé). Compteur déduit des compteurs du jeu, lu en direct, sans sauvegarde."""
+    display_name = "Paliers de commandes de bot (nombre de checks)"
+    range_start = 0
+    range_end = 100
+    default = 0
+
+
+class BotStep(Range):
+    """Nombre de commandes de bot à livrer pour chaque palier (palier n = n × cette valeur)."""
+    display_name = "Commandes de bot par palier"
+    range_start = 1
+    range_end = 50
+    default = 3
+
+
 @dataclass
 class DeathStrandingOptions(DeathLinkMixin, PerGameCommonOptions):
     goal: Goal
@@ -87,4 +103,6 @@ class DeathStrandingOptions(DeathLinkMixin, PerGameCommonOptions):
     order_step: OrderStep
     standard_checks: StandardChecks
     standard_step: StandardStep
+    bot_checks: BotChecks
+    bot_step: BotStep
     start_inventory_from_pool: StartInventoryPool

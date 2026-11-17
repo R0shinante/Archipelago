@@ -30,16 +30,18 @@ objets du multimonde (cristaux, matériaux, équipement, pièges) sont appliqué
 | Cristaux chiraux appliqués en jeu | ✅ |
 | DeathLink (envoi et réception de la mort du joueur) | ✅ validé en jeu |
 | Paliers de likes comme checks (`likes_checks` / `likes_step`, jusqu'à 50) | ✅ validé en jeu |
-| Paliers de progression des commandes comme checks (`order_checks` / `order_step`, jusqu'à 100, sans sauvegarde) | 🔧 en cours : compte les étapes de commande, pas encore les totaux par type |
-| Paliers de commandes standard livrées comme checks (`standard_checks` / `standard_step`, jusqu'à 100, sans sauvegarde) | 🧪 à valider en jeu : compteur exact du jeu (clé 17 de la table de statistiques) |
+| Paliers de progression des commandes comme checks (`order_checks` / `order_step`, jusqu'à 100, sans sauvegarde) | ✅ validé en jeu : compte les étapes de commande, tous types confondus |
+| Paliers de commandes standard livrées comme checks (`standard_checks` / `standard_step`, jusqu'à 100, sans sauvegarde) | ✅ validé en jeu : compteur exact du jeu (clé 17 de la table de statistiques) |
 | Effets ponctuels : Blood Bag, Energy Drink, Repair Spray, Boot Upgrade, Power Skeleton, Speed Skeleton, Cryptobiote Pack, D-Cryptobiote Pack, Sandalweed Bundle | ✅ validé en jeu |
 | Objet « Likes Pack » (+500 likes) | 🧪 à valider en jeu |
 | Matériaux (résines, métaux, céramiques, chimiques, alliages) crédités au stock d'une installation | 🧪 à valider en jeu |
 | Pièges : Injury, Fatigue, Boot Wear, Rust, Pickpocket | 🧪 à valider en jeu |
-| Checks nominatifs par commande standard / optionnelle ; paliers en direct pour les commandes principales ou de bot seules | ❌ : aucun compteur lisible en direct n'a été trouvé (voir `docs/RECHERCHE_compteurs_commandes.md`) |
+| Paliers de commandes de bot livrées comme checks (`bot_checks` / `bot_step`, jusqu'à 100, sans sauvegarde) | ✅ validé en jeu : déduit de compteurs internes du jeu ; le check arrive environ 90 s après la livraison |
+| Détection des commandes principales terminées en lisant la mémoire du jeu (sans outil de déchiffrement) | ✅ validé sur quelques commandes, jeu en français ; le déchiffrement des sauvegardes reste disponible en secours |
+| Checks nominatifs par commande standard / optionnelle | ❌ |
 
 Les checks sont identifiés par `7 770 000 + numéro de commande`. Le client détecte une commande principale terminée grâce au **titre des
-sauvegardes de checkpoint** (« Commande terminée : nº N … »), qu'il déchiffre avec un outil tiers.
+sauvegardes de checkpoint** (« Commande terminée : nº N … »). Il le lit directement dans la mémoire du jeu (jeu en français) ; si vous configurez en plus l'outil de déchiffrement ci-dessous, il le lit aussi dans les sauvegardes, ce qui sert de secours (`/ds_resigner off` désactive le déchiffrement). Au démarrage, la recherche en mémoire parcourt environ 10 Go en une minute, puis surveille une petite zone et refait une recherche complète toutes les 4 minutes, ou dès qu'une livraison principale est comptée.
 
 ## Installation
 
@@ -93,6 +95,8 @@ Avec l'installateur officiel d'Archipelago, installez `pymem` dans le Python qui
 | `order_step` | 1 à 50 | 3 | Étapes de commande par palier |
 | `standard_checks` | 0 à 100 | 0 | Nombre de checks de commandes standard livrées (0 = désactivé) |
 | `standard_step` | 1 à 50 | 3 | Commandes standard à livrer par palier |
+| `bot_checks` | 0 à 100 | 0 | Nombre de checks de commandes de bot livrées (0 = désactivé) |
+| `bot_step` | 1 à 50 | 3 | Commandes de bot à livrer par palier |
 
 **Likes.** Le check « Likes Milestone N » se débloque quand vous gagnez N × `likes_step` likes **depuis la première connexion** (la base est fixée à ce moment-là).
 Les likes reçus par des objets « Likes Pack » ne comptent pas. `/ds_likes` affiche la progression.
@@ -103,6 +107,8 @@ Il mesure des étapes, tous types confondus, et ne compte pas les livraisons de 
 `/ds_orders` affiche la progression, `/ds_orders_rebase` refixe la base.
 
 **Commandes standard.** Le check « Standard Orders N » se débloque quand vous avez livré N × `standard_step` commandes standard **depuis la première connexion**. C'est le compteur exact du jeu, lu en direct, sans sauvegarde : les commandes principales, les commandes de bot et les marchandises perdues ne comptent pas. `/ds_standard` affiche la progression, `/ds_standard_rebase` refixe la base.
+
+**Commandes de bot.** Le check « Bot Orders N » se débloque après N × `bot_step` livraisons de bot **depuis la première connexion**, sans sauvegarde. Le compteur est déduit de deux compteurs internes du jeu (total et hors bot), qui ne sont pas écrits au même moment : le client attend environ 90 s sans changement avant de valider, pour éviter les faux positifs pendant une livraison. Les marchandises perdues et les demandes d'équipement ne sont pas testées. `/ds_bot` affiche la progression, `/ds_bot_rebase` refixe la base. Les commandes principales ne sont pas concernées : elles ont leurs checks nominatifs.
 
 **DeathLink.** Le client lit la vie de Sam : à 0, il prévient les autres joueurs ; à la réception d'un DeathLink, il met la vie de Sam à 0
 (dès qu'elle est lisible, donc pas pendant un chargement ou un menu). Une mort reçue n'est pas renvoyée (20 s de répit) et une mort envoyée bloque
@@ -157,6 +163,8 @@ Le titre des sauvegardes dépend de la langue du jeu. Si votre jeu n'est pas en 
 | `/ds_orders_rebase` | Refixe la base des paliers de progression des commandes |
 | `/ds_standard` | Commandes standard livrées (compteur du jeu) et progression des paliers |
 | `/ds_standard_rebase` | Refixe la base des paliers de commandes standard |
+| `/ds_bot` | Commandes de bot livrées (compteur en direct) et progression des paliers |
+| `/ds_bot_rebase` | Refixe la base des paliers de commandes de bot |
 | `/ds_hp` | Vie du joueur lue en mémoire (test) |
 | `/ds_kill` | Test : met la vie de Sam à 0 |
 | `/ds_items` | Objets reçus / appliqués en jeu (diagnostic) |
@@ -166,7 +174,7 @@ Le titre des sauvegardes dépend de la langue du jeu. Si votre jeu n'est pas en 
 | `/ds_stock_pool Nom1; Nom2` | Limite le tirage au hasard à certaines installations (`all` = toutes) |
 | `/ds_stock_target <installation>` | Installation créditée en mode `target` |
 | `/ds_stock_give <matériau> <quantité>` | Test d'écriture d'un stock |
-| `/ds_resigner <exe>` | Chemin de l'outil de déchiffrement |
+| `/ds_resigner <exe>` | Chemin de l'outil de déchiffrement (optionnel). `/ds_resigner off` / `on` : désactive / réactive le déchiffrement |
 | `/ds_saves_dir <dossier>` | Dossier des sauvegardes |
 | `/ds_saves` | État de la surveillance (checkpoints vus, commandes détectées) |
 | `/ds_selftest` | Teste le déchiffrement et la lecture du titre |

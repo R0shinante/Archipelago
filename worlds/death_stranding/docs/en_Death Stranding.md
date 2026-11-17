@@ -19,5 +19,5 @@ Chiral Crystals, materials, traps and several one-shot item effects (Blood Bag, 
 Speed Skeleton, Cryptobiote and Sandalweed packs) are applied in game through memory access. Other items are only displayed for now.
 
 ## Optional checks
-Likes milestones (`likes_checks`, `likes_step`) and order-progress milestones (`order_checks`, `order_step`) can be enabled in the YAML.
+Likes milestones (`likes_checks`, `likes_step`), order-progress milestones (`order_checks`, `order_step`), standard-orders milestones (`standard_checks`, `standard_step`) and bot-orders milestones (`bot_checks`, `bot_step`) can be enabled in the YAML.
 DeathLink is supported (`death_link`).

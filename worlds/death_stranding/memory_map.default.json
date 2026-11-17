@@ -516,6 +516,33 @@
     "global_module_offset": "0x7BFA148",
     "counter": "0x168"
   },
+  "named_counters": {
+    "_comment": "Table de hachage de compteurs nommes : 512 cases au minimum (la table grandit : capacite devinee), de 24 octets (hash u32, cle 16 octets, valeur u32). Chaines comme /ds_chain (p=[module+global] ; p=[p+o] pour chaque decalage sauf le dernier ; base=p+dernier decalage), essayees dans l'ordre : la premiere qui mene a la bonne table (cles + hash verifies) est retenue. nobot = livraisons standard + principales ; total = toutes les livraisons (bot compris). Sam = nobot - standard ; bot = total - nobot.",
+    "roots": [
+      {"global_module_offset": "0x7BFCFC0", "chain": ["0xFB8", "0xDD0", "0x0"]},
+      {"global_module_offset": "0x7C18670", "chain": ["0x1BB8", "0xDD0", "0x0"]},
+      {"global_module_offset": "0x7C19940", "chain": ["0x4F8", "0xDD0", "0x0"]},
+      {"global_module_offset": "0x4B42A30", "chain": ["0x1710", "0x80", "0x350", "0x0"]},
+      {"global_module_offset": "0x578C120", "chain": ["0x980", "0x58", "0x16D0", "0x0"]},
+      {"global_module_offset": "0x5794720", "chain": ["0x20", "0x58", "0x16D0", "0x0"]},
+      {"global_module_offset": "0x57A3558", "chain": ["0x17E0", "0x58", "0x16D0", "0x0"]},
+      {"global_module_offset": "0x592CEA8", "chain": ["0x1D8", "0x80", "0x350", "0x0"]},
+      {"global_module_offset": "0x7BE1568", "chain": ["0x2D8", "0xC8", "0x350", "0x0"]},
+      {"global_module_offset": "0x7BFABB0", "chain": ["0x158", "0xC8", "0x350", "0x0"]},
+      {"global_module_offset": "0x7C09750", "chain": ["0x840", "0x30", "0x1E50", "0x0"]}
+    ],
+    "slots": 512,
+    "max_slots": 4096,
+    "slot_size": 24,
+    "hash_offset": 0,
+    "key_offset": 4,
+    "value_offset": 20,
+    "min_occupied": 100,
+    "counters": {
+      "nobot": {"key": "02738f312da146bfaf6d91b7c20fb3a7", "hash": "0xC1BA5649"},
+      "total": {"key": "27c0565a443d4b649320c5fa189789f5", "hash": "0xE5344AB7"}
+    }
+  },
   "standard_orders": {
     "_comment": "Table de statistiques [[module+global]+chain...] : entrees de 16 octets (cle, etat, valeur) ; etat 2 = valeur presente. Cle 17 = commandes standard livrees.",
     "global_module_offset": "0x7BE6318",

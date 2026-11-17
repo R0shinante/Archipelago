@@ -33,7 +33,7 @@ l'installation choisie avec `/ds_stock_target` ; `/ds_stock_pool Nom1; Nom2` lim
 
 ## Paliers optionnels (likes, étapes de commande, commandes standard)
 Réglés dans le YAML : `likes_checks` / `likes_step` (likes gagnés depuis la première connexion, `/ds_likes`), `order_checks` / `order_step` (étapes d'objectifs accomplies,
-tous types confondus, `/ds_orders`) et `standard_checks` / `standard_step` (commandes standard livrées, compteur exact du jeu, `/ds_standard`). Aucun ne demande de sauvegarde.
+tous types confondus, `/ds_orders`) et `standard_checks` / `standard_step` (commandes standard livrées, compteur exact du jeu, `/ds_standard`). Idem pour les commandes de bot (`bot_checks` / `bot_step`, `/ds_bot`). Aucun ne demande de sauvegarde.
 
 ## Comment les checks sont détectés
 À chaque checkpoint, le jeu écrit « Commande terminée : nº N … » dans le titre de la sauvegarde. Le client lit ce

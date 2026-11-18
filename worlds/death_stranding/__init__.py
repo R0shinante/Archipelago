@@ -43,7 +43,8 @@ class DeathStrandingWeb(WebWorld):
 class DeathStrandingWorld(World):
     """
     Death Stranding : livre des colis à travers une Amérique dévastée et reconnecte-la.
-    Chaque livraison principale est un check ; les épisodes sont verrouillés par des items.
+    Chaque commande principale est un check. Les objets « Episode N Access » ne structurent que la logique de génération :
+    le jeu lui-même n'est pas (encore) verrouillé, le joueur peut avancer dans l'histoire sans les avoir reçus.
     """
     game = "Death Stranding"
     web = DeathStrandingWeb()
@@ -52,6 +53,20 @@ class DeathStrandingWorld(World):
 
     item_name_to_id = item_name_to_id
     location_name_to_id = location_name_to_id
+    # groupes utilisables dans le YAML (local_items, non_local_items, priority_locations, exclude_locations...)
+    item_name_groups = {
+        "Episode Access": {f"Episode {e} Access" for e in EPISODES if e != 0},
+        "Traps": {*TRAP_ITEMS, *EXTRA_TRAP_ITEMS},
+        "Materials": {"Resins", "Metals", "Ceramics", "Chemicals", "Special Alloys"},
+        "Equipment": set(USEFUL_ITEMS),
+    }
+    location_name_groups = {
+        "Main Orders": set(location_table),
+        "Likes Milestones": set(likes_location_table),
+        "Order Progress": set(order_progress_location_table),
+        "Standard Orders": set(standard_order_location_table),
+        "Bot Orders": set(bot_order_location_table),
+    }
 
     def create_item(self, name: str) -> Item:
         code, cls = item_table[name]
@@ -59,10 +74,11 @@ class DeathStrandingWorld(World):
 
     def generate_early(self) -> None:
         n = self.options.starting_episodes.value
-        candidates = [f"Episode {e} Access" for e in sorted(EPISODES) if e != 0]
+        self.goal_episode = 14 if self.options.goal == 0 else 12
+        # seuls les épisodes jusqu'à l'objectif existent dans la partie : sinon (objectif épisode 12) un tirage sur 13 ou 14 serait perdu
+        candidates = [f"Episode {e} Access" for e in sorted(EPISODES) if 0 < e <= self.goal_episode]
         self.random.shuffle(candidates)
         self.starting_items = candidates[:n]
-        self.goal_episode = 14 if self.options.goal == 0 else 12
 
     def create_regions(self) -> None:
         menu = Region("Menu", self.player, self.multiworld)

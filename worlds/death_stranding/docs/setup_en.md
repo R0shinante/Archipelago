@@ -7,7 +7,8 @@
 ## Generating a game
 1. Generate your YAML from the Launcher ("Generate Template Options"), `game: Death Stranding`.
 2. Put `death_stranding.apworld` in `custom_worlds`, then Generate and Host.
-3. Options: `goal`, `trap_percentage`, `starting_episodes`, `death_link`, `likes_checks` / `likes_step`, `order_checks` / `order_step`.
+3. Options: `goal`, `trap_percentage`, `starting_episodes`, `death_link`, `likes_checks` / `likes_step`, `order_checks` / `order_step`, `standard_checks` / `standard_step`, `bot_checks` / `bot_step`.
+   "Episode N Access" items only shape the generation logic: they do not lock the game.
 
 ## First client launch
 1. Start the game and load your save, then open "Death Stranding Client" and connect: `/connect address:port`.
@@ -70,5 +71,6 @@ Other equipment items (Cargo Skeleton, Trike, Truck, Road Paver, anchors, ladder
 Effects wait until Sam is readable. Test with `/ds_effect Blood Bag`. Values live in `memory_map.default.json` (sections `traps`, `boosts`, `item_grants`).
 
 ## Known limitations
-- Only the 51 main orders on the list are checks; the list comes from a community page and may contain mistakes (order 17 missing, order 66 approximate name).
+- Only the 51 main orders on the list are checks; the list comes from a community page and may contain mistakes (order 66 has an approximate name; numbers 6, 10-13, 15, 17, 25, 26, 29, 31, 35-37, 40, 42, 45, 56, 57 are missing).
+- "Episode N Access" items lock nothing in game. Victory (last order of the goal episode) is validated in game for No. 70 (episode 14 goal), not for No. 68 (episode 12 goal); `/check <location name>` sends a check by hand if it does not go out. With bot checks enabled, one may go out by mistake at No. 70 (harmless).
 - Memory offsets come from a community table (game v1.004); if `/ds_status` finds nothing while the game is loaded, they do not match your version.

@@ -1,11 +1,14 @@
 """Client Archipelago pour Death Stranding (PC).
 
   * reseau (CommonClient)  : connexion, checks, items recus, victoire ;
-  * memoire (memory.py)    : ressources du joueur via une chaine de pointeurs ;
-  * sauvegardes (savewatch): detecte les commandes terminees d'apres le titre des checkpoints ;
+  * memoire (memory.py)    : ressources, stocks, likes, compteurs de commandes, et titre du dernier point de controle
+                             (detection des commandes principales terminees, sans dechiffrer les sauvegardes) ;
+  * sauvegardes (savewatch): meme detection par dechiffrement des checkpoints, en option (secours) ;
   * mode manuel            : /check <lieu> envoie un check a la main.
 
-Commandes : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_effect, /ds_trap (alias), /ds_likes, /ds_likes_give, /ds_likes_rebase, /ds_orders, /ds_orders_rebase, /ds_standard, /ds_standard_rebase, /ds_bot, /ds_bot_rebase, /ds_items, /ds_items_reset, /ds_resigner, /ds_saves, /ds_saves_dir, /ds_selftest, /ds_catchup.
+Commandes : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_effect, /ds_trap (alias),
+/ds_likes, /ds_likes_give, /ds_likes_rebase, /ds_orders, /ds_orders_rebase, /ds_standard, /ds_standard_rebase, /ds_bot, /ds_bot_rebase, /ds_counters,
+/ds_items, /ds_items_reset, /ds_resigner, /ds_saves, /ds_saves_dir, /ds_selftest, /ds_catchup.
 """
 from __future__ import annotations
 
@@ -170,41 +173,6 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         """Alias de /ds_effect (ancien nom)."""
         self._cmd_ds_effect(name)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     def _cmd_ds_likes(self) -> None:
         """Likes lus en memoire (PNJ / autres joueurs / total)."""
         v = self.ctx.memory.read_likes()
@@ -303,6 +271,42 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         """Refixe la base des paliers de commandes de bot au compteur actuel (les checks deja envoyes restent envoyes)."""
         self._type_rebase("bot")
 
+    def _cmd_ds_counters(self, action: str = "") -> None:
+        """Diagnostic (lecture seule) : tous les compteurs nommes du jeu. /ds_counters snap = photo ; /ds_counters diff = ce qui a change depuis la photo ; /ds_counters save = fichier complet."""
+        ctx = self.ctx
+        dump = ctx.memory.dump_named_table()
+        if dump is None:
+            self._explain_types_failure()
+            return
+        known = {bytes.fromhex(c["key"]).hex(): n for n, c in ctx.map.get("named_counters", {}).get("counters", {}).items()}
+        act = action.strip().lower()
+        if act == "snap":
+            ctx.counters_snap = dump
+            self.output(f"Photo prise : {len(dump)} compteurs. Faites l'action a tester dans le jeu, attendez la fin de la sauvegarde (environ une minute), puis /ds_counters diff.")
+        elif act == "diff":
+            if ctx.counters_snap is None:
+                self.output("Aucune photo : faites d'abord /ds_counters snap.")
+                return
+            old = ctx.counters_snap
+            lines = [f"  {k} : {old[k] if k in old else 'absent'} -> {v}" + (f"   [{known[k]}]" if k in known else "")
+                     for k, v in sorted(dump.items()) if old.get(k) != v]
+            lines += [f"  {k} : {old[k]} -> disparu" + (f"   [{known[k]}]" if k in known else "") for k in sorted(old) if k not in dump]
+            self.output(f"{len(lines)} compteur(s) different(s) de la photo ({len(old)} -> {len(dump)} compteurs) :" if lines else "Aucun compteur n'a change depuis la photo.")
+            for line in lines[:40]:
+                self.output(line)
+            if len(lines) > 40:
+                self.output(f"  ... et {len(lines) - 40} autres (utilisez /ds_counters save).")
+        elif act == "save":
+            path = Utils.user_path("DeathStranding_counters.json")
+            try:
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump({"time": time.strftime("%Y-%m-%d %H:%M:%S"), "known": known, "counters": dump}, f, indent=1, sort_keys=True)
+                self.output(f"{len(dump)} compteurs ecrits dans {path}")
+            except OSError as e:
+                self.output(f"Ecriture impossible : {e}")
+        else:
+            self.output(f"{len(dump)} compteurs dans la table nommee ({len(known)} utilises par le client). /ds_counters snap | diff | save")
+
     def _cmd_ds_likes_rebase(self) -> None:
         """Refixe la base des paliers de likes au total actuel (les checks deja envoyes restent envoyes)."""
         v = self.ctx.memory.read_likes()
@@ -324,8 +328,6 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
             return
         r = self.ctx.memory.add_likes(which, n)
         self.output(f"Likes {which} -> {r}" if r is not None else "Likes illisibles (jeu non charge ?).")
-
-
 
     def _cmd_ds_hp(self) -> None:
         """Lit la vie du joueur en memoire (test avant d'activer DeathLink)."""
@@ -552,9 +554,15 @@ class DeathStrandingContext(CommonContext):
         self.title_force_full = False
         self.title_hint_failed = False
         self.types_source_logged = False
+        self.repair_last: typing.Optional[tuple] = None
+        self.repair_marks: tuple = (None, None)
+        self.raw_logged: typing.Optional[tuple] = None
+        self.title_burst_until = 0.0
         self.title_active_logged = False
-        self.title_last_main: typing.Optional[int] = None
+        self.title_last_main: typing.Optional[typing.Tuple[int, int]] = None
         self.title_none_logged = False
+        self.unlisted_seen: typing.Set[int] = set()
+        self.counters_snap: typing.Optional[typing.Dict[str, int]] = None
         self.slot_data: dict = {}
         self.finished = False
         self.map = load_map()
@@ -599,7 +607,14 @@ class DeathStrandingContext(CommonContext):
         for n in numbers:
             loc = ORDER_TO_LOCATION.get(n)
             if loc is None:
-                logger.debug(f"Commande n°{n} terminee (hors liste des checks : ignoree).")
+                # les commandes standard / optionnelles ont des numeros a partir de 100 environ ; en dessous, il peut s'agir d'une commande
+                # principale absente de la liste (voir « Limites connues ») : on le signale une fois pour aider a completer la liste
+                if n < 100 and n not in self.unlisted_seen:
+                    self.unlisted_seen.add(n)
+                    logger.info(f"Commande n°{n} terminee, mais absente de la liste des checks (commande principale manquante ?). "
+                                f"Merci de la signaler avec son nom et son episode.")
+                else:
+                    logger.debug(f"Commande n°{n} terminee (hors liste des checks : ignoree).")
                 continue
             code = location_name_to_id[loc]
             if code not in self.save_checks:
@@ -718,6 +733,28 @@ def order_type_milestones(base_id: int, current: int, baseline: int, step: int, 
     return [base_id + n for n in range(1, count + 1) if n * step <= gained]
 
 
+REPAIR_WINDOW = 300.0      # secondes : delai maximal entre la hausse du total et l'apparition de la cle « repair » (releve en jeu : environ 40 s)
+
+
+def repair_progress(prev: typing.Optional[typing.Tuple[int, int, int]], cur: typing.Tuple[int, int, int], now: float,
+                    marks: typing.Tuple[typing.Optional[float], typing.Optional[float]]) -> typing.Tuple[bool, typing.Tuple[typing.Optional[float], typing.Optional[float]]]:
+    """Reconnait la commande de reparation n°62 dans la table de compteurs, d'un releve (nobot, total, repair) au suivant.
+    Elle fait monter le total (sans toucher a « nobot ») et fait apparaitre la cle « repair » (0 -> 1) mais les deux n'arrivent pas ensemble : le jeu
+    ecrit ses compteurs separement, la cle avec une quarantaine de secondes de retard (ou parfois avant). On note donc l'heure de chaque hausse et on conclut
+    quand les deux ont eu lieu a moins de REPAIR_WINDOW secondes l'une de l'autre. `marks` = (heure de la hausse du total, heure de la hausse de repair) ;
+    renvoie (reconnue, nouvelles marques). Tout autre ecart (commande ordinaire : « nobot » bouge ; autre sauvegarde chargee : repair saute) est ignore.
+    Le titre du point de controle peut etre masque par une autre commande suivie (un bot, par exemple) ; ces compteurs, eux, ne mentent pas."""
+    t_total, t_rep = marks
+    if prev is not None and cur[0] == prev[0]:
+        if cur[1] > prev[1]:
+            t_total = now
+        if cur[2] == prev[2] + 1:
+            t_rep = now
+    if t_total is not None and t_rep is not None and now - t_total <= REPAIR_WINDOW and now - t_rep <= REPAIR_WINDOW:
+        return True, (None, None)
+    return False, (t_total, t_rep)
+
+
 def apply_trap(memory, spec: dict) -> typing.Tuple[str, typing.Optional[typing.Tuple[float, float]]]:
     """Applique un piege decrit dans memory_map["traps"]. Renvoie ("ok", (avant, apres)), ("wait", None) si le joueur
     n'est pas lisible (menu, chargement) ou ("fail", None) si la valeur visee est incoherente (piege abandonne)."""
@@ -807,7 +844,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
             last_title_poll = loop.time()
             since_full = loop.time() - last_title_full
             # sans zone connue : nouvel essai complet chaque minute ; avec zone : rescan complet toutes les 4 min au cas ou le jeu ecrive ailleurs
-            full = ctx.title_zones is None or (not ctx.title_zones and since_full >= 60.0) or since_full >= 240.0 or ctx.title_force_full
+            full = ctx.title_zones is None or (not ctx.title_zones and since_full >= 60.0) or since_full >= 240.0 or ctx.title_force_full or loop.time() < ctx.title_burst_until
             ctx.title_force_full = False
             if full:
                 last_title_full = loop.time()
@@ -1039,10 +1076,25 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 ctx.types_source_logged = True
                 logger.debug(f"Compteurs de commandes : table lue [{ctx.memory.named_counters_report()[1]}].")
             if cur is not None:
-                snap = (cur["standard"], cur["main"], cur["bot"])
-                if ctx.title_last_main is not None and cur["main"] != ctx.title_last_main:
-                    ctx.title_force_full = True      # une livraison principale vient d'etre comptee : on relit toute la memoire sans attendre
-                ctx.title_last_main = cur["main"]
+                snap = (cur["standard"], cur["main"], cur["bot"])           # valeurs brutes : servent a juger de la stabilite
+                if ctx.title_last_main is not None and (cur["main"], cur["bot"]) != ctx.title_last_main:
+                    ctx.title_force_full = True      # un compteur de livraisons a bouge : on relit les titres tout de suite
+                    ctx.title_burst_until = loop.time() + 90.0      # puis toutes les 4 s pendant 90 s : le jeu ecrit son point de controle un peu apres
+                ctx.title_last_main = (cur["main"], cur["bot"])
+                named = ctx.memory.read_named_counters()
+                raw_now = (named.get("nobot"), named.get("total"), named.get("repair"), cur["standard"]) if named else None
+                if raw_now != ctx.raw_logged:
+                    if ctx.raw_logged is not None and raw_now is not None:
+                        logger.debug(f"[{time.strftime('%H:%M:%S')}] Compteurs bruts : sans bot {ctx.raw_logged[0]} -> {raw_now[0]}, total {ctx.raw_logged[1]} -> {raw_now[1]}, "
+                                    f"reparation {ctx.raw_logged[2]} -> {raw_now[2]}, standard {ctx.raw_logged[3]} -> {raw_now[3]}")
+                    ctx.raw_logged = raw_now
+                if named and "repair" in named:
+                    sig = (named["nobot"], named["total"], named["repair"])
+                    if sig != ctx.repair_last:      # releves bruts, sans attendre qu'ils soient stables : la 62 peut etre livree juste apres le lancement du client
+                        done, ctx.repair_marks = repair_progress(ctx.repair_last, sig, time.time(), ctx.repair_marks)
+                        ctx.repair_last = sig
+                        if done:
+                            ctx.register_completed_orders([62], "compteur")
                 ctx.type_history = (ctx.type_history + [snap])[-60:]
                 # le jeu ecrit les compteurs separement et parfois a plusieurs secondes d'intervalle (le compteur total peut avancer seul
                 # un moment) : on ne tient compte d'une variation que si les trois valeurs sont restees identiques ~16 s
@@ -1084,6 +1136,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
         last = location_name_to_id[EPISODES[goal_ep][-1]]
         if not ctx.finished and last in (ctx.checked_locations | ctx.manual_checks | ctx.save_checks):
             ctx.finished = True
+            logger.info(f"Objectif atteint : {EPISODES[goal_ep][-1]} terminee, victoire envoyee au serveur.")
             await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
 
 

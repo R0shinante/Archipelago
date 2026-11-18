@@ -20,13 +20,15 @@ Unofficial project, not affiliated with Kojima Productions, 505 Games or the Arc
 
 ## What it does
 
-The **51 main orders** are the checks. Episodes are locked behind "Episode N Access" items. The other multiworld items (crystals, materials,
+The **51 main orders** are the checks. "Episode N Access" items shape the generation logic (an episode is only "reachable" once its item is received), but **the game itself is not locked**:
+nothing stops you from playing the story without having received them (see [Known limitations](#known-limitations)). The other multiworld items (crystals, materials,
 equipment, traps) are applied in game by the client, which accesses the game's memory.
 
 | Feature | Status |
 |---|---|
 | Checks: main orders (51), detected automatically | ✅ |
-| "Episode N Access" items (episode unlocks) | ✅ |
+| "Episode N Access" items in the generation logic (episode regions) | ✅ received and displayed, but **no effect in game** |
+| Real in-game episode locking (preventing play of an episode without its item) | ❌ not possible for now |
 | Chiral Crystals applied in game | ✅ |
 | DeathLink (sending and receiving the player's death) | ✅ validated in game |
 | Likes milestones as checks (`likes_checks` / `likes_step`, up to 50) | ✅ validated in game |
@@ -53,7 +55,7 @@ launches (a few seconds). If the game moves its data (another save, a restart), 
 |---|---|
 | System | **Windows**, with Death Stranding Director's Cut (Steam). The game is expected in French (see [Other languages](#other-languages)) |
 | Archipelago | **0.6.x**, preferably **from source** (<https://github.com/ArchipelagoMW/Archipelago>) |
-| Python | **3.12 or 3.13** when running from source (3.10 and 3.11 will not work) |
+| Python | **3.12 or 3.13** when running from source (on Windows: 3.12.10 or newer; 3.10, 3.11 and 3.14 will not work) |
 | pymem | Python library that lets the client access the game's memory |
 
 ### Step 1 — Install the APWorld
@@ -83,7 +85,7 @@ With the official Archipelago installer, install `pymem` into the Python that ru
 |---|---|---|---|
 | `goal` | `finish_episode_14`, `finish_episode_12` | `finish_episode_14` | Victory condition |
 | `trap_percentage` | 0 to 100 | 15 | Share of filler items turned into traps |
-| `starting_episodes` | 0 to 5 | 0 | Episodes unlocked at the start, in addition to episode 1 |
+| `starting_episodes` | 0 to 5 | 0 | Number of "Episode N Access" items given at the start (random episodes, episode 1 included; generation logic only) |
 | `death_link` | true / false | false | DeathLink (see below) |
 | `likes_checks` | 0 to 50 | 0 | Number of likes checks (0 = disabled) |
 | `likes_step` | 100 to 10000 | 1000 | Likes to earn per milestone |
@@ -139,8 +141,12 @@ of your checkpoints: your saves are never modified.
 
 ### Other languages
 
-Memory reading has been validated on the **French** game. For another language, the words meaning "completed" are set in `saves.completed_words` of `memory_map.json`;
-if in doubt, use save decryption. To change the memory offsets, copy `memory_map.default.json` to `memory_map.json` in Archipelago's user folder.
+Memory reading has been validated on the **French** game. For another language, the words meaning "completed" are set in the `saves.completed_words` section of `memory_map.json`
+(copy `memory_map.default.json` to `memory_map.json` in Archipelago's user folder; the same file is used to change the memory offsets):
+```
+"saves": { "completed_words": ["termin", "complet", "abgeschlossen", "completad"] }
+```
+A word fragment is enough (no accents, lowercase). If in doubt, use save decryption.
 
 ## Client commands
 
@@ -163,6 +169,7 @@ if in doubt, use save decryption. To change the memory offsets, copy `memory_map
 | `/ds_standard_rebase` | Resets the standard-orders baseline |
 | `/ds_bot` | Bot orders delivered (live counter) and milestone progress |
 | `/ds_bot_rebase` | Resets the bot-orders baseline |
+| `/ds_counters snap\|diff\|save` | Diagnostics (read-only): snapshots every named game counter, shows those that changed since the snapshot, or writes them to `DeathStranding_counters.json` |
 | `/ds_hp` | Player health read from memory (test) |
 | `/ds_kill` | Test: sets Sam's health to 0 |
 | `/ds_items` | Items received / applied in game (diagnostics) |
@@ -193,7 +200,14 @@ if in doubt, use save decryption. To change the memory offsets, copy `memory_map
 
 ## Known limitations
 
-- Only the 51 main orders on the list are checks. The list comes from community guides and may contain mistakes (order 17 missing, order 66 with an approximate name).
+- "Episode N Access" items **lock nothing in game**: they only exist in the generation logic. You can play the story in order without having received them, and checks go out
+  as soon as the order is completed. The logic stays valid (it is stricter than the game), but these items have no real use yet; locking episodes in game is not possible for now.
+- Only the 51 main orders on the list are checks. The list comes from community guides and may contain mistakes: order 66 has an approximate name, and numbers
+  6, 10 to 13, 15, 17, 25, 26, 29, 31, 35 to 37, 40, 42, 45, 56 and 57 are missing (missing main orders, or other categories?). When the client sees an order numbered below 100
+  complete that is not on the list, it says so once in the log: please report it with its name and episode.
+- Victory (last order of the goal episode: No. 70, or No. 68 with the episode 12 goal) is validated in game for No. 70 (episode 14 goal), reading memory only: it goes out 30 s to 1 min after the save that follows the credits. No. 68 (episode 12 goal) has not been tested. If victory does not go out, `/check <location name>` sends the check by hand.
+- With bot order checks enabled, No. 70 can send a Bot Orders check by mistake a few seconds after the cremation (the game raises the total counter without counting an ordinary order). Harmless with the episode 14 goal, since the game ends right after.
+- A main order completed while the client was not running is not caught up (memory only keeps the latest checkpoint), except with the optional decryption and `/ds_catchup`. `/check <location name>` sends it by hand.
 - For received items: only Chiral Crystals, materials, traps and the one-shot effects listed above act in game. Other equipment
   (Cargo Skeleton, vehicles, anchors, ladders, weapons, grenades…) is received but **has no effect for now**. Effects never permanently change the game's balance.
 - Memory offsets come from a community cheat table (only the addresses are used, not the file) and from personal measurements.

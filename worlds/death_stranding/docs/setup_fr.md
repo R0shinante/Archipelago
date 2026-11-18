@@ -40,8 +40,10 @@ lit les checkpoints sur une copie temporaire (tes sauvegardes ne sont jamais mod
 
 ## Limites connues
 - Seules les commandes principales de la liste sont des checks (51). La liste vient d'une page communautaire
-  et peut contenir des erreurs (n°17 absente, n°66 au nom approximatif).
-- Les objets reçus n'ont d'effet en jeu que pour les Chiral Crystals (+100, sac à dos) et les matériaux (stock d'une installation) ; le reste est affiché seulement.
+  et peut contenir des erreurs (n°66 au nom approximatif ; les numéros 6, 10 à 13, 15, 17, 25, 26, 29, 31, 35 à 37, 40, 42, 45, 56 et 57 sont absents).
+- Les objets « Episode N Access » ne verrouillent rien en jeu : ils n'existent que dans la logique de génération. La victoire (dernière commande de l'épisode but) est validée en jeu pour la n°70 (objectif épisode 14), pas pour la n°68 (objectif épisode 12) ;
+  `/check <nom du lieu>` envoie un check à la main si elle ne part pas. Avec les paliers de bot, un palier peut partir à tort à la n°70 (sans conséquence).
+- Objets reçus : les cristaux chiraux (+100), les matériaux (stock d'une installation), les pièges et les effets ponctuels listés plus bas agissent en jeu ; le reste de l'équipement est affiché seulement.
 - Pièges, effets des objets et crédit des matériaux : validés en jeu. DeathLink aussi (envoi et réception).
 
 ## DeathLink
@@ -49,8 +51,7 @@ Activez l'option `death_link` dans le YAML, puis régénérez la partie. Le clie
 - quand elle tombe à 0, il prévient les autres joueurs ;
 - quand un DeathLink est reçu, il met la vie de Sam à 0 (dès qu'elle est lisible : pas pendant un chargement ou un menu).
 Une mort provoquée par un DeathLink n'est pas renvoyée (20 s de répit), et une mort envoyée bloque les envois pendant 30 s.
-**Avant de l'activer**, testez à la main : `/ds_hp` doit afficher la vie, puis `/ds_kill` doit tuer Sam. Si la vie affichée est
-juste mais que Sam ne meurt pas, signalez-le : la mort passera alors par une autre valeur (conscience).
+Validé en jeu. En cas de doute, testez à la main : `/ds_hp` doit afficher la vie, puis `/ds_kill` doit tuer Sam.
 
 ## Pièges
 Les pièges sont des objets du multimonde qui modifient l'état de Sam en mémoire. Aucun ne peut tuer Sam.

@@ -20,13 +20,15 @@ Projet non officiel, sans lien avec Kojima Productions, 505 Games ni l'équipe d
 
 ## Ce que fait le mod
 
-Les **51 commandes principales** sont des checks. Les épisodes sont verrouillés derrière des objets « Episode N Access ». Les autres
-objets du multimonde (cristaux, matériaux, équipement, pièges) sont appliqués en jeu par le client, qui accède à la mémoire du jeu.
+Les **51 commandes principales** sont des checks. Des objets « Episode N Access » structurent la logique de génération (un épisode n'est « atteignable » qu'une fois
+son objet reçu), mais **le jeu lui-même n'est pas verrouillé** : rien n'empêche de jouer l'histoire sans les avoir reçus (voir [Limites connues](#limites-connues)).
+Les autres objets du multimonde (cristaux, matériaux, équipement, pièges) sont appliqués en jeu par le client, qui accède à la mémoire du jeu.
 
 | Fonction | État |
 |---|---|
 | Checks : commandes principales (51), détectées automatiquement | ✅ |
-| Objets « Episode N Access » (déblocage des épisodes) | ✅ |
+| Objets « Episode N Access » dans la logique de génération (régions d'épisodes) | ✅ reçus et affichés, mais **sans effet en jeu** |
+| Verrouillage réel des épisodes en jeu (empêcher de jouer un épisode sans l'objet) | ❌ pas possible pour l'instant |
 | Cristaux chiraux appliqués en jeu | ✅ |
 | DeathLink (envoi et réception de la mort du joueur) | ✅ validé en jeu |
 | Paliers de likes comme checks (`likes_checks` / `likes_step`, jusqu'à 50) | ✅ validé en jeu |
@@ -53,7 +55,7 @@ redémarrage), la recherche complète reprend toute seule. Le déchiffrement des
 |---|---|
 | Système | **Windows**, avec Death Stranding Director's Cut (Steam), en français (voir [Autres langues](#autres-langues)) |
 | Archipelago | **0.6.x**, de préférence **depuis les sources** (<https://github.com/ArchipelagoMW/Archipelago>) |
-| Python | **3.12 ou 3.13** si vous utilisez les sources (3.10 et 3.11 ne conviennent pas) |
+| Python | **3.12 ou 3.13** si vous utilisez les sources (sous Windows : 3.12.10 ou plus récent ; 3.10, 3.11 et 3.14 ne conviennent pas) |
 | pymem | Bibliothèque Python qui permet au client d'accéder à la mémoire du jeu |
 
 ### Étape 1 — Installer l'APWorld
@@ -83,7 +85,7 @@ Avec l'installateur officiel d'Archipelago, installez `pymem` dans le Python qui
 |---|---|---|---|
 | `goal` | `finish_episode_14`, `finish_episode_12` | `finish_episode_14` | Condition de victoire |
 | `trap_percentage` | 0 à 100 | 15 | Part du remplissage transformée en pièges |
-| `starting_episodes` | 0 à 5 | 0 | Épisodes débloqués au départ en plus de l'épisode 1 |
+| `starting_episodes` | 0 à 5 | 0 | Nombre d'objets « Episode N Access » donnés au départ (épisodes tirés au hasard, épisode 1 compris ; logique de génération seulement) |
 | `death_link` | vrai / faux | faux | DeathLink (voir ci-dessous) |
 | `likes_checks` | 0 à 50 | 0 | Nombre de checks de likes (0 = désactivé) |
 | `likes_step` | 100 à 10000 | 1000 | Likes à gagner par palier |
@@ -140,9 +142,12 @@ temporaire** de vos checkpoints : vos sauvegardes ne sont jamais modifiées.
 
 ### Autres langues
 
-La lecture en mémoire a été validée sur le jeu en **français**. Pour une autre langue, les mots signifiant « terminée » se règlent dans `saves.completed_words`
-de `memory_map.json` ; en cas de doute, utilisez le déchiffrement des sauvegardes. Pour modifier les offsets, copiez `memory_map.default.json` en `memory_map.json`
-dans le dossier utilisateur d'Archipelago.
+La lecture en mémoire a été validée sur le jeu en **français**. Pour une autre langue, les mots signifiant « terminée » se règlent dans la section `saves.completed_words`
+de `memory_map.json` (copiez `memory_map.default.json` en `memory_map.json` dans le dossier utilisateur d'Archipelago, c'est le même fichier qui sert à modifier les offsets) :
+```
+"saves": { "completed_words": ["termin", "complet", "abgeschlossen", "completad"] }
+```
+Un fragment de mot suffit (sans accents, en minuscules). En cas de doute, utilisez le déchiffrement des sauvegardes.
 
 ## Commandes du client
 
@@ -165,6 +170,7 @@ dans le dossier utilisateur d'Archipelago.
 | `/ds_standard_rebase` | Refixe la base des paliers de commandes standard |
 | `/ds_bot` | Commandes de bot livrées (compteur en direct) et progression des paliers |
 | `/ds_bot_rebase` | Refixe la base des paliers de commandes de bot |
+| `/ds_counters snap\|diff\|save` | Diagnostic (lecture seule) : photographie tous les compteurs nommés du jeu, affiche ceux qui ont changé depuis la photo, ou les écrit dans `DeathStranding_counters.json` |
 | `/ds_hp` | Vie du joueur lue en mémoire (test) |
 | `/ds_kill` | Test : met la vie de Sam à 0 |
 | `/ds_items` | Objets reçus / appliqués en jeu (diagnostic) |
@@ -195,7 +201,15 @@ dans le dossier utilisateur d'Archipelago.
 
 ## Limites connues
 
-- Seules les 51 commandes principales de la liste sont des checks. La liste vient de guides communautaires et peut contenir des erreurs (n°17 absente, n°66 au nom approximatif).
+- Les objets « Episode N Access » **ne verrouillent rien en jeu** : ils n'existent que dans la logique de génération. Le joueur peut jouer l'histoire dans l'ordre sans les avoir
+  reçus, et les checks partent dès que la commande est terminée. La logique reste valide (elle est plus stricte que le jeu), mais ces objets n'ont pas encore d'utilité réelle ;
+  bloquer l'accès aux épisodes en jeu n'est pas possible pour l'instant.
+- Seules les 51 commandes principales de la liste sont des checks. La liste vient de guides communautaires et peut contenir des erreurs : n°66 au nom approximatif, et les numéros
+  6, 10 à 13, 15, 17, 25, 26, 29, 31, 35 à 37, 40, 42, 45, 56 et 57 sont absents (commandes principales manquantes, ou autres catégories ?). Quand le client voit se terminer une commande
+  de numéro inférieur à 100 qui n'est pas dans la liste, il l'indique une fois dans le journal : merci de la signaler avec son nom et son épisode.
+- La victoire (dernière commande de l'épisode but : n°70, ou n°68 avec l'objectif épisode 12) est validée en jeu pour la n°70 (objectif épisode 14), lecture en mémoire seule : elle part 30 s à 1 min après la sauvegarde qui suit le générique. La n°68 (objectif épisode 12) n'a pas été testée. Si la victoire ne part pas, `/check <nom du lieu>` envoie le check à la main.
+- Si les paliers de commandes de bot sont activés, la n°70 peut faire partir un palier de bot à tort quelques secondes après la crémation (le jeu fait monter le compteur total sans compter une commande ordinaire). Sans conséquence avec l'objectif 14, la partie se termine juste après.
+- Une commande principale terminée pendant que le client n'était pas lancé n'est pas rattrapée (la mémoire ne garde que le dernier point de contrôle), sauf avec le déchiffrement optionnel et `/ds_catchup`. `/check <nom du lieu>` permet de l'envoyer à la main.
 - Pour les objets reçus : seuls les cristaux chiraux, les matériaux, les pièges et les effets ponctuels listés ci-dessus agissent en jeu. Les autres équipements
   (Cargo Skeleton, véhicules, ancrages, échelles, armes, grenades…) sont reçus mais **n'ont pas d'effet pour l'instant**. Les effets ne modifient jamais durablement l'équilibre du jeu.
 - Les offsets mémoire proviennent d'une table de triche communautaire (seules les adresses sont reprises, pas le fichier) et de relevés personnels.

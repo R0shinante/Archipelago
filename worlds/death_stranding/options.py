@@ -19,7 +19,8 @@ class TrapPercentage(Range):
 
 
 class StartingEpisodes(Range):
-    """Nombre d'épisodes débloqués au départ en plus de l'épisode 1 (choisis aléatoirement)."""
+    """Nombre d'objets « Episode N Access » donnés au départ (épisodes tirés au hasard parmi ceux de la partie, épisode 1 compris).
+    Ces objets n'agissent que sur la logique de génération : le jeu n'est pas verrouillé."""
     display_name = "Épisodes de départ supplémentaires"
     range_start = 0
     range_end = 5

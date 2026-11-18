@@ -418,7 +418,8 @@ class GameMemory:
             return None, f"0x{base:X} : pas une table de compteurs (illisible, peu remplie ou incoherente)"
         ko, vo = _num(cfg.get("key_offset", 4)), _num(cfg.get("value_offset", 20))
         ho = _num(cfg.get("hash_offset", 0))
-        wanted = {name: (bytes.fromhex(c["key"]), _num(c["hash"])) for name, c in cfg.get("counters", {}).items()}
+        wanted = {name: (bytes.fromhex(c["key"]), _num(c["hash"]) if c.get("hash") else None) for name, c in cfg.get("counters", {}).items()}
+        optional = {name for name, c in cfg.get("counters", {}).items() if c.get("optional")}     # cle absente = compteur pas encore cree = 0
         found: typing.Dict[str, typing.List[int]] = {name: [] for name in wanted}
         seen_key: typing.Dict[str, typing.List[str]] = {name: [] for name in wanted}
         for s in range(slots):
@@ -429,10 +430,15 @@ class GameMemory:
                 if key == k:
                     v = struct.unpack_from("<i", data, o + vo)[0]
                     seen_key[name].append(f"case {s} hash 0x{h:X} valeur {v}")
-                    if h == kh:
+                    # hash connu : on l'exige ; sinon (compteur dont le hash n'a pas ete releve) : hash non nul et case compatible avec le sondage
+                    # (les copies anciennes ont un hash nul)
+                    if (h == kh) if kh is not None else (h != 0 and (s - (h & (slots - 1))) % slots < 256):
                         found[name].append(v)
         out = {}
         for name, vals in found.items():
+            if not vals and name in optional:
+                out[name] = 0
+                continue
             if len(vals) != 1:
                 return None, f"0x{base:X} ({slots} cases) : compteur « {name} » : {len(vals)} case(s) valides ; cases avec la cle : {'; '.join(seen_key[name]) or 'aucune'}"
             if not 0 <= vals[0] <= 1_000_000:
@@ -554,6 +560,7 @@ class GameMemory:
         if scanned is not None:      # base retrouvee par recherche memoire : on la reverifie a chaque lecture
             out, why = self._read_counters_at(cfg, scanned)
             if out is not None:
+                self._named_last_base = scanned
                 return out, f"ok (recherche memoire, {why})"
             self._named_base = None
         roots = cfg.get("roots") or []
@@ -572,6 +579,7 @@ class GameMemory:
             out, why = self._read_counters_at(cfg, base)
             if out is not None:
                 self._named_root = i
+                self._named_last_base = base
                 return out, f"ok (chaine n°{i + 1}, {why})"
             table_level.append(f"#{i + 1} {why}")
         shown = (table_level + reasons)[:3]
@@ -581,13 +589,36 @@ class GameMemory:
         """Compteurs nommes du jeu ({nom: valeur}), ou None si illisible ou incoherent (voir named_counters_report)."""
         return self.named_counters_report()[0]
 
+    def dump_named_table(self) -> typing.Optional[typing.Dict[str, int]]:
+        """TOUS les compteurs de la table nommee ({cle en hexadecimal (32 caracteres): valeur int32}), pas seulement les trois que le client utilise.
+        Diagnostic en lecture seule : sert a reperer, par difference avant / apres un evenement du jeu, quels autres compteurs bougent (par categorie
+        de commande, par exemple). Les cases a hash nul (copies anciennes) sont ignorees. None si la table n'est pas lisible."""
+        if self.named_counters_report()[0] is None:
+            return None
+        base, cfg = getattr(self, "_named_last_base", None), self.cfg.get("named_counters", {})
+        if base is None:
+            return None
+        data, slots = self._table_capacity(cfg, base)
+        if data is None:
+            return None
+        size = int(cfg.get("slot_size", 24))
+        ko, vo, ho = _num(cfg.get("key_offset", 4)), _num(cfg.get("value_offset", 20)), _num(cfg.get("hash_offset", 0))
+        out: typing.Dict[str, int] = {}
+        for s in range(slots):
+            o = s * size
+            if struct.unpack_from("<I", data, o + ho)[0]:
+                out[data[o + ko:o + ko + 16].hex()] = struct.unpack_from("<i", data, o + vo)[0]
+        return out
+
     def read_order_types(self) -> typing.Optional[typing.Dict[str, int]]:
         """Totaux de livraisons par type, a une constante pres (seuls les ecarts comptent) : {"standard", "main", "bot"}, ou None.
         main = nobot - standard ; bot = total - nobot. Lecture coherente exigee (les trois compteurs sont ecrits separement par le jeu)."""
         named, std = self.read_named_counters(), self.read_standard_orders()
         if named is None or std is None or "nobot" not in named or "total" not in named:
             return None
-        return {"standard": std, "main": named["nobot"] - std, "bot": named["total"] - named["nobot"]}
+        # "repair" : cle creee quand la commande de reparation n°62 se termine (absente avant = 0) ; le total monte alors, pas « nobot » : sans elle la 62 ressemblerait a un bot ;
+        # le +1000 ne sert qu'a garder une valeur positive (seuls les ecarts comptent)
+        return {"standard": std, "main": named["nobot"] - std, "bot": named["total"] - named["nobot"] - named.get("repair", 0) + 1000}
 
     def _i64(self, addr: int) -> typing.Optional[int]:
         data = self.backend.read(addr, 8)

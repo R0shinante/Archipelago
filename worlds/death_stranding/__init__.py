@@ -174,6 +174,8 @@ class DeathStrandingWorld(World):
     def fill_slot_data(self) -> dict[str, Any]:
         return {
             "goal_episode": self.goal_episode,
+            "episode_gating": bool(self.options.episode_gating.value),
+            "starting_items": list(self.starting_items),
             "death_link": bool(self.options.death_link.value),
             "likes_checks": self.options.likes_checks.value,
             "likes_step": self.options.likes_step.value,

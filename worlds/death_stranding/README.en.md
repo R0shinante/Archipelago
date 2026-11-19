@@ -85,6 +85,7 @@ With the official Archipelago installer, install `pymem` into the Python that ru
 |---|---|---|---|
 | `goal` | `finish_episode_14`, `finish_episode_12` | `finish_episode_14` | Victory condition |
 | `trap_percentage` | 0 to 100 | 15 | Share of filler items turned into traps |
+| `episode_gating` | `false`, `true` | `false` | Holds main-order checks until the items "Episode 1 Access" to "Episode N Access" are received (see below) |
 | `starting_episodes` | 0 to 5 | 0 | Number of "Episode N Access" items given at the start (random episodes, episode 1 included; generation logic only) |
 | `death_link` | true / false | false | DeathLink (see below) |
 | `likes_checks` | 0 to 50 | 0 | Number of likes checks (0 = disabled) |
@@ -106,7 +107,7 @@ It measures steps, all types combined, and does not count lost-cargo deliveries.
 
 **Standard orders.** The "Standard Orders N" check unlocks when you have delivered N × `standard_step` standard orders **since your first connection**. This is the game's exact counter, read live with no save needed: main orders, bot orders and lost-cargo deliveries do not count. `/ds_standard` shows the progress and `/ds_standard_rebase` resets the baseline.
 
-**Bot orders.** The "Bot Orders N" check unlocks after N × `bot_step` bot deliveries **since your first connection**, with no save needed. The counter is derived from two internal game counters (total and non-bot) that are not written at the same moment: the client waits about 90 s without change before confirming, to avoid false positives during a delivery. Lost-cargo deliveries and equipment requests have not been tested. `/ds_bot` shows the progress and `/ds_bot_rebase` resets the baseline. Main orders are not affected: they have their named checks.
+**Bot orders.** The "Bot Orders N" check unlocks after N × `bot_step` bot deliveries **since your first connection**, with no save needed. The counter is derived from two internal game counters (total and non-bot) that are not written at the same moment: the client waits about 90 s without change before confirming, to avoid false positives during a delivery, and holds the confirmation while a standard order (results screen) or a special order (62, 70) is being finalised. **Known limitation:** the game keeps no separate counter for returned lost cargo, which raises the bot counter like a bot delivery and therefore counts towards these milestones (seen on two deliveries). Equipment requests have not been tested (they need the game to be online). `/ds_bot` shows the progress and `/ds_bot_rebase` resets the baseline. Main orders are not affected: they have their named checks.
 
 **DeathLink.** The client reads Sam's health: at 0 it notifies the other players; when a DeathLink is received it sets Sam's health to 0
 (as soon as it is readable, so not during a loading screen or a menu). A received death is not sent back (20 s grace) and a sent death blocks further sends for 30 s.
@@ -121,7 +122,7 @@ address (`localhost:38281` by default).
 
 1. Launch Death Stranding **offline** and load your dedicated save.
 2. In the Archipelago Launcher, open **Death Stranding Client** and connect: `/connect localhost:38281`.
-3. **Check memory access:** `/ds_status` should show your Chiral Crystal amounts. Write test: `/ds_give Chiral Crystals 10`.
+3. **Check memory access:** `/ds_status` should show your Chiral Crystal amounts. Write test (after `/ds_debug on`): `/ds_give Chiral Crystals 10`.
 4. **Wait for the first search to finish:** the log shows "Commandes principales : lecture en memoire active …" (about a minute the first time, a few seconds afterwards).
 5. **Play.** Complete a main order: the client reads its title from memory, sends the check, and the server hands out items.
    Received items are shown in the client console. Only orders completed **after** the client starts count.
@@ -158,10 +159,11 @@ A word fragment is enough (no accents, lowercase). If in doubt, use save decrypt
 | `/locations` | Lists the world's locations (orders) |
 | `/check <name>` | Sends a check manually |
 | `/ds_status` | Amounts read from memory |
-| `/ds_give <resource> <amount>` | Memory write test (backpack) |
-| `/ds_effect [name]` | Tests a trap or item effect (no name: list); `/ds_trap` is an alias |
+| `/ds_debug on\|off` | Turns on or off, for the current session, the test commands that **write to the game** (`/ds_give`, `/ds_effect`, `/ds_trap`, `/ds_likes_give`, `/ds_stock_give`, `/ds_kill`). Off at every client start |
+| `/ds_give <resource> <amount>` | Test (after `/ds_debug on`): memory write (backpack) |
+| `/ds_effect [name]` | Test (after `/ds_debug on`) of a trap or item effect (no name: list); `/ds_trap` is an alias |
 | `/ds_likes` | Likes read from memory (NPC / players / total) |
-| `/ds_likes_give <npc\|players> <n>` | Write test for a likes counter |
+| `/ds_likes_give <npc\|players> <n>` | Test (after `/ds_debug on`): write a likes counter |
 | `/ds_likes_rebase` | Resets the likes milestone baseline |
 | `/ds_orders` | Order-step counter and milestone progress |
 | `/ds_orders_rebase` | Resets the order-progress baseline |
@@ -169,16 +171,17 @@ A word fragment is enough (no accents, lowercase). If in doubt, use save decrypt
 | `/ds_standard_rebase` | Resets the standard-orders baseline |
 | `/ds_bot` | Bot orders delivered (live counter) and milestone progress |
 | `/ds_bot_rebase` | Resets the bot-orders baseline |
-| `/ds_counters snap\|diff\|save` | Diagnostics (read-only): snapshots every named game counter, shows those that changed since the snapshot, or writes them to `DeathStranding_counters.json` |
+| `/ds_counters snap\|diff\|save\|watch [on\|off]` | Diagnostics (read-only): snapshots every named game counter, shows those that changed since the snapshot, writes them to `DeathStranding_counters.json`, or (`watch`) prints every change to the console as it happens (turn it off after testing) |
+| `/ds_held` | Lists the checks held by the `episode_gating` option, waiting for an "Episode N Access" item |
 | `/ds_hp` | Player health read from memory (test) |
-| `/ds_kill` | Test: sets Sam's health to 0 |
+| `/ds_kill` | Test (after `/ds_debug on`): sets Sam's health to 0 |
 | `/ds_items` | Items received / applied in game (diagnostics) |
 | `/ds_items_reset <n>` | Resets the applied-items index |
 | `/ds_stock [facility]` | Material stocks of a facility |
 | `/ds_stock_mode random\|target` | Material distribution: random facility (default) or chosen one |
 | `/ds_stock_pool Name1; Name2` | Limits the random draw to some facilities (`all` = all of them) |
 | `/ds_stock_target <facility>` | Facility credited in `target` mode |
-| `/ds_stock_give <material> <amount>` | Write test for a stock |
+| `/ds_stock_give <material> <amount>` | Test (after `/ds_debug on`): write a stock |
 | `/ds_resigner <exe>` | (optional) Path of the decryption tool. `/ds_resigner off` / `on` disables / re-enables decryption |
 | `/ds_saves_dir <folder>` | (optional) Saves folder |
 | `/ds_saves` | (optional) Decryption status (checkpoints seen, orders detected) |
@@ -196,23 +199,23 @@ A word fragment is enough (no accents, lowercase). If in doubt, use save decrypt
 | A completed main order is not detected | Wait for the "lecture en memoire active" line at startup; the check goes out within seconds of the game writing its checkpoint. Only orders completed after the client starts count. As a last resort, set up save decryption (see above) |
 | "aucun titre de sauvegarde en memoire pour l'instant" | Normal until the game has written a checkpoint; the client retries every minute |
 | Order counters (standard, bot) stay silent | After a game restart or a change of save, the client searches memory for the table (up to a minute); `/ds_bot` shows the state |
-| An effect or trap does not apply | It waits until Sam is readable (not during a loading screen or menu). Test with `/ds_effect <name>` |
+| An effect or trap does not apply | It waits until Sam is readable (not during a loading screen or menu). Test with `/ds_debug on` then `/ds_effect <name>` |
 
 ## Known limitations
 
 - "Episode N Access" items **lock nothing in game**: they only exist in the generation logic. You can play the story in order without having received them, and checks go out
-  as soon as the order is completed. The logic stays valid (it is stricter than the game), but these items have no real use yet; locking episodes in game is not possible for now.
+  as soon as the order is completed. With the `episode_gating` option the client **holds back sending** main-order checks: an order of episode N is only sent once "Episode 1 Access" to "Episode N Access" are received (same rule as generation). The order completes normally in game and its check goes out as soon as the item arrives; held checks survive a client restart (`/ds_held` lists them). Likes, order progress, standard order and bot order checks are never held, and `/check <location>` sends a check regardless of the hold. The game itself is not locked.
 - Only the 51 main orders on the list are checks. The list comes from community guides and may contain mistakes: order 66 has an approximate name, and numbers
   6, 10 to 13, 15, 17, 25, 26, 29, 31, 35 to 37, 40, 42, 45, 56 and 57 are missing (missing main orders, or other categories?). When the client sees an order numbered below 100
   complete that is not on the list, it says so once in the log: please report it with its name and episode.
 - Victory (last order of the goal episode: No. 70, or No. 68 with the episode 12 goal) is validated in game for No. 70 (episode 14 goal), reading memory only: it goes out 30 s to 1 min after the save that follows the credits. No. 68 (episode 12 goal) has not been tested. If victory does not go out, `/check <location name>` sends the check by hand.
-- With bot order checks enabled, No. 70 can send a Bot Orders check by mistake a few seconds after the cremation (the game raises the total counter without counting an ordinary order). Harmless with the episode 14 goal, since the game ends right after.
+- With bot order checks enabled, No. 70 can still send a Bot Orders check by mistake (the game raises the total counter without counting an ordinary order): the client first holds the confirmation for 5 minutes, which lets the game end. Harmless with the episode 14 goal.
 - A main order completed while the client was not running is not caught up (memory only keeps the latest checkpoint), except with the optional decryption and `/ds_catchup`. `/check <location name>` sends it by hand.
 - For received items: only Chiral Crystals, materials, traps and the one-shot effects listed above act in game. Other equipment
   (Cargo Skeleton, vehicles, anchors, ladders, weapons, grenades…) is received but **has no effect for now**. Effects never permanently change the game's balance.
 - Memory offsets come from a community cheat table (only the addresses are used, not the file) and from personal measurements.
   They may break with any game update.
-- The research on the order counters is documented in [`docs/RECHERCHE_compteurs_commandes.md`](docs/RECHERCHE_compteurs_commandes.md) (in French).
+- The research on the order counters is documented in [`death_stranding_research/RECHERCHE_compteurs_commandes.md`](https://github.com/R0shinante/Archipelago/blob/death-stranding/death_stranding_research/RECHERCHE_compteurs_commandes.md) (in French, on the repository branch, outside the APWorld).
 
 ## Tests
 

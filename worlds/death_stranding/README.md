@@ -85,6 +85,7 @@ Avec l'installateur officiel d'Archipelago, installez `pymem` dans le Python qui
 |---|---|---|---|
 | `goal` | `finish_episode_14`, `finish_episode_12` | `finish_episode_14` | Condition de victoire |
 | `trap_percentage` | 0 à 100 | 15 | Part du remplissage transformée en pièges |
+| `episode_gating` | `false`, `true` | `false` | Retient l'envoi des checks de commandes principales tant que les objets « Episode 1 Access » à « Episode N Access » ne sont pas reçus (voir plus bas) |
 | `starting_episodes` | 0 à 5 | 0 | Nombre d'objets « Episode N Access » donnés au départ (épisodes tirés au hasard, épisode 1 compris ; logique de génération seulement) |
 | `death_link` | vrai / faux | faux | DeathLink (voir ci-dessous) |
 | `likes_checks` | 0 à 50 | 0 | Nombre de checks de likes (0 = désactivé) |
@@ -106,7 +107,7 @@ Il mesure des étapes, tous types confondus, et ne compte pas les livraisons de 
 
 **Commandes standard.** Le check « Standard Orders N » se débloque quand vous avez livré N × `standard_step` commandes standard **depuis la première connexion**. C'est le compteur exact du jeu, lu en direct, sans sauvegarde : les commandes principales, les commandes de bot et les marchandises perdues ne comptent pas. `/ds_standard` affiche la progression, `/ds_standard_rebase` refixe la base.
 
-**Commandes de bot.** Le check « Bot Orders N » se débloque après N × `bot_step` livraisons de bot **depuis la première connexion**, sans sauvegarde. Le compteur est déduit de deux compteurs internes du jeu (total et hors bot), qui ne sont pas écrits au même moment : le client attend environ 90 s sans changement avant de valider, pour éviter les faux positifs pendant une livraison. Les marchandises perdues et les demandes d'équipement ne sont pas testées. `/ds_bot` affiche la progression, `/ds_bot_rebase` refixe la base. Les commandes principales ne sont pas concernées : elles ont leurs checks nominatifs.
+**Commandes de bot.** Le check « Bot Orders N » se débloque après N × `bot_step` livraisons de bot **depuis la première connexion**, sans sauvegarde. Le compteur est déduit de deux compteurs internes du jeu (total et hors bot), qui ne sont pas écrits au même moment : le client attend environ 90 s sans changement avant de valider, pour éviter les faux positifs pendant une livraison, et retient la validation tant qu'une commande standard (écran de résultat) ou spéciale (62, 70) est en cours de finalisation. **Limite connue :** le jeu n'écrit pas de compteur distinct pour les marchandises perdues rendues, qui augmentent le compteur de bot comme une livraison de bot et comptent donc dans ces paliers (relevé sur deux livraisons). Les demandes d'équipement ne sont pas testées (elles exigent d'être en ligne). `/ds_bot` affiche la progression, `/ds_bot_rebase` refixe la base. Les commandes principales ne sont pas concernées : elles ont leurs checks nominatifs.
 
 **DeathLink.** Le client lit la vie de Sam : à 0, il prévient les autres joueurs ; à la réception d'un DeathLink, il met la vie de Sam à 0
 (dès qu'elle est lisible, donc pas pendant un chargement ou un menu). Une mort reçue n'est pas renvoyée (20 s de répit) et une mort envoyée bloque
@@ -122,7 +123,7 @@ l'adresse (par défaut `localhost:38281`).
 
 1. Lancez Death Stranding **hors ligne** et chargez votre sauvegarde dédiée.
 2. Dans le Launcher d'Archipelago, ouvrez **Death Stranding Client** et connectez-vous : `/connect localhost:38281`.
-3. **Vérifiez l'accès à la mémoire :** `/ds_status` doit afficher vos quantités de cristaux chiraux. Test d'écriture : `/ds_give Chiral Crystals 10`.
+3. **Vérifiez l'accès à la mémoire :** `/ds_status` doit afficher vos quantités de cristaux chiraux. Test d'écriture (après `/ds_debug on`) : `/ds_give Chiral Crystals 10`.
 4. **Attendez la fin de la première recherche :** le log affiche « Commandes principales : lecture en mémoire active … » (environ une minute la première fois, quelques secondes ensuite).
 5. **Jouez.** Terminez une commande principale : le client lit son titre en mémoire, envoie le check et le serveur distribue les objets.
    Les objets reçus s'affichent dans la console du client. Seules les commandes terminées **après** le démarrage du client comptent.
@@ -159,10 +160,11 @@ Un fragment de mot suffit (sans accents, en minuscules). En cas de doute, utilis
 | `/locations` | Liste les lieux (commandes) du monde |
 | `/check <nom>` | Envoie un check manuellement |
 | `/ds_status` | Quantités lues en mémoire |
-| `/ds_give <ressource> <quantité>` | Test d'écriture en mémoire (sac à dos) |
-| `/ds_effect [nom]` | Test d'un piège ou d'un effet d'objet (sans nom : liste) ; `/ds_trap` est un alias |
+| `/ds_debug on\|off` | Active ou coupe, pour la session en cours, les commandes de test qui **écrivent dans le jeu** (`/ds_give`, `/ds_effect`, `/ds_trap`, `/ds_likes_give`, `/ds_stock_give`, `/ds_kill`). Coupées à chaque lancement du client |
+| `/ds_give <ressource> <quantité>` | Test (après `/ds_debug on`) : écriture en mémoire (sac à dos) |
+| `/ds_effect [nom]` | Test (après `/ds_debug on`) d'un piège ou d'un effet d'objet (sans nom : liste) ; `/ds_trap` est un alias |
 | `/ds_likes` | Likes lus en mémoire (PNJ / joueurs / total) |
-| `/ds_likes_give <npc\|players> <n>` | Test d'écriture d'un compteur de likes |
+| `/ds_likes_give <npc\|players> <n>` | Test (après `/ds_debug on`) : écriture d'un compteur de likes |
 | `/ds_likes_rebase` | Refixe la base des paliers de likes |
 | `/ds_orders` | Compteur d'étapes de commande et progression des paliers |
 | `/ds_orders_rebase` | Refixe la base des paliers de progression des commandes |
@@ -170,16 +172,17 @@ Un fragment de mot suffit (sans accents, en minuscules). En cas de doute, utilis
 | `/ds_standard_rebase` | Refixe la base des paliers de commandes standard |
 | `/ds_bot` | Commandes de bot livrées (compteur en direct) et progression des paliers |
 | `/ds_bot_rebase` | Refixe la base des paliers de commandes de bot |
-| `/ds_counters snap\|diff\|save` | Diagnostic (lecture seule) : photographie tous les compteurs nommés du jeu, affiche ceux qui ont changé depuis la photo, ou les écrit dans `DeathStranding_counters.json` |
+| `/ds_counters snap\|diff\|save\|watch [on\|off]` | Diagnostic (lecture seule) : photographie tous les compteurs nommés du jeu, affiche ceux qui ont changé depuis la photo, les écrit dans `DeathStranding_counters.json`, ou (`watch`) écrit en continu chaque changement dans la console (à couper après le test) |
+| `/ds_held` | Liste les checks retenus par l'option `episode_gating`, en attente d'un objet « Episode N Access » |
 | `/ds_hp` | Vie du joueur lue en mémoire (test) |
-| `/ds_kill` | Test : met la vie de Sam à 0 |
+| `/ds_kill` | Test (après `/ds_debug on`) : met la vie de Sam à 0 |
 | `/ds_items` | Objets reçus / appliqués en jeu (diagnostic) |
 | `/ds_items_reset <n>` | Recale l'index des objets appliqués |
 | `/ds_stock [installation]` | Stocks de matériaux d'une installation |
 | `/ds_stock_mode random\|target` | Répartition des matériaux : installation au hasard (défaut) ou choisie |
 | `/ds_stock_pool Nom1; Nom2` | Limite le tirage au hasard à certaines installations (`all` = toutes) |
 | `/ds_stock_target <installation>` | Installation créditée en mode `target` |
-| `/ds_stock_give <matériau> <quantité>` | Test d'écriture d'un stock |
+| `/ds_stock_give <matériau> <quantité>` | Test (après `/ds_debug on`) : écriture d'un stock |
 | `/ds_resigner <exe>` | (optionnel) Chemin de l'outil de déchiffrement. `/ds_resigner off` / `on` : désactive / réactive le déchiffrement |
 | `/ds_saves_dir <dossier>` | (optionnel) Dossier des sauvegardes |
 | `/ds_saves` | (optionnel) État du déchiffrement (checkpoints vus, commandes détectées) |
@@ -197,24 +200,24 @@ Un fragment de mot suffit (sans accents, en minuscules). En cas de doute, utilis
 | Une commande principale terminée n'est pas détectée | Attendez la ligne « lecture en mémoire active » au démarrage ; le check part dans les secondes qui suivent la sauvegarde du jeu. Seules les commandes terminées après le démarrage du client comptent. En dernier recours, configurez le déchiffrement des sauvegardes (voir plus haut) |
 | « aucun titre de sauvegarde en mémoire pour l'instant » | Normal tant que le jeu n'a pas écrit de point de contrôle ; le client réessaie chaque minute |
 | Les compteurs de commandes (standard, bot) restent muets | Le client retrouve la table en mémoire (jusqu'à une minute) après un redémarrage du jeu ou un changement de sauvegarde ; `/ds_bot` indique l'état |
-| Un effet ou piège ne s'applique pas | Il attend que Sam soit lisible (pas pendant un chargement ou un menu). Testez avec `/ds_effect <nom>` |
+| Un effet ou piège ne s'applique pas | Il attend que Sam soit lisible (pas pendant un chargement ou un menu). Testez avec `/ds_debug on` puis `/ds_effect <nom>` |
 
 ## Limites connues
 
 - Les objets « Episode N Access » **ne verrouillent rien en jeu** : ils n'existent que dans la logique de génération. Le joueur peut jouer l'histoire dans l'ordre sans les avoir
-  reçus, et les checks partent dès que la commande est terminée. La logique reste valide (elle est plus stricte que le jeu), mais ces objets n'ont pas encore d'utilité réelle ;
+  reçus, et les checks partent dès que la commande est terminée. Avec l'option `episode_gating`, le client **retient l'envoi** des checks de commandes principales : une commande de l'épisode N n'est envoyée qu'une fois les objets « Episode 1 Access » à « Episode N Access » reçus (même règle que la génération). La commande se termine normalement dans le jeu et son check part dès que l'objet arrive ; les checks retenus survivent à un redémarrage du client (`/ds_held` les liste). Les checks de likes, de progression, de commandes standard et de bot ne sont jamais retenus, et `/check <lieu>` envoie un check sans tenir compte de la retenue. Le jeu lui-même n'est pas verrouillé ;
   bloquer l'accès aux épisodes en jeu n'est pas possible pour l'instant.
 - Seules les 51 commandes principales de la liste sont des checks. La liste vient de guides communautaires et peut contenir des erreurs : n°66 au nom approximatif, et les numéros
   6, 10 à 13, 15, 17, 25, 26, 29, 31, 35 à 37, 40, 42, 45, 56 et 57 sont absents (commandes principales manquantes, ou autres catégories ?). Quand le client voit se terminer une commande
   de numéro inférieur à 100 qui n'est pas dans la liste, il l'indique une fois dans le journal : merci de la signaler avec son nom et son épisode.
 - La victoire (dernière commande de l'épisode but : n°70, ou n°68 avec l'objectif épisode 12) est validée en jeu pour la n°70 (objectif épisode 14), lecture en mémoire seule : elle part 30 s à 1 min après la sauvegarde qui suit le générique. La n°68 (objectif épisode 12) n'a pas été testée. Si la victoire ne part pas, `/check <nom du lieu>` envoie le check à la main.
-- Si les paliers de commandes de bot sont activés, la n°70 peut faire partir un palier de bot à tort quelques secondes après la crémation (le jeu fait monter le compteur total sans compter une commande ordinaire). Sans conséquence avec l'objectif 14, la partie se termine juste après.
+- Si les paliers de commandes de bot sont activés, la n°70 peut encore faire partir un palier de bot à tort (le jeu fait monter le compteur total sans compter une commande ordinaire) : le client retient d'abord la confirmation 5 minutes, ce qui laisse la partie se terminer. Sans conséquence avec l'objectif 14.
 - Une commande principale terminée pendant que le client n'était pas lancé n'est pas rattrapée (la mémoire ne garde que le dernier point de contrôle), sauf avec le déchiffrement optionnel et `/ds_catchup`. `/check <nom du lieu>` permet de l'envoyer à la main.
 - Pour les objets reçus : seuls les cristaux chiraux, les matériaux, les pièges et les effets ponctuels listés ci-dessus agissent en jeu. Les autres équipements
   (Cargo Skeleton, véhicules, ancrages, échelles, armes, grenades…) sont reçus mais **n'ont pas d'effet pour l'instant**. Les effets ne modifient jamais durablement l'équilibre du jeu.
 - Les offsets mémoire proviennent d'une table de triche communautaire (seules les adresses sont reprises, pas le fichier) et de relevés personnels.
   Ils peuvent casser à chaque mise à jour du jeu.
-- Le détail des recherches sur les compteurs de commandes est dans [`docs/RECHERCHE_compteurs_commandes.md`](docs/RECHERCHE_compteurs_commandes.md).
+- Le détail des recherches sur les compteurs de commandes est dans [`death_stranding_research/RECHERCHE_compteurs_commandes.md`](https://github.com/R0shinante/Archipelago/blob/death-stranding/death_stranding_research/RECHERCHE_compteurs_commandes.md) (sur la branche du dépôt, hors de l'APWorld).
 
 ## Tests
 

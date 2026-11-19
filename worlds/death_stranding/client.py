@@ -7,7 +7,7 @@
   * mode manuel            : /check <lieu> envoie un check a la main.
 
 Commandes : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_effect, /ds_trap (alias),
-/ds_likes, /ds_likes_give, /ds_likes_rebase, /ds_orders, /ds_orders_rebase, /ds_standard, /ds_standard_rebase, /ds_bot, /ds_bot_rebase, /ds_counters,
+/ds_likes, /ds_likes_give, /ds_likes_rebase, /ds_orders, /ds_orders_rebase, /ds_standard, /ds_standard_rebase, /ds_bot, /ds_bot_rebase, /ds_counters, /ds_held,
 /ds_items, /ds_items_reset, /ds_resigner, /ds_saves, /ds_saves_dir, /ds_selftest, /ds_catchup.
 """
 from __future__ import annotations
@@ -17,6 +17,7 @@ import random
 import time
 import json
 import os
+import re
 import typing
 
 import Utils
@@ -28,6 +29,9 @@ from .data import EPISODES, ORDER_TO_LOCATION
 from .locations import BOT_ORDER_BASE_ID, ORDER_PROGRESS_BASE_ID, STANDARD_ORDER_BASE_ID, location_name_to_id
 from .memory import GameMemory, PymemBackend
 from .savewatch import DEFAULT_COMPLETED_WORDS, ResignerCli, SaveWatcher, autodetect_root, parse_title, read_header
+
+# lieu -> episode (option episode_gating) : meme table que la generation (data.EPISODES) ; le prologue (episode 0) n'est jamais retenu
+EPISODE_OF_LOCATION: typing.Dict[int, int] = {location_name_to_id[name]: ep for ep, names in EPISODES.items() if ep > 0 for name in names}
 
 # Familles de checks par type de commande lues dans la table de compteurs nommes : (base d'id, prefixe d'option, libelle, nom du lieu)
 ORDER_TYPES = {"bot": (BOT_ORDER_BASE_ID, "bot", "commandes de bot", "Bot Orders")}
@@ -101,6 +105,23 @@ def _json_save(name: str, data: dict) -> None:
 
 
 class DeathStrandingCommandProcessor(ClientCommandProcessor):
+    def _debug_enabled(self) -> bool:
+        """Les commandes de test qui ECRIVENT dans le jeu (/ds_give, /ds_effect, /ds_trap, /ds_likes_give, /ds_stock_give, /ds_kill) sont coupees
+        par defaut : /ds_debug on les active pour la session en cours (jamais enregistre : elles sont coupees a chaque lancement du client)."""
+        if getattr(self.ctx, "debug_commands", False):
+            return True
+        self.output("Commande de test desactivee : elle ecrit dans le jeu. Tapez /ds_debug on pour l'activer (jusqu'a la fermeture du client).")
+        return False
+
+    def _cmd_ds_debug(self, mode: str = "") -> None:
+        """Active ou coupe les commandes de test qui ecrivent dans le jeu : /ds_debug on | off (coupees a chaque lancement)."""
+        m = mode.strip().lower()
+        if m in ("on", "off"):
+            self.ctx.debug_commands = (m == "on")
+        names = "/ds_give, /ds_effect, /ds_trap, /ds_likes_give, /ds_stock_give, /ds_kill"
+        self.output(f"Commandes de test {'ACTIVEES' if getattr(self.ctx, 'debug_commands', False) else 'desactivees'} : {names}. "
+                    "Usage : /ds_debug on | off.")
+
     @mark_raw
     def _cmd_check(self, name: str = "") -> None:
         """Envoie manuellement un check : /check <nom exact du lieu>"""
@@ -132,7 +153,9 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
             self.output(f"  {name} : {ctx.memory.read_resource(name)} (quantite, maximum)")
 
     def _cmd_ds_give(self, *args: str) -> None:
-        """Test : /ds_give <ressource> <quantite>   ex : /ds_give Chiral Crystals 100"""
+        """[test, /ds_debug on] /ds_give <ressource> <quantite>   ex : /ds_give Chiral Crystals 100"""
+        if not self._debug_enabled():
+            return
         if len(args) < 2:
             self.output("Usage : /ds_give <ressource> <quantite>")
             return
@@ -147,7 +170,9 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
 
     @mark_raw
     def _cmd_ds_effect(self, name: str = "") -> None:
-        """Test d'un piege ou d'un effet : /ds_effect <nom>  (ex : /ds_effect Injury, /ds_effect Blood Bag). Sans nom : liste."""
+        """[test, /ds_debug on] Test d'un piege ou d'un effet : /ds_effect <nom>  (ex : /ds_effect Injury, /ds_effect Blood Bag). Sans nom : liste."""
+        if not self._debug_enabled():
+            return
         ctx = self.ctx
         traps = {k: v for d in ("traps", "boosts") for k, v in ctx.map.get(d, {}).items() if not k.startswith("_")}
         all_names = list(traps) + [k for k, v in ctx.map.get("item_grants", {}).items()
@@ -170,8 +195,20 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
 
     @mark_raw
     def _cmd_ds_trap(self, name: str = "") -> None:
-        """Alias de /ds_effect (ancien nom)."""
+        """[test, /ds_debug on] Alias de /ds_effect (ancien nom)."""
         self._cmd_ds_effect(name)
+
+    def _cmd_ds_held(self) -> None:
+        """Checks retenus en attente d'un objet « Episode N Access » (option episode_gating)."""
+        ctx = self.ctx
+        if not ctx.slot_data.get("episode_gating"):
+            self.output("L'option episode_gating n'est pas activee dans cette partie : aucun check n'est retenu.")
+            return
+        if not ctx.held_codes:
+            self.output("Aucun check retenu.")
+            return
+        for code in sorted(ctx.held_codes):
+            self.output(f"  {ctx.location_names.lookup_in_game(code)} (episode {EPISODE_OF_LOCATION[code]})")
 
     def _cmd_ds_likes(self) -> None:
         """Likes lus en memoire (PNJ / autres joueurs / total)."""
@@ -271,15 +308,15 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         """Refixe la base des paliers de commandes de bot au compteur actuel (les checks deja envoyes restent envoyes)."""
         self._type_rebase("bot")
 
-    def _cmd_ds_counters(self, action: str = "") -> None:
-        """Diagnostic (lecture seule) : tous les compteurs nommes du jeu. /ds_counters snap = photo ; /ds_counters diff = ce qui a change depuis la photo ; /ds_counters save = fichier complet."""
+    def _cmd_ds_counters(self, action: str = "", mode: str = "") -> None:
+        """Diagnostic (lecture seule) : tous les compteurs nommes du jeu. /ds_counters snap = photo ; /ds_counters diff = ce qui a change depuis la photo ; /ds_counters save = fichier complet ; /ds_counters watch [on|off] = ecrit en continu chaque changement (recherche)."""
         ctx = self.ctx
         dump = ctx.memory.dump_named_table()
         if dump is None:
             self._explain_types_failure()
             return
         known = {bytes.fromhex(c["key"]).hex(): n for n, c in ctx.map.get("named_counters", {}).get("counters", {}).items()}
-        act = action.strip().lower()
+        act = (action.strip() + " " + mode.strip()).strip().lower()
         if act == "snap":
             ctx.counters_snap = dump
             self.output(f"Photo prise : {len(dump)} compteurs. Faites l'action a tester dans le jeu, attendez la fin de la sauvegarde (environ une minute), puis /ds_counters diff.")
@@ -296,6 +333,11 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
                 self.output(line)
             if len(lines) > 40:
                 self.output(f"  ... et {len(lines) - 40} autres (utilisez /ds_counters save).")
+        elif act in ("watch", "watch on", "watch off"):
+            ctx.counters_watch = act != "watch off" and not (act == "watch" and ctx.counters_watch)
+            ctx.counters_watch_last = None
+            self.output("Mode recherche ACTIF : chaque changement de compteur nomme est ecrit dans la console (toutes les 5 s). Pensez a le couper apres le test : /ds_counters watch off."
+                        if ctx.counters_watch else "Mode recherche coupe.")
         elif act == "save":
             path = Utils.user_path("DeathStranding_counters.json")
             try:
@@ -305,7 +347,7 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
             except OSError as e:
                 self.output(f"Ecriture impossible : {e}")
         else:
-            self.output(f"{len(dump)} compteurs dans la table nommee ({len(known)} utilises par le client). /ds_counters snap | diff | save")
+            self.output(f"{len(dump)} compteurs dans la table nommee ({len(known)} utilises par le client). /ds_counters snap | diff | save | watch [on|off]")
 
     def _cmd_ds_likes_rebase(self) -> None:
         """Refixe la base des paliers de likes au total actuel (les checks deja envoyes restent envoyes)."""
@@ -318,7 +360,9 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         self.output(f"Base des paliers de likes : {v[0] + v[1]}.")
 
     def _cmd_ds_likes_give(self, which: str = "", amount: str = "") -> None:
-        """Test d'ecriture : /ds_likes_give <npc|players> <quantite>"""
+        """[test, /ds_debug on] /ds_likes_give <npc|players> <quantite>"""
+        if not self._debug_enabled():
+            return
         try:
             n = int(amount)
         except ValueError:
@@ -339,7 +383,9 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         self.output(f"Vie : {v[0]:.0f} / {v[1]:.0f}" if v else "Vie introuvable (menu ? chargement ? sauvegarde pas chargee ?).")
 
     def _cmd_ds_kill(self) -> None:
-        """Test : met la vie de Sam a 0 (verifie si cela le tue vraiment)."""
+        """[test, /ds_debug on] Met la vie de Sam a 0 (verifie si cela le tue vraiment)."""
+        if not self._debug_enabled():
+            return
         ok = self.ctx.memory.kill_player()
         self.output("Vie mise a 0." if ok else "Impossible (jeu non charge ou valeurs incoherentes). Voir /ds_hp.")
 
@@ -424,7 +470,9 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         self.output(f"Les materiaux recus seront credites a : {n}")
 
     def _cmd_ds_stock_give(self, *args: str) -> None:
-        """Test : /ds_stock_give <materiau> <quantite>   ex : /ds_stock_give Metals 50  (credite l'installation choisie)"""
+        """[test, /ds_debug on] /ds_stock_give <materiau> <quantite>   ex : /ds_stock_give Metals 50  (credite l'installation choisie)"""
+        if not self._debug_enabled():
+            return
         if len(args) < 2:
             self.output("Usage : /ds_stock_give <Resins|Metals|Ceramics|Chemicals|Special Alloys|Chiral Crystals> <quantite>")
             return
@@ -556,6 +604,9 @@ class DeathStrandingContext(CommonContext):
         self.types_source_logged = False
         self.repair_last: typing.Optional[tuple] = None
         self.repair_marks: tuple = (None, None)
+        self.debug_commands = False      # commandes de test qui ecrivent dans le jeu : coupees a chaque lancement (/ds_debug on)
+        self.bot_hold_state: dict = {}
+        self.bot_hold_logged = False
         self.raw_logged: typing.Optional[tuple] = None
         self.title_burst_until = 0.0
         self.title_active_logged = False
@@ -563,6 +614,10 @@ class DeathStrandingContext(CommonContext):
         self.title_none_logged = False
         self.unlisted_seen: typing.Set[int] = set()
         self.counters_snap: typing.Optional[typing.Dict[str, int]] = None
+        self.counters_watch: bool = False
+        self.held_codes: typing.Set[int] = set()
+        self.held_logged: typing.Set[int] = set()
+        self.counters_watch_last: typing.Optional[typing.Dict[str, int]] = None
         self.slot_data: dict = {}
         self.finished = False
         self.map = load_map()
@@ -659,6 +714,8 @@ class DeathStrandingContext(CommonContext):
             self.standard_checks.clear()
             self.type_state = {k: (_json_load(PROGRESS_FILE).get(self._progress_key() + ":" + k) or {}) for k in ORDER_TYPES}
             self.type_checks = {k: set() for k in ORDER_TYPES}
+            # checks retenus (option episode_gating) : ils ne sont pas rejoues par la detection, on les retrouve ici
+            self.save_checks |= set(_json_load(PROGRESS_FILE).get(self._progress_key() + ":held") or [])
             if self.slot_data.get("death_link"):
                 Utils.async_start(self.update_death_link(True))
 
@@ -689,6 +746,7 @@ class DeathStrandingContext(CommonContext):
         for k, st in self.type_state.items():
             if st:
                 data[self._progress_key() + ":" + k] = st
+        data[self._progress_key() + ":held"] = sorted(self.held_codes)
         _json_save(PROGRESS_FILE, data)
 
 
@@ -733,7 +791,32 @@ def order_type_milestones(base_id: int, current: int, baseline: int, step: int, 
     return [base_id + n for n in range(1, count + 1) if n * step <= gained]
 
 
-REPAIR_WINDOW = 300.0      # secondes : delai maximal entre la hausse du total et l'apparition de la cle « repair » (releve en jeu : environ 40 s)
+REPAIR_WINDOW = 300.0      # secondes : delai maximal entre la hausse du total et l'apparition de la cle « repair » (releves en jeu : 36 a 124 s, selon les dialogues)
+
+
+def episodes_held(codes: typing.Iterable[int], received_episodes: typing.Set[int],
+                  episode_of: typing.Optional[typing.Dict[int, int]] = None) -> typing.Set[int]:
+    """Option « retenir les checks selon les acces d'episode » : parmi `codes`, ceux qu'il faut garder en attente.
+    Meme regle que la logique de generation (create_regions) : un lieu de l'episode N (N >= 1) demande les objets Episode 1 a N Access.
+    `received_episodes` = numeros des objets « Episode N Access » deja recus (objets de depart compris). Un lieu hors des episodes
+    (likes, progression, commandes standard, bot, prologue) n'est jamais retenu."""
+    episode_of = EPISODE_OF_LOCATION if episode_of is None else episode_of
+    held = set()
+    for code in codes:
+        ep = episode_of.get(code)
+        if ep and any(e not in received_episodes for e in range(1, ep + 1)):
+            held.add(code)
+    return held
+
+
+def counters_changes(old: typing.Optional[typing.Dict[str, int]], new: typing.Dict[str, int]) -> typing.List[typing.Tuple[str, typing.Optional[int], typing.Optional[int]]]:
+    """Differences entre deux photos de la table nommee : [(cle, ancienne valeur ou None si absente, nouvelle valeur ou None si disparue)], triees par cle.
+    Sert au mode de recherche `/ds_counters watch` (lecture seule) ; sans photo precedente, rien n'est signale."""
+    if old is None:
+        return []
+    out = [(k, old.get(k), v) for k, v in new.items() if old.get(k) != v]
+    out += [(k, v, None) for k, v in old.items() if k not in new]
+    return sorted(out)
 
 
 def repair_progress(prev: typing.Optional[typing.Tuple[int, int, int]], cur: typing.Tuple[int, int, int], now: float,
@@ -753,6 +836,45 @@ def repair_progress(prev: typing.Optional[typing.Tuple[int, int, int]], cur: typ
     if t_total is not None and t_rep is not None and now - t_total <= REPAIR_WINDOW and now - t_rep <= REPAIR_WINDOW:
         return True, (None, None)
     return False, (t_total, t_rep)
+
+
+# Retenue de la confirmation « livraison de bot » : le total monte avant « nobot » pendant la fin d'une commande ordinaire (cinematique, ecran de resultat,
+# dialogues) et reste en avance de 20 a 100 s selon le rythme du joueur, parfois plus que les 90 s exigees pour croire a un bot. Deux signes (releves en jeu,
+# 18/11) permettent de savoir que ce n'est PAS un bot, et on retient alors la confirmation (jamais de check perdu : on retarde seulement) :
+#  - cle de likes cumules +1000 ou plus au meme moment que la hausse du total : commande speciale (62 : +1000 ; 70 : +101 000) ; la retenue dure jusqu'a
+#    l'apparition de la cle « repair » (62) ou BOT_HOLD_SECONDS ;
+#  - cle 4c615b8a... a 1 : livraison d'une commande standard en cours (0 -> 1 a la cinematique, 1 -> 0 a la sortie de l'ecran de resultat).
+BOT_HOLD_SECONDS = 300.0
+BOT_HOLD_LIKES_JUMP = 1000
+BOT_HOLD_COINCIDENCE = 10.0          # ecart maximal (s) entre la hausse du total et le saut de likes
+LIKES_STAT_KEY = "26adb4dfac794d7dbc80aa23969c7652"
+DELIVERY_FLAG_KEY = "4c615b8a055c41ad89d8490292abbae7"
+
+
+def bot_hold_step(state: dict, now: float, total: typing.Optional[int], repair: typing.Optional[int], likes: typing.Optional[int],
+                  flag: typing.Optional[int]) -> bool:
+    """Met a jour `state` (dict conserve d'un releve au suivant) avec un releve (total, repair, likes cumules, drapeau de livraison) et renvoie True si la
+    confirmation d'une livraison de bot doit etre retenue. Les valeurs None (illisibles) sont ignorees."""
+    if total is not None and state.get("total") is not None and total > state["total"]:
+        state["total_at"] = now
+    if likes is not None and state.get("likes") is not None and likes - state["likes"] >= BOT_HOLD_LIKES_JUMP:
+        state["likes_at"] = now
+    if repair is not None and state.get("repair") is not None and repair > state["repair"]:
+        state["until"] = 0.0                                   # la 62 est terminee : le compteur de bot est revenu a sa valeur
+    ta, la = state.get("total_at"), state.get("likes_at")
+    if ta is not None and la is not None and abs(ta - la) <= BOT_HOLD_COINCIDENCE and state.get("paired") != (ta, la):
+        state["paired"] = (ta, la)
+        state["until"] = max(ta, la) + BOT_HOLD_SECONDS
+    for k, v in (("total", total), ("repair", repair), ("likes", likes)):
+        if v is not None:
+            state[k] = v
+    if flag == 1:
+        if state.get("flag_since") is None:
+            state["flag_since"] = now
+    elif flag is not None:
+        state["flag_since"] = None
+    flag_on = state.get("flag_since") is not None and now - state["flag_since"] <= BOT_HOLD_SECONDS
+    return now < state.get("until", 0.0) or flag_on
 
 
 def apply_trap(memory, spec: dict) -> typing.Tuple[str, typing.Optional[typing.Tuple[float, float]]]:
@@ -818,6 +940,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
     last_order_poll = 0.0
     last_standard_poll = 0.0
     last_types_poll = 0.0
+    last_watch_poll = 0.0
     last_table_scan = -1e9
     last_title_poll, last_title_full, title_running = 0.0, -1e9, False
     table_scan_running = False
@@ -898,7 +1021,23 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 finally:
                     title_running = False
             Utils.async_start(_titles())
-        to_send, unknown = plan_location_sends(ctx.manual_checks | ctx.save_checks | ctx.likes_checks | ctx.order_checks | ctx.standard_checks | ctx.type_checks["bot"], ctx.checked_locations,
+        released = ctx.save_checks
+        if ctx.slot_data.get("episode_gating"):
+            received = {int(m.group(1)) for m in (re.fullmatch(r"Episode (\d+) Access", ctx.item_names.lookup_in_game(i.item)) for i in ctx.items_received) if m}
+            received |= {int(m.group(1)) for m in (re.fullmatch(r"Episode (\d+) Access", n) for n in ctx.slot_data.get("starting_items", [])) if m}
+            held = episodes_held(ctx.save_checks - ctx.checked_locations, received)
+            if held != ctx.held_codes:
+                for code in sorted(held - ctx.held_codes - ctx.held_logged):
+                    ep = EPISODE_OF_LOCATION[code]
+                    missing = [e for e in range(1, ep + 1) if e not in received]
+                    logger.info(f"Check retenu (objets manquants : {', '.join(f'Episode {e} Access' for e in missing)}) : {ctx.location_names.lookup_in_game(code)}")
+                    ctx.held_logged.add(code)
+                for code in sorted(ctx.held_codes - held):
+                    logger.info(f"Check libere : {ctx.location_names.lookup_in_game(code)}")
+                ctx.held_codes = held
+                ctx.save_progress()
+            released = ctx.save_checks - held
+        to_send, unknown = plan_location_sends(ctx.manual_checks | released | ctx.likes_checks | ctx.order_checks | ctx.standard_checks | ctx.type_checks["bot"], ctx.checked_locations,
                                                ctx.server_locations, ctx.sent_at, loop.time())
         for code in unknown:
             if code not in ctx.warned_unknown:
@@ -1096,6 +1235,19 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                         if done:
                             ctx.register_completed_orders([62], "compteur")
                 ctx.type_history = (ctx.type_history + [snap])[-60:]
+                bot_held = False
+                if named:
+                    try:
+                        table = ctx.memory.dump_named_table() or {}
+                    except Exception:
+                        table = {}
+                    bot_held = bot_hold_step(ctx.bot_hold_state, loop.time(), named.get("total"), named.get("repair", 0),
+                                             table.get(LIKES_STAT_KEY), (table.get(DELIVERY_FLAG_KEY, 0) if table else None))
+                    if bot_held and not ctx.bot_hold_logged:
+                        ctx.bot_hold_logged = True
+                        logger.debug("Livraison de bot : confirmation retenue (fin de commande ordinaire ou speciale en cours).")
+                    elif not bot_held:
+                        ctx.bot_hold_logged = False
                 # le jeu ecrit les compteurs separement et parfois a plusieurs secondes d'intervalle (le compteur total peut avancer seul
                 # un moment) : on ne tient compte d'une variation que si les trois valeurs sont restees identiques ~16 s
                 stable = len(ctx.type_history) >= 8 and len(set(ctx.type_history[-8:])) == 1
@@ -1123,7 +1275,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                             ctx.save_progress()
                             logger.info(f"{ORDER_TYPES[kind][2].capitalize()} : base fixee a {cur[kind]} (palier = {step} livraison(s)).")
                         continue
-                    if not (stable_bot if kind == "bot" else stable) or not consistent:
+                    if not (stable_bot if kind == "bot" else stable) or not consistent or (kind == "bot" and bot_held):
                         continue
                     base_id = ORDER_TYPES[kind][0]
                     new = set(order_type_milestones(base_id, cur[kind], int(state["baseline"]), step, cnt))
@@ -1131,10 +1283,26 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                         logger.info(f"Palier de {ORDER_TYPES[kind][2]} atteint : {code - base_id} ({(code - base_id) * step} livraison(s))")
                     ctx.type_checks[kind] |= new
 
+        # 2g. Mode recherche (/ds_counters watch) : ecrit chaque changement de la table nommee (lecture seule, coupe par defaut)
+        if ctx.counters_watch and loop.time() - last_watch_poll >= 5.0:
+            last_watch_poll = loop.time()
+            dump = ctx.memory.dump_named_table()
+            if dump is not None:
+                changes = counters_changes(ctx.counters_watch_last, dump)
+                ctx.counters_watch_last = dump
+                if changes:
+                    known = {bytes.fromhex(c["key"]).hex(): n for n, c in ctx.map.get("named_counters", {}).get("counters", {}).items()}
+                    logger.info(f"[{time.strftime('%H:%M:%S')}] {len(changes)} compteur(s) modifie(s) :")
+                    for k, a, b in changes[:30]:
+                        delta = f" ({b - a:+d})" if a is not None and b is not None else ""
+                        logger.info(f"  {k} : {'absent' if a is None else a} -> {'disparu' if b is None else b}{delta}" + (f"   [{known[k]}]" if k in known else ""))
+                    if len(changes) > 30:
+                        logger.info(f"  ... et {len(changes) - 30} autres (chargement d'une sauvegarde ?)")
+
         # 3. Victoire : derniere commande de l'episode but
         goal_ep = ctx.slot_data.get("goal_episode", 14)
         last = location_name_to_id[EPISODES[goal_ep][-1]]
-        if not ctx.finished and last in (ctx.checked_locations | ctx.manual_checks | ctx.save_checks):
+        if not ctx.finished and last in (ctx.checked_locations | ctx.manual_checks | (ctx.save_checks - ctx.held_codes)):
             ctx.finished = True
             logger.info(f"Objectif atteint : {EPISODES[goal_ep][-1]} terminee, victoire envoyee au serveur.")
             await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])

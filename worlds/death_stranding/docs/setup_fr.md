@@ -10,7 +10,7 @@
 
 ## Premier lancement du client
 1. Lance le jeu et charge ta sauvegarde, puis ouvre « Death Stranding Client » et connecte-toi : `/connect adresse:port`.
-2. **Inventaire :** `/ds_status` doit afficher les quantités ; test d'écriture : `/ds_give Chiral Crystals 10`.
+2. **Inventaire :** `/ds_status` doit afficher les quantités ; test d'écriture (après `/ds_debug on`) : `/ds_give Chiral Crystals 10`.
 3. **Commandes principales :** attends la ligne « Commandes principales : lecture en mémoire active … » (environ une minute la première fois, quelques secondes ensuite). Terminer une commande principale envoie alors son check.
 
 ## Matériaux (résines, métaux, céramiques, produits chimiques, alliages)
@@ -20,7 +20,7 @@ Chemicals / Special Alloys reçus sont donc crédités au stock d'**une installa
 l'installation choisie avec `/ds_stock_target` ; `/ds_stock_pool Nom1; Nom2` limite le tirage à certaines installations (`/ds_stock_pool all` pour tout reprendre).
 - `/ds_stock` affiche les 6 valeurs de cette installation (`/ds_stock Port Knot City` pour une autre) ; ouvrez d'abord le menu de
   l'installation en jeu pour comparer.
-- `/ds_stock_target <installation>` choisit l'installation du mode `target` (enregistré), `/ds_stock_give Metals 50` teste l'écriture sur cette installation.
+- `/ds_stock_target <installation>` choisit l'installation du mode `target` (enregistré), `/ds_stock_give Metals 50` (après `/ds_debug on`) teste l'écriture sur cette installation.
 - Les offsets viennent d'une table communautaire (jeu v1.004) ; si `/ds_stock` répond « Stocks introuvables » alors que le jeu est chargé,
   ils ne correspondent pas à votre version.
 
@@ -51,7 +51,7 @@ Activez l'option `death_link` dans le YAML, puis régénérez la partie. Le clie
 - quand elle tombe à 0, il prévient les autres joueurs ;
 - quand un DeathLink est reçu, il met la vie de Sam à 0 (dès qu'elle est lisible : pas pendant un chargement ou un menu).
 Une mort provoquée par un DeathLink n'est pas renvoyée (20 s de répit), et une mort envoyée bloque les envois pendant 30 s.
-Validé en jeu. En cas de doute, testez à la main : `/ds_hp` doit afficher la vie, puis `/ds_kill` doit tuer Sam.
+Validé en jeu. En cas de doute, testez à la main : `/ds_hp` doit afficher la vie, puis `/ds_debug on` et `/ds_kill` doivent tuer Sam.
 
 ## Pièges
 Les pièges sont des objets du multimonde qui modifient l'état de Sam en mémoire. Aucun ne peut tuer Sam.
@@ -63,7 +63,7 @@ Les pièges sont des objets du multimonde qui modifient l'état de Sam en mémoi
 | Rust Trap | −1500 d'état de la combinaison (rouille, minimum 0) |
 | Pickpocket Trap | −50 cristaux chiraux du sac à dos (minimum 0) |
 
-Un piège attend que Sam soit lisible (pas pendant un chargement ou un menu). `/ds_trap` liste les pièges et en applique un à la
+Un piège attend que Sam soit lisible (pas pendant un chargement ou un menu). Après `/ds_debug on`, `/ds_trap` liste les pièges et en applique un à la
 main pour tester. Les valeurs sont dans `memory_map.default.json` (section `traps`). Le pourcentage de pièges se règle dans le YAML.
 
 ## Objets utiles avec effet
@@ -81,5 +81,5 @@ main pour tester. Les valeurs sont dans `memory_map.default.json` (section `trap
 
 Les autres objets d'équipement (Cargo Skeleton, Trike, Truck, Road Paver, ancrages, échelles, armes, grenades) n'ont **pas d'effet en jeu pour l'instant** : ils sont reçus mais n'agissent pas.
 
-Même mécanique que les pièges : l'effet attend que Sam soit lisible. `/ds_effect Blood Bag` permet de tester.
+Même mécanique que les pièges : l'effet attend que Sam soit lisible. `/ds_debug on` puis `/ds_effect Blood Bag` permet de tester.
 Les valeurs sont dans `memory_map.default.json` (sections `boosts` et `item_grants`).

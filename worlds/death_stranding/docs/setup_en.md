@@ -7,12 +7,12 @@
 ## Generating a game
 1. Generate your YAML from the Launcher ("Generate Template Options"), `game: Death Stranding`.
 2. Put `death_stranding.apworld` in `custom_worlds`, then Generate and Host.
-3. Options: `goal`, `trap_percentage`, `starting_episodes`, `death_link`, `likes_checks` / `likes_step`, `order_checks` / `order_step`, `standard_checks` / `standard_step`, `bot_checks` / `bot_step`.
+3. Options: `goal`, `trap_percentage`, `starting_episodes`, `episode_gating`, `death_link`, `likes_checks` / `likes_step`, `order_checks` / `order_step`, `standard_checks` / `standard_step`, `bot_checks` / `bot_step`.
    "Episode N Access" items only shape the generation logic: they do not lock the game.
 
 ## First client launch
 1. Start the game and load your save, then open "Death Stranding Client" and connect: `/connect address:port`.
-2. **Inventory:** `/ds_status` should show the amounts; write test: `/ds_give Chiral Crystals 10`.
+2. **Inventory:** `/ds_status` should show the amounts; write test (after `/ds_debug on`): `/ds_give Chiral Crystals 10`.
 3. **Main orders:** wait for the "Commandes principales : lecture en memoire active …" line (about a minute the first time, a few seconds afterwards). Completing a main order then sends its check.
 
 ## How checks are detected
@@ -41,7 +41,7 @@ In game, resins, metals, ceramics, chemicals and special alloys are stored **per
 ## DeathLink
 Enable `death_link` in the YAML and regenerate. The client sends a DeathLink when Sam's health reaches 0 and sets it to 0 when one is received
 (once readable: not during loading or menus). A received death is not sent back (20 s) and a sent death blocks sends for 30 s. Validated in game.
-Test by hand first: `/ds_hp` shows health, `/ds_kill` kills Sam.
+Test by hand first: `/ds_hp` shows health, `/ds_debug on` then `/ds_kill` kills Sam.
 
 ## Traps
 None can kill Sam.
@@ -68,7 +68,7 @@ One-shot effects only, nothing permanent.
 | Sandalweed Bundle | +5 sandalweed in the backpack |
 
 Other equipment items (Cargo Skeleton, Trike, Truck, Road Paver, anchors, ladders, weapons, grenades) have **no in-game effect for now**.
-Effects wait until Sam is readable. Test with `/ds_effect Blood Bag`. Values live in `memory_map.default.json` (sections `traps`, `boosts`, `item_grants`).
+Effects wait until Sam is readable. Test with `/ds_debug on` then `/ds_effect Blood Bag`. Values live in `memory_map.default.json` (sections `traps`, `boosts`, `item_grants`).
 
 ## Known limitations
 - Only the 51 main orders on the list are checks; the list comes from a community page and may contain mistakes (order 66 has an approximate name; numbers 6, 10-13, 15, 17, 25, 26, 29, 31, 35-37, 40, 42, 45, 56, 57 are missing).

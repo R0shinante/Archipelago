@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from Options import Choice, Range, DeathLinkMixin, PerGameCommonOptions, StartInventoryPool
+from Options import Choice, Range, Toggle, DeathLinkMixin, PerGameCommonOptions, StartInventoryPool
 
 
 class Goal(Choice):
@@ -7,6 +7,14 @@ class Goal(Choice):
     display_name = "Objectif"
     option_finish_episode_14 = 0
     option_finish_episode_12 = 1
+    default = 0
+
+
+class EpisodeGating(Toggle):
+    """Retient l'envoi des checks de commandes principales tant que les objets « Episode 1 Access » à « Episode N Access » ne sont pas tous reçus
+    (N = épisode de la commande). Le jeu n'est pas verrouillé : la commande se termine normalement et son check part dès que l'objet arrive.
+    Les checks de likes, de progression, de commandes standard et de bot ne sont jamais retenus."""
+    display_name = "Retenir les checks selon les accès d'épisode"
     default = 0
 
 
@@ -96,6 +104,7 @@ class BotStep(Range):
 @dataclass
 class DeathStrandingOptions(DeathLinkMixin, PerGameCommonOptions):
     goal: Goal
+    episode_gating: EpisodeGating
     trap_percentage: TrapPercentage
     starting_episodes: StartingEpisodes
     likes_checks: LikesChecks

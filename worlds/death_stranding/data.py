@@ -4,8 +4,8 @@ Les checks sont les commandes PRINCIPALES numerotees du jeu (le numero est celui
 des sauvegardes : « Commande terminee : n° 59 ... »). Liste d'apres la page
 https://samurai-gamers.com/death-stranding/delivery-order-list/ (50 commandes de son tableau principal).
 Cette page se contredit par endroits (la n°17 n'apparait nulle part, les commandes optionnelles partagent la
-meme numerotation) : a verifier en jouant. La n°66 (episode 10, Die-Hardman) vient de sa barre laterale,
-son nom est donc approximatif.
+meme numerotation) : a verifier en jouant. La n°66 (episode 10, Die-Hardman) est une commande
+OPTIONNELLE (non necessaire a l'histoire) : « (URGENT) Fresh Pizza Delivery: Peter Englert » (nom confirme en jeu le 19/11).
 
 Les identifiants de lieux sont stables : BASE_ID + numero de commande.
 """
@@ -69,7 +69,7 @@ MAIN_ORDERS: list[tuple[int, str, int]] = [
     (63, "Network Activation Key Delivery: Edge Knot City", 9),
     (64, "Elimination: BT", 9),
     (65, "Elimination: Higgs", 9),
-    (66, "Episode 10 order (Die-Hardman)", 10),
+    (66, "Fresh Pizza Delivery: Peter Englert", 10),
     (67, "Escape the Battlefield", 11),
     (68, "Cryptobiote Delivery: Capital Knot City Isolation Ward", 12),
     (69, "Go to Her Beach", 13),

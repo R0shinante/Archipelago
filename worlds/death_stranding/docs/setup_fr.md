@@ -30,7 +30,7 @@ tous types confondus, `/ds_orders`) et `standard_checks` / `standard_step` (comm
 
 ## Comment les checks sont détectés
 À chaque checkpoint, le jeu écrit « Commande terminée : nº N … » dans le titre de la sauvegarde. Le client lit ce titre directement dans la mémoire du jeu
-et envoie le check « Order N - … » correspondant. Seules les commandes terminées **après** le démarrage du client comptent.
+et envoie le check « Order N - … » correspondant (les commandes 61 à 65, 67, 68 et 70 sont même reconnues tout de suite, par une clé que le jeu crée à leur fin). Seules les commandes terminées **après** le démarrage du client comptent.
 Si ton jeu n'est pas en français, ajuste `saves.completed_words` dans `memory_map.json`.
 
 ### Déchiffrement des sauvegardes (optionnel)
@@ -40,9 +40,9 @@ lit les checkpoints sur une copie temporaire (tes sauvegardes ne sont jamais mod
 
 ## Limites connues
 - Seules les commandes principales de la liste sont des checks (51). La liste vient d'une page communautaire
-  et peut contenir des erreurs (n°66 au nom approximatif ; les numéros 6, 10 à 13, 15, 17, 25, 26, 29, 31, 35 à 37, 40, 42, 45, 56 et 57 sont absents).
-- Les objets « Episode N Access » ne verrouillent rien en jeu : ils n'existent que dans la logique de génération. La victoire (dernière commande de l'épisode but) est validée en jeu pour la n°70 (objectif épisode 14), pas pour la n°68 (objectif épisode 12) ;
-  `/check <nom du lieu>` envoie un check à la main si elle ne part pas. Avec les paliers de bot, un palier peut partir à tort à la n°70 (sans conséquence).
+  et peut contenir des erreurs (n°66 optionnelle (« Fresh Pizza Delivery: Peter Englert ») ; les numéros 6, 10 à 13, 15, 17, 25, 26, 29, 31, 35 à 37, 40, 42, 45, 56 et 57 sont absents).
+- Les objets « Episode N Access » ne verrouillent rien en jeu : ils n'existent que dans la logique de génération. La victoire (dernière commande de l'épisode but) est validée en jeu pour la n°70 (objectif épisode 14) et la n°68 (objectif épisode 12) ;
+  `/check <nom du lieu>` envoie un check à la main si elle ne part pas. Avec `episode_gating`, la victoire attend les accès à tous les épisodes jusqu'au but.
 - Objets reçus : les cristaux chiraux (+100), les matériaux (stock d'une installation), les pièges et les effets ponctuels listés plus bas agissent en jeu ; le reste de l'équipement est affiché seulement.
 - Pièges, effets des objets et crédit des matériaux : validés en jeu. DeathLink aussi (envoi et réception).
 

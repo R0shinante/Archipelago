@@ -17,7 +17,7 @@
 
 ## How checks are detected
 At every checkpoint the game writes "Commande terminée : nº N ..." (French) in the save title. The client reads that title directly from the game's memory and sends
-the matching "Order N - ..." check. Only orders completed **after** the client starts count.
+the matching "Order N - ..." check (orders 61 to 65, 67, 68 and 70 are even recognised immediately, by a key the game creates at their end). Only orders completed **after** the client starts count.
 If your game is not in French, adjust `saves.completed_words` in `memory_map.json`.
 
 ### Save decryption (optional)
@@ -71,6 +71,6 @@ Other equipment items (Cargo Skeleton, Trike, Truck, Road Paver, anchors, ladder
 Effects wait until Sam is readable. Test with `/ds_debug on` then `/ds_effect Blood Bag`. Values live in `memory_map.default.json` (sections `traps`, `boosts`, `item_grants`).
 
 ## Known limitations
-- Only the 51 main orders on the list are checks; the list comes from a community page and may contain mistakes (order 66 has an approximate name; numbers 6, 10-13, 15, 17, 25, 26, 29, 31, 35-37, 40, 42, 45, 56, 57 are missing).
-- "Episode N Access" items lock nothing in game. Victory (last order of the goal episode) is validated in game for No. 70 (episode 14 goal), not for No. 68 (episode 12 goal); `/check <location name>` sends a check by hand if it does not go out. With bot checks enabled, one may go out by mistake at No. 70 (harmless).
+- Only the 51 main orders on the list are checks; the list comes from a community page and may contain mistakes (order 66 is optional (“Fresh Pizza Delivery: Peter Englert”); numbers 6, 10-13, 15, 17, 25, 26, 29, 31, 35-37, 40, 42, 45, 56, 57 are missing).
+- "Episode N Access" items lock nothing in game. Victory (last order of the goal episode) is validated in game for No. 70 (episode 14 goal) and No. 68 (episode 12 goal); `/check <location name>` sends a check by hand if it does not go out. With `episode_gating`, victory waits for the access items of every episode up to the goal.
 - Memory offsets come from a community table (game v1.004); if `/ds_status` finds nothing while the game is loaded, they do not match your version.

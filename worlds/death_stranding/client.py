@@ -607,11 +607,19 @@ class DeathStrandingContext(CommonContext):
         self.debug_commands = False      # commandes de test qui ecrivent dans le jeu : coupees a chaque lancement (/ds_debug on)
         self.bot_hold_state: dict = {}
         self.bot_hold_logged = False
+        self.sig_times: typing.List[float] = []       # heures des fins de commande principale / speciale reconnues dans les compteurs, pas encore identifiees
+        self.sig_last_ta = None
+        self.created_keys: typing.Dict[str, float] = {}      # cle -> heure de creation (120 s), pour les cles marqueurs de commande
+        self.marker_done: typing.Set[tuple] = set()
+        self.bot_hold_keys: typing.Optional[typing.Set[str]] = None     # cles de la table au releve precedent (detecte les creations)
         self.raw_logged: typing.Optional[tuple] = None
         self.title_burst_until = 0.0
         self.title_active_logged = False
         self.title_last_main: typing.Optional[typing.Tuple[int, int]] = None
         self.title_none_logged = False
+        self.title_full_end = -1e9         # fin (horloge de la boucle) de la derniere recherche complete
+        self.title_empty_streak = 0        # recherches completes vides de suite : espace les prochaines
+        self.title_alert_until = 0.0       # jusqu'ici : cadence soutenue apres une variation des compteurs de livraisons
         self.unlisted_seen: typing.Set[int] = set()
         self.counters_snap: typing.Optional[typing.Dict[str, int]] = None
         self.counters_watch: bool = False
@@ -659,6 +667,7 @@ class DeathStrandingContext(CommonContext):
             _json_save(SETTINGS_FILE, self.settings)
 
     def register_completed_orders(self, numbers: typing.Iterable[int], source: str = "sauvegarde") -> None:
+        newly: typing.List[int] = []
         for n in numbers:
             loc = ORDER_TO_LOCATION.get(n)
             if loc is None:
@@ -675,6 +684,17 @@ class DeathStrandingContext(CommonContext):
             if code not in self.save_checks:
                 self.save_checks.add(code)
                 logger.info(f"Commande terminee detectee ({source}) : {loc}")
+                newly.append(n)
+        if newly:
+            self.sig_times, orphans = unmatched_signatures(self.sig_times, time.time(), len(newly), source in ("compteur", "marqueur"))
+            if orphans:
+                top = max(newly)
+                maybe = sorted((n for n in ORDER_TO_LOCATION if n < top and location_name_to_id[ORDER_TO_LOCATION[n]] not in self.save_checks
+                                and location_name_to_id[ORDER_TO_LOCATION[n]] not in self.checked_locations), reverse=True)[:orphans]
+                logger.warning(f"{orphans} fin(s) de commande principale ou speciale reperee(s) dans les compteurs n'ont pas pu etre identifiee(s) : le jeu ne garde que la "
+                               f"derniere commande terminee a chaque enregistrement. " + (f"Probablement : {' ; '.join(ORDER_TO_LOCATION[n] for n in maybe)}. " if maybe else "")
+                               + "Si son check n'est pas parti, envoyez-le avec /check <nom exact du lieu> (ex. /check "
+                               + (ORDER_TO_LOCATION[maybe[0]] if maybe else "Order 63 - Network Activation Key Delivery: Edge Knot City") + ").")
 
     def stock_targets(self) -> typing.List[str]:
         """Installations qui recoivent les materiaux : reglage utilisateur, sinon valeur par defaut du paquet."""
@@ -838,6 +858,34 @@ def repair_progress(prev: typing.Optional[typing.Tuple[int, int, int]], cur: typ
     return False, (t_total, t_rep)
 
 
+# Rythme des recherches COMPLETES de titres en memoire (une recherche complete lit tout le tas du jeu : ~55 s). Avant, sans titre trouve (fin du jeu,
+# sauvegarde sans point de controle recent), une nouvelle recherche partait 60 s apres le DEBUT de la precedente, soit ~90 % du temps a lire la memoire.
+# Maintenant : l'attente se compte depuis la FIN de la derniere recherche et double a chaque recherche vide (60, 120, 240, 480, puis 600 s), SAUF pendant
+# TITLE_ALERT_SECONDS apres une variation d'un compteur de livraisons (cadence d'avant). Releve en jeu 19/11 : le titre d'une commande principale n'apparait
+# qu'au premier enregistrement du jeu, 148 a 225 s apres la hausse des compteurs (64, 65, 67) ; une alerte plus courte retarderait la detection.
+TITLE_ALERT_SECONDS = 360.0
+TITLE_IDLE_BASE = 60.0
+TITLE_IDLE_MAX = 600.0
+TITLE_RESCAN_SECONDS = 240.0
+
+
+def title_idle_wait(empty_streak: int) -> float:
+    """Attente (apres la fin de la derniere recherche complete) avant d'en refaire une, quand les `empty_streak` dernieres n'ont rien trouve."""
+    return min(TITLE_IDLE_MAX, TITLE_IDLE_BASE * 2 ** max(0, empty_streak - 1))
+
+
+def title_scan_due(now: float, zones: typing.Optional[list], last_start: float, last_end: float, empty_streak: int, force: bool, burst_until: float,
+                   alert_until: float = 0.0) -> bool:
+    """Faut-il lancer une recherche COMPLETE de titres maintenant ? (`zones` : None = jamais fait, [] = rien trouve, sinon zones surveillees.)"""
+    if zones is None or force or now < burst_until:
+        return True
+    if not zones:
+        if now < alert_until:                  # peu apres une livraison : le titre peut arriver d'une minute a l'autre, on relit en continu comme avant
+            return now - last_start >= TITLE_IDLE_BASE          # exactement le rythme d'avant (60 s apres le DEBUT de la precedente)
+        return now - last_end >= title_idle_wait(empty_streak)
+    return now - last_start >= TITLE_RESCAN_SECONDS
+
+
 # Retenue de la confirmation « livraison de bot » : le total monte avant « nobot » pendant la fin d'une commande ordinaire (cinematique, ecran de resultat,
 # dialogues) et reste en avance de 20 a 100 s selon le rythme du joueur, parfois plus que les 90 s exigees pour croire a un bot. Deux signes (releves en jeu,
 # 18/11) permettent de savoir que ce n'est PAS un bot, et on retient alors la confirmation (jamais de check perdu : on retarde seulement) :
@@ -846,26 +894,42 @@ def repair_progress(prev: typing.Optional[typing.Tuple[int, int, int]], cur: typ
 #  - cle 4c615b8a... a 1 : livraison d'une commande standard en cours (0 -> 1 a la cinematique, 1 -> 0 a la sortie de l'ecran de resultat).
 BOT_HOLD_SECONDS = 300.0
 BOT_HOLD_LIKES_JUMP = 1000
-BOT_HOLD_COINCIDENCE = 10.0          # ecart maximal (s) entre la hausse du total et le saut de likes
+BOT_HOLD_COINCIDENCE = 10.0          # ecart maximal (s) entre la hausse du total et le saut de likes (ou la creation d'une cle)
+BOT_HOLD_MAX_NEW_KEYS = 12           # au-dela, c'est un chargement de sauvegarde (des dizaines de cles apparaissent d'un coup), pas une fin de commande
 LIKES_STAT_KEY = "26adb4dfac794d7dbc80aa23969c7652"
 DELIVERY_FLAG_KEY = "4c615b8a055c41ad89d8490292abbae7"
 
 
 def bot_hold_step(state: dict, now: float, total: typing.Optional[int], repair: typing.Optional[int], likes: typing.Optional[int],
-                  flag: typing.Optional[int]) -> bool:
-    """Met a jour `state` (dict conserve d'un releve au suivant) avec un releve (total, repair, likes cumules, drapeau de livraison) et renvoie True si la
-    confirmation d'une livraison de bot doit etre retenue. Les valeurs None (illisibles) sont ignorees."""
+                  flag: typing.Optional[int], new_keys: int = 0, bot: typing.Optional[int] = None) -> bool:
+    """Met a jour `state` (dict conserve d'un releve au suivant) avec un releve (total, repair, likes cumules, drapeau de livraison, nombre de cles creees depuis
+    le releve precedent hors drapeau de livraison, valeur brute du compteur de bot) et renvoie True si la confirmation d'une livraison de bot doit etre retenue.
+    Les valeurs None (illisibles) sont ignorees.
+    Une hausse du total accompagnee (a 10 s pres) d'un saut de likes OU de la creation d'une cle est une fin de commande principale / speciale : elle est
+    retenue BOT_HOLD_SECONDS et enregistree comme « candidate » pour `bot_absorb` (releve en jeu 19/11 : 62, 63, 64, 65, 67, 68 creent une cle avec le total ;
+    4 bots et 2 marchandises perdues non)."""
     if total is not None and state.get("total") is not None and total > state["total"]:
         state["total_at"] = now
+        state["bot_pre"] = state.get("bot")                    # valeur du bot juste avant cette hausse
     if likes is not None and state.get("likes") is not None and likes - state["likes"] >= BOT_HOLD_LIKES_JUMP:
         state["likes_at"] = now
+    if 0 < new_keys <= BOT_HOLD_MAX_NEW_KEYS:
+        state["key_at"] = now
     if repair is not None and state.get("repair") is not None and repair > state["repair"]:
         state["until"] = 0.0                                   # la 62 est terminee : le compteur de bot est revenu a sa valeur
-    ta, la = state.get("total_at"), state.get("likes_at")
-    if ta is not None and la is not None and abs(ta - la) <= BOT_HOLD_COINCIDENCE and state.get("paired") != (ta, la):
-        state["paired"] = (ta, la)
-        state["until"] = max(ta, la) + BOT_HOLD_SECONDS
-    for k, v in (("total", total), ("repair", repair), ("likes", likes)):
+        state["cand"] = None
+    ta = state.get("total_at")
+    for tag in ("likes_at", "key_at"):
+        other = state.get(tag)
+        if ta is not None and other is not None and abs(ta - other) <= BOT_HOLD_COINCIDENCE and state.get("paired_" + tag) != (ta, other):
+            state["paired_" + tag] = (ta, other)
+            state["until"] = max(state.get("until", 0.0), max(ta, other) + BOT_HOLD_SECONDS)
+            if state.get("cand_ta") != ta and state.get("bot_pre") is not None:       # une seule candidate par hausse du total
+                state["cand_ta"] = ta
+                cand = state.get("cand") or {"pre": state["bot_pre"], "n": 0}
+                cand["n"] += 1
+                state["cand"] = cand
+    for k, v in (("total", total), ("repair", repair), ("likes", likes), ("bot", bot)):
         if v is not None:
             state[k] = v
     if flag == 1:
@@ -875,6 +939,60 @@ def bot_hold_step(state: dict, now: float, total: typing.Optional[int], repair: 
         state["flag_since"] = None
     flag_on = state.get("flag_since") is not None and now - state["flag_since"] <= BOT_HOLD_SECONDS
     return now < state.get("until", 0.0) or flag_on
+
+
+def bot_absorb(state: dict, now: float, held: bool, flag: typing.Optional[int], bot: int, baseline: int) -> int:
+    """Nombre de hausses du compteur de bot a ecarter (decalage de la base) : fin de retenue (delai ecoule) d'une ou plusieurs hausses « candidates » (fins de
+    commande principale / speciale, voir `bot_hold_step`) restees sans compensation (`nobot` ou `repair` ne les a pas annulees) et visibles comme un gain.
+    Rien tant qu'une livraison standard est en cours (drapeau a 1 : `nobot` va suivre) ; 0 si le gain est nul (un creux du compteur absorbe deja la hausse)."""
+    cand = state.get("cand")
+    if not cand or held or flag == 1:
+        return 0
+    state["cand"] = None
+    excess, gain = bot - cand["pre"], bot - baseline
+    return max(0, min(cand["n"], excess, gain))
+
+
+# Marqueurs de fin de commande principale : cles de la table creees (absent -> 0 ou 1) dans le meme releve que la hausse du total (a 10 s pres) a la fin de CHAQUE
+# commande. Identiques sur deux courses completes (19/11, 15:58 et 17:12, meme jeu) pour 63, 64, 65, 67, 68 ; 61 / 62 / 70 : releves des 18-19/11 (62 : 3 fois).
+ORDER_MARKER_KEYS: typing.Dict[int, typing.Tuple[str, ...]] = {
+    61: ("4374086b9e9b3ee88b4d803290017d75",),
+    62: ("f496b86a3afa3f29ad6f18bc97c8045c",),
+    63: ("d9574e651dcd36ed87180a9f278628e0",),
+    64: ("4e96248a5d2e34fb8a57b7e6db2ad2ab",),
+    65: ("d4a6a0e4aca4367b99d3d3e22ab040ed",),
+    67: ("6f1785696af642fe8a24ca61bf9cc800",),
+    68: ("6134f3c4104f33cf8afbd18145c9972e", "811181711eb83dfeab21291cc2e20b14", "d32463f383fa38a095d99a3f4b127210"),
+    70: ("88a3ea04c3823061bcaebc35392411aa", "cd8735b9fac33b97a60a4025de0f97d3"),
+}
+
+
+def marker_orders(created: typing.Dict[str, float], total_at: typing.Optional[float], window: float = 10.0,
+                  markers: typing.Optional[typing.Dict[int, typing.Tuple[str, ...]]] = None) -> typing.Set[int]:
+    """Commandes principales dont TOUTES les cles marqueurs ont ete creees (`created` : cle -> heure) a `window` s ou moins de la derniere hausse du total."""
+    if total_at is None:
+        return set()
+    markers = ORDER_MARKER_KEYS if markers is None else markers
+    return {n for n, keys in markers.items() if keys and all(k in created and abs(created[k] - total_at) <= window for k in keys)}
+
+
+SIGNATURE_GRACE = 15.0          # une fin de commande plus recente que cela n'est pas encore « orpheline » (le titre n'est lu que quelques secondes apres l'ecriture ; releve 19/11 : 48 a 77 s apres la fin)
+
+
+def unmatched_signatures(sigs: typing.List[float], now: float, n_new: int, from_counter: bool = False) -> typing.Tuple[typing.List[float], int]:
+    """Fins de commande reconnues dans les compteurs (`sigs`, heures) et `n_new` commandes principales qui viennent d'etre identifiees (titre en memoire,
+    sauvegarde, compteur). Renvoie (signatures conservees, nombre de fins de commande restees sans identification). Un titre ne designe que la DERNIERE commande
+    terminee avant l'enregistrement : les fins plus anciennes (de plus de SIGNATURE_GRACE s) qui restent apres avoir associe les `n_new` plus recentes n'ont
+    jamais ete identifiees (releve 19/11 : la 63, terminee avant la 64 sans enregistrement entre les deux). Une identification par compteur (62) retire simplement
+    la signature correspondante."""
+    if n_new <= 0:
+        return sigs, 0
+    if from_counter:
+        return sigs[:max(0, len(sigs) - n_new)], 0
+    old = sorted(t for t in sigs if now - t >= SIGNATURE_GRACE)
+    recent = [t for t in sigs if now - t < SIGNATURE_GRACE]
+    left = old[:max(0, len(old) - n_new)]
+    return recent, len(left)
 
 
 def apply_trap(memory, spec: dict) -> typing.Tuple[str, typing.Optional[typing.Tuple[float, float]]]:
@@ -965,9 +1083,9 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
         if ctx.settings.get("memory_titles", True) and not title_running and ctx.backend.attached() \
                 and loop.time() - last_title_poll >= 4.0:
             last_title_poll = loop.time()
-            since_full = loop.time() - last_title_full
-            # sans zone connue : nouvel essai complet chaque minute ; avec zone : rescan complet toutes les 4 min au cas ou le jeu ecrive ailleurs
-            full = ctx.title_zones is None or (not ctx.title_zones and since_full >= 60.0) or since_full >= 240.0 or ctx.title_force_full or loop.time() < ctx.title_burst_until
+            # sans zone connue : nouvel essai complet de plus en plus espace (1 a 10 min apres la FIN du precedent) ; avec zone : rescan complet toutes les 4 min
+            # au cas ou le jeu ecrive ailleurs ; tout de suite quand un compteur de livraisons bouge (force / rafale)
+            full = title_scan_due(loop.time(), ctx.title_zones, last_title_full, ctx.title_full_end, ctx.title_empty_streak, ctx.title_force_full, ctx.title_burst_until, ctx.title_alert_until)
             ctx.title_force_full = False
             if full:
                 last_title_full = loop.time()
@@ -994,6 +1112,10 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                         if not used_hint and new_zones:
                             ctx.title_hint_failed = False
                         if new_zones:
+                            ctx.title_empty_streak = 0
+                        elif loop.time() >= ctx.title_burst_until:      # les recherches vides de la rafale (apres une livraison) ne comptent pas
+                            ctx.title_empty_streak += 1
+                        if new_zones:
                             ctx.update_hint([z[0] for z in new_zones] + [z[0] + z[1] for z in new_zones], margin=256 << 20)
                         if ctx.title_baselined:      # nouvelle recherche complete : ce qui est apparu entre-temps compte
                             ctx.register_completed_orders([n for n, _ in sorted(titles - ctx.title_seen)], "memoire")
@@ -1003,7 +1125,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                             if not ctx.title_none_logged:
                                 ctx.title_none_logged = True
                                 logger.info(f"Commandes principales : aucun titre de sauvegarde en memoire pour l'instant (recherche en "
-                                            f"{loop.time() - t0:.0f} s) : nouvel essai chaque minute, jusqu'a la prochaine sauvegarde du jeu.")
+                                            f"{loop.time() - t0:.0f} s) : nouvel essai espace (1 a 10 min) et immediat a chaque livraison.")
                         else:
                             (logger.debug if ctx.title_active_logged else logger.info)(
                                 f"Commandes principales : lecture en memoire active ({sum(z[1] for z in new_zones) >> 20} Mo surveilles, "
@@ -1019,6 +1141,8 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 except Exception as e:
                     logger.warning(f"Lecture des titres en memoire : {e}")
                 finally:
+                    if full:
+                        ctx.title_full_end = loop.time()
                     title_running = False
             Utils.async_start(_titles())
         released = ctx.save_checks
@@ -1218,6 +1342,8 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 snap = (cur["standard"], cur["main"], cur["bot"])           # valeurs brutes : servent a juger de la stabilite
                 if ctx.title_last_main is not None and (cur["main"], cur["bot"]) != ctx.title_last_main:
                     ctx.title_force_full = True      # un compteur de livraisons a bouge : on relit les titres tout de suite
+                    ctx.title_empty_streak = 0       # et on repart sur l'attente courte (1 min) apres la rafale
+                    ctx.title_alert_until = loop.time() + TITLE_ALERT_SECONDS      # le titre n'arrive qu'au prochain enregistrement : 2,5 a 4 min plus tard
                     ctx.title_burst_until = loop.time() + 90.0      # puis toutes les 4 s pendant 90 s : le jeu ecrit son point de controle un peu apres
                 ctx.title_last_main = (cur["main"], cur["bot"])
                 named = ctx.memory.read_named_counters()
@@ -1241,8 +1367,35 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                         table = ctx.memory.dump_named_table() or {}
                     except Exception:
                         table = {}
+                    keys_now = set(table) if table else None
+                    new_names = (keys_now - ctx.bot_hold_keys - {DELIVERY_FLAG_KEY}) if keys_now is not None and ctx.bot_hold_keys is not None else set()
+                    new_keys = len(new_names)
+                    if 0 < new_keys <= BOT_HOLD_MAX_NEW_KEYS:           # (au-dela : chargement de sauvegarde)
+                        for k in new_names:
+                            ctx.created_keys[k] = loop.time()
+                    ctx.created_keys = {k: t for k, t in ctx.created_keys.items() if loop.time() - t <= 120.0}
+                    if keys_now is not None:
+                        ctx.bot_hold_keys = keys_now
+                    delivery_flag = table.get(DELIVERY_FLAG_KEY, 0) if table else None
                     bot_held = bot_hold_step(ctx.bot_hold_state, loop.time(), named.get("total"), named.get("repair", 0),
-                                             table.get(LIKES_STAT_KEY), (table.get(DELIVERY_FLAG_KEY, 0) if table else None))
+                                             table.get(LIKES_STAT_KEY), delivery_flag, new_keys, cur["bot"])
+                    sig_ta = ctx.bot_hold_state.get("cand_ta")
+                    if sig_ta is not None and sig_ta != ctx.sig_last_ta:
+                        ctx.sig_last_ta = sig_ta
+                        ctx.sig_times.append(time.time())      # fin de commande principale / speciale reperee dans les compteurs
+                    # identification par les cles marqueurs : la commande est connue tout de suite, sans attendre le titre du prochain enregistrement
+                    for n in sorted(marker_orders(ctx.created_keys, ctx.bot_hold_state.get("total_at"))):
+                        if (n, ctx.bot_hold_state.get("total_at")) not in ctx.marker_done:
+                            ctx.marker_done.add((n, ctx.bot_hold_state.get("total_at")))
+                            ctx.register_completed_orders([n], "marqueur")
+                    bot_state = ctx.type_state.get("bot", {})
+                    if "baseline" in bot_state:
+                        shift = bot_absorb(ctx.bot_hold_state, loop.time(), bot_held, delivery_flag, cur["bot"], int(bot_state["baseline"]))
+                        if shift:
+                            bot_state["baseline"] = int(bot_state["baseline"]) + shift
+                            ctx.save_progress()
+                            logger.info(f"Fin de commande principale ou speciale reconnue dans les compteurs (cle creee avec le total, pas de livraison de bot) : "
+                                        f"{shift} hausse(s) du compteur de bot ecartee(s) (base {bot_state['baseline'] - shift} -> {bot_state['baseline']}).")
                     if bot_held and not ctx.bot_hold_logged:
                         ctx.bot_hold_logged = True
                         logger.debug("Livraison de bot : confirmation retenue (fin de commande ordinaire ou speciale en cours).")

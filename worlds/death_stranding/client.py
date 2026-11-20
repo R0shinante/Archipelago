@@ -25,7 +25,7 @@ from CommonClient import CommonContext, ClientCommandProcessor, get_base_parser,
 from MultiServer import mark_raw
 from NetUtils import ClientStatus
 
-from .data import EPISODES, ORDER_TO_LOCATION
+from .data import BASE_ID, EPISODES, ORDER_TO_LOCATION, implied_completed
 from .locations import BOT_ORDER_BASE_ID, ORDER_PROGRESS_BASE_ID, STANDARD_ORDER_BASE_ID, location_name_to_id
 from .memory import GameMemory, PymemBackend
 from .savewatch import DEFAULT_COMPLETED_WORDS, ResignerCli, SaveWatcher, autodetect_root, parse_title, read_header
@@ -628,6 +628,7 @@ class DeathStrandingContext(CommonContext):
         self.type_history: typing.List[tuple] = []
         self.title_zones: typing.Optional[typing.List[typing.Tuple[int, int]]] = None
         self.title_seen: typing.Set[typing.Tuple[int, str]] = set()
+        self.title_seen_all: typing.Set[typing.Tuple[int, str]] = set()      # tous les titres vus, quel que soit l'etat (deduction des commandes precedentes)
         self.title_baselined = False
         self.title_force_full = False
         self.title_hint_failed = False
@@ -713,7 +714,8 @@ class DeathStrandingContext(CommonContext):
             code = location_name_to_id[loc]
             if code not in self.save_checks:
                 self.save_checks.add(code)
-                logger.info(f"Commande terminee detectee ({source}) : {loc}")
+                logger.info(f"Commande terminee detectee ({source}) : {loc}" if source != "deduction" else
+                            f"Commande terminee deduite (un titre de sauvegarde d'une commande plus avancee le prouve) : {loc}")
                 newly.append(n)
         if newly:
             self.sig_times, orphans = unmatched_signatures(self.sig_times, time.time(), len(newly), source in ("compteur", "marqueur"))
@@ -725,6 +727,17 @@ class DeathStrandingContext(CommonContext):
                                f"derniere commande terminee a chaque enregistrement. " + (f"Probablement : {' ; '.join(ORDER_TO_LOCATION[n] for n in maybe)}. " if maybe else "")
                                + "Si son check n'est pas parti, envoyez-le avec /check <nom exact du lieu> (ex. /check "
                                + (ORDER_TO_LOCATION[maybe[0]] if maybe else "Order 63 - Network Activation Key Delivery: Edge Knot City") + ").")
+
+    def infer_from_titles(self, seen_all: typing.Iterable[typing.Tuple[int, str]]) -> None:
+        """Titres NOUVEAUX (tous etats) : prouvent que les commandes « Story : Yes » des episodes precedents (et des chaines strictement sequentielles) sont terminees."""
+        known = {c - BASE_ID for c in (self.save_checks | self.checked_locations) if 0 < c - BASE_ID < 1000}
+        implied: typing.Set[int] = set()
+        for n, _ in sorted(set(seen_all)):
+            got = implied_completed(n, known | implied)
+            if got:
+                logger.debug(f"Titre de la commande n°{n} vu : deduction des commandes {got}.")
+            implied |= set(got)
+        self.register_completed_orders(sorted(implied), "deduction")
 
     def stock_targets(self) -> typing.List[str]:
         """Installations qui recoivent les materiaux : reglage utilisateur, sinon valeur par defaut du paquet."""
@@ -1148,8 +1161,11 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                             ctx.title_empty_streak += 1
                         if new_zones:
                             ctx.update_hint([z[0] for z in new_zones] + [z[0] + z[1] for z in new_zones], margin=256 << 20)
+                        all_now = set(getattr(ctx.memory, "last_title_orders", ()))
                         if ctx.title_baselined:      # nouvelle recherche complete : ce qui est apparu entre-temps compte
                             ctx.register_completed_orders([n for n, _ in sorted(titles - ctx.title_seen)], "memoire")
+                            ctx.infer_from_titles(all_now - ctx.title_seen_all)
+                        ctx.title_seen_all |= all_now
                         ctx.title_seen |= set(titles)
                         ctx.title_baselined = True
                         if not new_zones:
@@ -1169,6 +1185,9 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                         ctx.title_zones = new_zones
                         if fresh:
                             ctx.register_completed_orders([n for n, _ in fresh], "memoire")
+                        all_now = set(getattr(ctx.memory, "last_title_orders", ()))
+                        ctx.infer_from_titles(all_now - ctx.title_seen_all)
+                        ctx.title_seen_all |= all_now
                 except Exception as e:
                     logger.warning(f"Lecture des titres en memoire : {e}")
                 finally:

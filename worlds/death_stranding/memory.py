@@ -494,6 +494,7 @@ class GameMemory:
         (base, taille). Renvoie ({(numero, heure)}, zones ou des titres ont ete vus)."""
         import time
         stop, titles, spans = time.time() + deadline, set(), []
+        self.last_title_orders: typing.Set[typing.Tuple[int, str]] = set()      # TOUS les titres vus par cette recherche, quel que soit l'etat : (numero, heure)
         chunk, overlap = 1 << 23, 512
         todo = self._regions_in(windows)
         grand, done, last_say = sum(t for _, t in todo), 0, time.time()
@@ -511,6 +512,7 @@ class GameMemory:
                 if data:
                     found, anchors = parse_memory_titles(data, words)
                     titles.update((num, hhmmss) for num, hhmmss, _ in found)
+                    self.last_title_orders.update((num, hhmmss) for _st, num, _nm, hhmmss, _p in iter_memory_titles(data))
                     spans.extend(base + off + a for a in anchors)
                 off += n - overlap if off + n < total else n
         zones: typing.List[typing.Tuple[int, int]] = []

@@ -178,3 +178,28 @@ EXTRA_FILLER3_ITEMS: dict[str, int] = {
 EXTRA_FILLER4_ITEMS: dict[str, int] = {
     "Likes Pack": 10,           # +500 likes
 }
+
+
+# --- Deduction des commandes terminees a partir d'un titre de point de controle -------------------------------------------------------------------------
+# Le titre de sauvegarde ne garde que la DERNIERE commande (en cours ou terminee) : une commande finie puis suivie d'une autre avant l'enregistrement n'apparait
+# jamais (releve 20/11 : n°2 puis n°3 « en cours »). Mais voir une commande de l'episode E (dans n'importe quel etat) prouve que les commandes « Story : Yes » des
+# episodes precedents sont terminees, et, dans quelques episodes strictement sequentiels, celles qui la precedent.
+STORY_CHAINS: tuple[tuple[int, ...], ...] = ((2, 3), (54, 55), (63, 64, 65))
+ORDER_EPISODE: dict[int, int] = {no: ep for no, _, ep in MAIN_ORDERS}
+
+
+def implied_completed(n: int, known: "set[int] | frozenset[int]" = frozenset()) -> list[int]:
+    """Commandes (hors OPTIONAL_ORDERS) dont la fin est PROUVEE par la presence d'un titre de la commande `n`, quel que soit son etat.
+    `known` : commandes deja reconnues. Garde-fou : on ne deduit rien si l'episode de `n` depasse de plus d'un celui de la plus avancee des commandes connues
+    (titre d'une autre sauvegarde, client lance en cours de partie) ; il faut alors /check a la main."""
+    ep = ORDER_EPISODE.get(n)
+    if ep is None:
+        return []
+    if ep > max((ORDER_EPISODE[k] for k in known if k in ORDER_EPISODE), default=0) + 1:
+        return []
+    out = {m for m, e in ORDER_EPISODE.items() if e < ep and m not in OPTIONAL_ORDERS}
+    for chain in STORY_CHAINS:
+        if n in chain:
+            out |= {m for m in chain[:chain.index(n)] if m not in OPTIONAL_ORDERS}
+    out.discard(n)
+    return sorted(out)

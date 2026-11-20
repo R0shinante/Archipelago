@@ -1,11 +1,12 @@
 """Donnees statiques du monde Death Stranding.
 
 Les checks sont les commandes PRINCIPALES numerotees du jeu (le numero est celui affiche dans le titre
-des sauvegardes : « Commande terminee : n° 59 ... »). Liste d'apres la page
-https://samurai-gamers.com/death-stranding/delivery-order-list/ (50 commandes de son tableau principal).
-Cette page se contredit par endroits (la n°17 n'apparait nulle part, les commandes optionnelles partagent la
-meme numerotation) : a verifier en jouant. La n°66 (episode 10, Die-Hardman) est une commande
-OPTIONNELLE (non necessaire a l'histoire) : « (URGENT) Fresh Pizza Delivery: Peter Englert » (nom confirme en jeu le 19/11).
+des sauvegardes : « Commande terminee : n° 59 ... »), soit les n° 1 a 70 (70 commandes). Les numeros >= 71 (commandes
+secondaires [V], recuperations, sauvetages...) ne sont pas des checks.
+Liste, chapitres et champ « Story » d'apres le wiki Fandom (Orders (DS1)) et le walkthrough de Neoseeker, recoupes avec
+samurai-gamers.com et PowerPyx. 19 commandes sont OPTIONNELLES (OPTIONAL_ORDERS) ; la 66 (« Fresh Pizza Delivery: Peter Englert »)
+a son nom confirme en jeu le 19/11. La n°1 (prologue) et les commandes « tutoriel » (6, 10, 15, 25, 29) n'ont pas encore ete
+observees en jeu : si l'une n'est pas detectee, utiliser /check <nom exact du lieu>.
 
 Les identifiants de lieux sont stables : BASE_ID + numero de commande.
 """
@@ -28,11 +29,18 @@ MAIN_ORDERS: list[tuple[int, str, int]] = [
     (3, "Cremation: President's Body", 1),
     (4, "Smart Drug Delivery: Waystation West of Capital Knot City", 2),
     (5, "Rare Metal Delivery: Distribution Center West of Capital Knot City", 2),
+    (6, "Construction: Postbox", 2),
     (7, "Recovery: Chiral Printer Interface", 2),
     (8, "Collection: Chiral Crystals", 2),
     (9, "Power Supply Unit Delivery: Wind Farm", 2),
+    (10, "Construction: Bridge", 2),
+    (11, "Resins Delivery: Distribution Center West of Capital Knot City", 2),
+    (12, "Recovery: Confidential Documents", 2),
+    (13, "Cryptobiote Delivery: Capital Knot City", 2),
     (14, "Aid Package Delivery: Port Knot City", 2),
+    (15, "Equipment Trial: Hematic Grenade", 2),
     (16, "Elimination: BT", 2),
+    (17, "Ludens Flag Spear Delivery: Port Knot City", 2),
     (18, "Aid Package Delivery: Lake Knot City", 3),
     (19, "Evo-devo Unit Delivery: Engineer", 3),
     (20, "Prescription Medicine Delivery: Elder", 3),
@@ -40,17 +48,27 @@ MAIN_ORDERS: list[tuple[int, str, int]] = [
     (22, "Recovery: Toolbox", 3),
     (23, "Retrieval: System Server", 3),
     (24, "Prototype Bot Delivery: Distribution Center South of Lake Knot City", 3),
+    (25, "Road Reconstruction", 3),
+    (26, "Fresh Pizza Delivery: Peter Englert", 3),
     (27, "Chiralium Gauge Delivery: Weather Station", 3),
     (28, "Wheat Seed Delivery: Timefall Farmers", 3),
+    (29, "Construction: Safe House", 3),
     (30, "Old Component Delivery: Junk Dealer", 3),
+    (31, "Tablet Delivery: Film Director", 3),
     (32, "Collection: Old Components", 3),
     (33, "Hourglass Delivery: Chiral Artist", 3),
     (34, "Chiral Artist Delivery: Junk Dealer", 3),
+    (35, "Prototype Delivery: Distribution Center South of Lake Knot City", 3),
+    (36, "Retrieval: Sticky Guns", 3),
+    (37, "Sewing Kit Delivery: Cosplayer", 3),
     (38, "Emergency Provisions Delivery: South Knot City", 3),
     (39, "Escape the Battlefield", 4),
+    (40, "Fresh Pizza Delivery: Peter Englert", 5),
     (41, "Building Materials Delivery: Waystation North of Mountain Knot City", 5),
+    (42, "Collection: Scattered Rare Mineral Resources", 5),
     (43, "Blood Delivery: Distribution Center North of Mountain Knot City", 5),
     (44, "Antimatter Bomb Delivery: Mountain Knot City", 5),
+    (45, "Fresh Pizza Delivery: Peter Englert", 5),
     (46, "Mama Delivery: Mountain Knot City", 5),
     (47, "High-bounce Spring Delivery: Roboticist", 6),
     (48, "Medicine Sample Delivery: Doctor", 6),
@@ -61,6 +79,8 @@ MAIN_ORDERS: list[tuple[int, str, int]] = [
     (53, "Stone Fragment Delivery: Spiritualist", 6),
     (54, "Escape the Battlefield", 7),
     (55, "Corpse Delivery: Heartman's Lab", 7),
+    (56, "Recovery: Winter Clothes", 8),
+    (57, "Fresh Pizza Delivery: Peter Englert", 8),
     (58, "Anti-chiralium Medication Delivery: Geologist", 8),
     (59, "Antimatter Bomb Delivery: Paleontologist", 8),
     (60, "Recovery: Ammonites", 8),
@@ -75,6 +95,13 @@ MAIN_ORDERS: list[tuple[int, str, int]] = [
     (69, "Go to Her Beach", 13),
     (70, "Cremation: BB", 14),
 ]
+
+# Commandes marquees « Story : No » par le wiki Fandom (Orders (DS1)), plus la n°66 (pizza, non obligatoire d'apres le jeu, bien que Fandom
+# la marque « Yes ») : tutoriels de construction (6, 10, 29), essais/tutoriels (15, 25), commandes de ravitaillement ou de recuperation
+# secondaires (11, 12, 13, 17, 31, 35, 37, 42, 56) et livraisons de pizza « Fresh Pizza Delivery » (26, 40, 45, 57, 66).
+# Ce sont des checks comme les autres, mais la generation n'y place jamais d'objet de progression (LocationProgressType.EXCLUDED) :
+# on peut les sauter sans bloquer la partie.
+OPTIONAL_ORDERS: frozenset[int] = frozenset({6, 10, 11, 12, 13, 15, 17, 25, 26, 29, 31, 35, 37, 40, 42, 45, 56, 57, 66})
 
 
 def location_name(number: int, name: str) -> str:

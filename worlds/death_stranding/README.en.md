@@ -20,13 +20,13 @@ Unofficial project, not affiliated with Kojima Productions, 505 Games or the Arc
 
 ## What it does
 
-The **51 main orders** are the checks. "Episode N Access" items shape the generation logic (an episode is only "reachable" once its item is received), but **the game itself is not locked**:
+The **70 main orders** (no. 1 to 70) are the checks. "Episode N Access" items shape the generation logic (an episode is only "reachable" once its item is received), but **the game itself is not locked**:
 nothing stops you from playing the story without having received them (see [Known limitations](#known-limitations)). The other multiworld items (crystals, materials,
 equipment, traps) are applied in game by the client, which accesses the game's memory.
 
 | Feature | Status |
 |---|---|
-| Checks: main orders (51), detected automatically | ✅ |
+| Checks: main orders (70), detected automatically | ✅ |
 | "Episode N Access" items in the generation logic (episode regions) | ✅ received and displayed, but **no effect in game** |
 | Real in-game episode locking (preventing play of an episode without its item) | ❌ not possible for now |
 | Chiral Crystals applied in game | ✅ |
@@ -205,8 +205,9 @@ A word fragment is enough (no accents, lowercase). If in doubt, use save decrypt
 
 - "Episode N Access" items **lock nothing in game**: they only exist in the generation logic. You can play the story in order without having received them, and checks go out
   as soon as the order is completed. With the `episode_gating` option the client **holds back sending** main-order checks: an order of episode N is only sent once "Episode 1 Access" to "Episode N Access" are received (same rule as generation). The order completes normally in game and its check goes out as soon as the item arrives; held checks survive a client restart (`/ds_held` lists them). Likes, order progress, standard order and bot order checks are never held, and `/check <location>` sends a check regardless of the hold. The game itself is not locked.
-- Only the 51 main orders on the list are checks. The list comes from community guides and may contain mistakes: order 66 is optional (“Fresh Pizza Delivery: Peter Englert”), and numbers
-  6, 10 to 13, 15, 17, 25, 26, 29, 31, 35 to 37, 40, 42, 45, 56 and 57 are missing (missing main orders, or other categories?). When the client sees an order numbered below 100
+- The 70 main orders (no. 1 to 70) are the checks. List from the Fandom wiki and Neoseeker. 19 are optional (marked “Story: No” on Fandom, plus no. 66): no. 6, 10-13, 15, 17, 25, 26, 29, 31, 35, 37, 40, 42, 45, 56, 57, 66
+  (construction tutorials, “Fresh Pizza Delivery: Peter Englert”…). They are checks, but generation never places a progression item on them. Order 1 (prologue) and the “tutorial” orders (no. 6, 10, 15, 25, 29)
+  have not been verified in game yet: if one is not detected, use `/check <exact location name>`. When the client sees an order numbered below 100
   complete that is not on the list, it says so once in the log: please report it with its name and episode.
 - Victory (last order of the goal episode: No. 70, or No. 68 with the episode 12 goal) is validated in game for No. 70 (episode 14 goal), 30 s to 1 min after the save that follows the credits, and for No. 68 (episode 12 goal), recognised by its marker keys as soon as the end-of-delivery cinematic starts. With `episode_gating`, victory waits for the "Episode 1 Access" to "Episode N Access" items. If victory does not go out, `/check <location name>` sends the check by hand.
 - A main order may go unidentified if the game wrote no checkpoint before the next one and it has no known marker key (this is the case of No. 66, which is optional, and others). The client then warns ("unidentified order end") with the likely order and the `/check` command to type.

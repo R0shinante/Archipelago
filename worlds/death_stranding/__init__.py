@@ -1,10 +1,10 @@
 from typing import Any
 
-from BaseClasses import Item, ItemClassification, Region, Tutorial
+from BaseClasses import Item, ItemClassification, LocationProgressType, Region, Tutorial
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import Component, Type, components, launch_subprocess
 
-from .data import EPISODE_TITLES, EPISODES, EXTRA_FILLER_ITEMS, EXTRA_FILLER2_ITEMS, EXTRA_FILLER3_ITEMS, EXTRA_FILLER4_ITEMS, EXTRA_TRAP_ITEMS, FILLER_ITEMS, TRAP_ITEMS, USEFUL_ITEMS
+from .data import BASE_ID, EPISODE_TITLES, EPISODES, EXTRA_FILLER_ITEMS, EXTRA_FILLER2_ITEMS, EXTRA_FILLER3_ITEMS, EXTRA_FILLER4_ITEMS, EXTRA_TRAP_ITEMS, FILLER_ITEMS, OPTIONAL_ORDERS, TRAP_ITEMS, USEFUL_ITEMS
 from .items import DeathStrandingItem, item_name_to_id, item_table
 from .locations import (DeathStrandingLocation, likes_location_name, likes_location_table, location_name_to_id, location_table,
                         order_progress_location_name, order_progress_location_table, standard_order_location_name,
@@ -90,7 +90,10 @@ class DeathStrandingWorld(World):
             region = Region(EPISODE_TITLES[ep], self.player, self.multiworld)
             for loc_name in EPISODES[ep]:
                 code, _ = location_table[loc_name]
-                region.locations.append(DeathStrandingLocation(self.player, loc_name, code, region))
+                location = DeathStrandingLocation(self.player, loc_name, code, region)
+                if code - BASE_ID in OPTIONAL_ORDERS:        # commande optionnelle (pizza) : jamais d'objet de progression dessus
+                    location.progress_type = LocationProgressType.EXCLUDED
+                region.locations.append(location)
             self.multiworld.regions.append(region)
             if ep == 0:
                 previous.connect(region, "Debut -> Prologue")

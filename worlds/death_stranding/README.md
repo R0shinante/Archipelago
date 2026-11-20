@@ -20,13 +20,13 @@ Projet non officiel, sans lien avec Kojima Productions, 505 Games ni l'équipe d
 
 ## Ce que fait le mod
 
-Les **51 commandes principales** sont des checks. Des objets « Episode N Access » structurent la logique de génération (un épisode n'est « atteignable » qu'une fois
+Les **70 commandes principales** (n°1 à 70) sont des checks. Des objets « Episode N Access » structurent la logique de génération (un épisode n'est « atteignable » qu'une fois
 son objet reçu), mais **le jeu lui-même n'est pas verrouillé** : rien n'empêche de jouer l'histoire sans les avoir reçus (voir [Limites connues](#limites-connues)).
 Les autres objets du multimonde (cristaux, matériaux, équipement, pièges) sont appliqués en jeu par le client, qui accède à la mémoire du jeu.
 
 | Fonction | État |
 |---|---|
-| Checks : commandes principales (51), détectées automatiquement | ✅ |
+| Checks : commandes principales (70), détectées automatiquement | ✅ |
 | Objets « Episode N Access » dans la logique de génération (régions d'épisodes) | ✅ reçus et affichés, mais **sans effet en jeu** |
 | Verrouillage réel des épisodes en jeu (empêcher de jouer un épisode sans l'objet) | ❌ pas possible pour l'instant |
 | Cristaux chiraux appliqués en jeu | ✅ |
@@ -207,8 +207,9 @@ Un fragment de mot suffit (sans accents, en minuscules). En cas de doute, utilis
 - Les objets « Episode N Access » **ne verrouillent rien en jeu** : ils n'existent que dans la logique de génération. Le joueur peut jouer l'histoire dans l'ordre sans les avoir
   reçus, et les checks partent dès que la commande est terminée. Avec l'option `episode_gating`, le client **retient l'envoi** des checks de commandes principales : une commande de l'épisode N n'est envoyée qu'une fois les objets « Episode 1 Access » à « Episode N Access » reçus (même règle que la génération). La commande se termine normalement dans le jeu et son check part dès que l'objet arrive ; les checks retenus survivent à un redémarrage du client (`/ds_held` les liste). Les checks de likes, de progression, de commandes standard et de bot ne sont jamais retenus, et `/check <lieu>` envoie un check sans tenir compte de la retenue. Le jeu lui-même n'est pas verrouillé ;
   bloquer l'accès aux épisodes en jeu n'est pas possible pour l'instant.
-- Seules les 51 commandes principales de la liste sont des checks. La liste vient de guides communautaires et peut contenir des erreurs : n°66 optionnelle (« Fresh Pizza Delivery: Peter Englert »), et les numéros
-  6, 10 à 13, 15, 17, 25, 26, 29, 31, 35 à 37, 40, 42, 45, 56 et 57 sont absents (commandes principales manquantes, ou autres catégories ?). Quand le client voit se terminer une commande
+- Les 70 commandes principales (n°1 à 70) sont des checks. Liste d'après le wiki Fandom et Neoseeker. 19 sont optionnelles (marquées « Story : No » sur Fandom, plus la n°66) : n°6, 10-13, 15, 17, 25, 26, 29, 31, 35, 37, 40, 42, 45, 56, 57, 66
+  (tutoriels de construction, livraisons de pizza « Fresh Pizza Delivery: Peter Englert »…). Ce sont des checks, mais la génération n'y place jamais d'objet de progression. La n°1 (prologue) et les commandes « tutoriel » (n°6, 10, 15, 25, 29)
+  n'ont pas encore été vérifiées en jeu : si l'une n'est pas détectée, `/check <nom exact du lieu>`. Quand le client voit se terminer une commande
   de numéro inférieur à 100 qui n'est pas dans la liste, il l'indique une fois dans le journal : merci de la signaler avec son nom et son épisode.
 - La victoire (dernière commande de l'épisode but : n°70, ou n°68 avec l'objectif épisode 12) est validée en jeu pour la n°70 (objectif épisode 14), 30 s à 1 min après la sauvegarde qui suit le générique, et pour la n°68 (objectif épisode 12), reconnue par ses clés marqueurs dès le début de la cinématique de fin de livraison. Avec `episode_gating`, la victoire attend les objets « Episode 1 Access » à « Episode N Access ». Si la victoire ne part pas, `/check <nom du lieu>` envoie le check à la main.
 - Une commande principale peut ne pas être identifiée si le jeu n'a pas écrit de point de contrôle avant la suivante et si elle n'a pas de clé marqueur connue (c'est le cas de la n°66, optionnelle, et d'autres). Le client le signale alors (« fin de commande non identifiée ») avec la commande probable et la commande `/check` à taper.

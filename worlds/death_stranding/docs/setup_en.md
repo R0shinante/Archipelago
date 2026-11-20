@@ -71,6 +71,6 @@ Other equipment items (Cargo Skeleton, Trike, Truck, Road Paver, anchors, ladder
 Effects wait until Sam is readable. Test with `/ds_debug on` then `/ds_effect Blood Bag`. Values live in `memory_map.default.json` (sections `traps`, `boosts`, `item_grants`).
 
 ## Known limitations
-- Only the 51 main orders on the list are checks; the list comes from a community page and may contain mistakes (order 66 is optional (“Fresh Pizza Delivery: Peter Englert”); numbers 6, 10-13, 15, 17, 25, 26, 29, 31, 35-37, 40, 42, 45, 56, 57 are missing).
+- The 70 main orders (no. 1 to 70) are the checks. 19 are optional (Fandom “Story: No” + pizza no. 66: 6, 10-13, 15, 17, 25, 26, 29, 31, 35, 37, 40, 42, 45, 56, 57, 66): generation never puts progression items on them. Order 1 and tutorial-type orders (6, 10, 15, 25, 29) are unverified in game: use `/check <location>` if one is not detected.
 - "Episode N Access" items lock nothing in game. Victory (last order of the goal episode) is validated in game for No. 70 (episode 14 goal) and No. 68 (episode 12 goal); `/check <location name>` sends a check by hand if it does not go out. With `episode_gating`, victory waits for the access items of every episode up to the goal.
 - Memory offsets come from a community table (game v1.004); if `/ds_status` finds nothing while the game is loaded, they do not match your version.

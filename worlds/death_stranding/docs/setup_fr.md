@@ -39,8 +39,7 @@ lit les checkpoints sur une copie temporaire (tes sauvegardes ne sont jamais mod
 `/ds_saves_dir <dossier>` si le dossier n'est pas trouvé, `/ds_resigner off` / `on` pour le désactiver / réactiver, `/ds_catchup` pour traiter les checkpoints déjà présents.
 
 ## Limites connues
-- Seules les commandes principales de la liste sont des checks (51). La liste vient d'une page communautaire
-  et peut contenir des erreurs (n°66 optionnelle (« Fresh Pizza Delivery: Peter Englert ») ; les numéros 6, 10 à 13, 15, 17, 25, 26, 29, 31, 35 à 37, 40, 42, 45, 56 et 57 sont absents).
+- Les 70 commandes principales (n°1 à 70) sont des checks. 19 sont optionnelles (Fandom « Story : No » + pizza n°66 : 6, 10-13, 15, 17, 25, 26, 29, 31, 35, 37, 40, 42, 45, 56, 57, 66) : la génération n'y place jamais d'objet de progression. La n°1 et les commandes de type tutoriel (6, 10, 15, 25, 29) ne sont pas vérifiées en jeu : `/check <lieu>` si l'une n'est pas détectée.
 - Les objets « Episode N Access » ne verrouillent rien en jeu : ils n'existent que dans la logique de génération. La victoire (dernière commande de l'épisode but) est validée en jeu pour la n°70 (objectif épisode 14) et la n°68 (objectif épisode 12) ;
   `/check <nom du lieu>` envoie un check à la main si elle ne part pas. Avec `episode_gating`, la victoire attend les accès à tous les épisodes jusqu'au but.
 - Objets reçus : les cristaux chiraux (+100), les matériaux (stock d'une installation), les pièges et les effets ponctuels listés plus bas agissent en jeu ; le reste de l'équipement est affiché seulement.

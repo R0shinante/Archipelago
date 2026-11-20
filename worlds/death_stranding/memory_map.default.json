@@ -33,8 +33,8 @@
     }
   },
   "saves": {
-    "_comment": "Detection des commandes terminees : mots du titre du point de controle qui signifient « terminee » (sans accents, minuscules, un fragment suffit). Valide en francais seulement. Facultatif : resigner (chemin de l'outil de dechiffrement), root (dossier des sauvegardes).",
-    "completed_words": ["termin", "complet", "abgeschlossen", "completad"]
+    "_comment": "Detection des commandes terminees : mots du titre du point de controle qui signifient « terminee » (sans accents, minuscules, un fragment suffit). Valide en francais seulement ; la liste ci-dessous S'AJOUTE aux mots par defaut du client (anglais, allemand, espagnol, italien, portugais, russe, japonais, chinois, coreen... supposes, a confirmer avec /ds_titles). Facultatif : resigner (chemin de l'outil de dechiffrement), root (dossier des sauvegardes).",
+    "completed_words": []
   },
   "item_grants": {
     "_comment": "item Archipelago -> ressource du jeu et quantite ajoutee a la reception",

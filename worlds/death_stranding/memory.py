@@ -16,16 +16,59 @@ from urllib.parse import unquote
 _VQ_INIT = threading.Lock()
 
 _NB = rb"(?:\xc2\xa0|%C2%A0|\s)"
-# « ... : nº 62 « nom » - 22:48:17 » tel que le jeu l'ecrit en memoire (texte brut ou encode en %XX)
+
+
+def _alts(chars: str) -> bytes:
+    """Alternative d'octets pour des caracteres : UTF-8 brut ou encode en %XX (majuscules), comme le jeu l'ecrit selon l'endroit."""
+    out = []
+    for c in chars:
+        raw = c.encode("utf-8")
+        out.append(re.escape(raw))
+        if len(raw) > 1 or not c.isalnum():
+            out.append("".join(f"%{x:02X}" for x in raw).encode())
+    return b"(?:" + b"|".join(out) + b")"
+
+
+# « ... : nº 62 « nom » - 22:48:17 » tel que le jeu l'ecrit en memoire (texte brut ou encode en %XX). Variantes pour d'autres langues (NON validees en jeu,
+# sauf le francais) : deux-points pleine chasse, prefixes de numero (n°, nº, no., nr., N.º, №, #), guillemets «», “”, „“, 「」, 『』.
+_COLON = _alts(":\uff1a")
+_NUM_PREFIX = rb"(?:n(?:\.?\s?" + _alts("\u00ba\u00b0") + rb"|o|r|um)|" + _alts("\u2116") + rb"|\#)\.?"
+_QUOTE_OPEN = _alts("\u00ab\u201c\u201e\u300c\u300e\"")
+_QUOTE_CLOSE = _alts("\u00bb\u201d\u201c\u300d\u300f\"")
+_DASH = _alts("-\u2013\u2014")
 _TITLE_RE = re.compile(
-    rb":" + _NB + rb"*(?:n(?:\xc2\xba|%C2%BA|\xc2\xb0|%C2%B0|o|r)|\#)\.?" + _NB + rb"*(\d{1,4})" + _NB
-    + rb"*(?:\xc2\xab|%C2%AB|\xe2\x80\x9c|%E2%80%9C|\")(.{0,200}?)(?:\xc2\xbb|%C2%BB|\xe2\x80\x9d|%E2%80%9D|\")"
-    + _NB + rb"*-" + _NB + rb"*(\d{1,3}:\d\d:\d\d)")
+    _COLON + _NB + rb"*" + _NUM_PREFIX + _NB + rb"*(\d{1,4})" + _NB + rb"*" + _QUOTE_OPEN + rb"(.{0,450}?)" + _QUOTE_CLOSE
+    + _NB + rb"*" + _DASH + _NB + rb"*(\d{1,3}:\d\d:\d\d)", re.IGNORECASE)      # « No. », « Nr. » en majuscule initiale
+
+# Etats qui contiennent un mot d'achevement sans signifier « terminee » (« incomplete », « non terminee »...) : jamais pris pour une fin de commande.
+NEGATIVE_WORDS = ("incompl", "inconclu", "unvollst", "non termin", "not complet", "unfinish", "uncomplet", "nicht abgeschlossen", "no complet", "no termin",
+                  "niewykon", "nieukoncz", "nedokonc", "незаверш", "невыполн", "未完", "未達", "미완")
 
 
 def _fold(text: str) -> str:
     import unicodedata
-    return "".join(c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn").casefold()
+    return unicodedata.normalize("NFC", "".join(c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn")).casefold()   # NFC : recompose le hangul
+
+
+def state_completed(state: str, words: typing.Iterable[str]) -> bool:
+    """`state` : texte avant les deux-points, deja passe par _fold. Vrai s'il contient un mot « terminee » et aucun mot de negation."""
+    return any(w in state for w in words) and not any(n in state for n in NEGATIVE_WORDS)
+
+
+def iter_memory_titles(data: bytes) -> typing.Iterator[typing.Tuple[str, int, str, str, int]]:
+    """TOUS les titres « Title = <etat> : nº N « nom » - hh:mm:ss » de `data`, quel que soit l'etat : (etat brut, numero, nom, heure, position).
+    Sert a la commande /ds_titles (diagnostic pour une autre langue) et a parse_memory_titles."""
+    i = data.find(b"Title")      # recherche rapide du mot-cle d'abord ; l'expression reguliere ne tourne que sur 900 octets autour
+    while i >= 0:
+        seg = data[i:i + 900]
+        if seg[5:60].lstrip(b" \t").startswith(b"="):
+            m = _TITLE_RE.search(seg)
+            if m and m.start() < 300:
+                eq = seg.find(b"=") + 1
+                raw_state = unquote(seg[eq:m.start()].decode("utf-8", "replace")).replace("\xa0", " ").strip()
+                name = unquote(m.group(2).decode("utf-8", "replace")).replace("\xa0", " ").strip()
+                yield raw_state, int(m.group(1)), name, m.group(3).decode("ascii"), i
+        i = data.find(b"Title", i + 5)
 
 
 def parse_memory_titles(data: bytes, words: typing.Iterable[str]
@@ -37,17 +80,14 @@ def parse_memory_titles(data: bytes, words: typing.Iterable[str]
     words = tuple(words)
     found: typing.List[typing.Tuple[int, str, int]] = []
     anchors: typing.List[int] = []
-    i = data.find(b"Title")      # recherche rapide du mot-cle d'abord ; l'expression reguliere ne tourne que sur 450 octets autour
+    i = data.find(b"Title")
     while i >= 0:
-        seg = data[i:i + 450]
-        if seg[5:60].lstrip(b" \t").startswith(b"="):
+        if data[i + 5:i + 60].lstrip(b" \t").startswith(b"="):
             anchors.append(i)
-            m = _TITLE_RE.search(seg)
-            if m and m.start() < 90:
-                state = _fold(unquote(seg[:m.start()].decode("utf-8", "replace")).replace("\xa0", " "))
-                if any(w in state for w in words):
-                    found.append((int(m.group(1)), m.group(3).decode("ascii"), i))
         i = data.find(b"Title", i + 5)
+    for raw_state, num, _name, hhmmss, pos in iter_memory_titles(data):
+        if state_completed(_fold(raw_state), words):
+            found.append((num, hhmmss, pos))
     return found, anchors
 
 
@@ -480,6 +520,27 @@ class GameMemory:
             else:
                 zones.append((lo, hi - lo))
         return titles, zones
+
+    def list_titles(self, windows: typing.Optional[typing.List[typing.Tuple[int, int]]] = None, deadline: float = 600.0
+                    ) -> typing.List[typing.Tuple[str, int, str, str]]:
+        """Diagnostic : TOUS les titres de points de controle lus en memoire, quel que soit leur etat (etat brut, numero, nom, heure), sans doublon."""
+        import time
+        stop, out, seen = time.time() + deadline, [], set()
+        chunk, overlap = 1 << 23, 512
+        for base, total in self._regions_in(windows):
+            if time.time() > stop:
+                break
+            off = 0
+            while off < total:
+                n = min(chunk, total - off)
+                data = self.backend.read(base + off, n)
+                if data:
+                    for state, num, name, hhmmss, _pos in iter_memory_titles(data):
+                        if (state, num, name, hhmmss) not in seen:
+                            seen.add((state, num, name, hhmmss))
+                            out.append((state, num, name, hhmmss))
+                off += n - overlap if off + n < total else n
+        return out
 
     def _regions_in(self, windows: typing.Optional[typing.List[typing.Tuple[int, int]]]) -> typing.List[typing.Tuple[int, int]]:
         """Tas du jeu (memoire privee), limite aux fenetres (base, taille) si elles sont donnees."""

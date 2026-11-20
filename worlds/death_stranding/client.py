@@ -561,6 +561,36 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         parsed = parse_title(title, w.words)
         self.output(f"Lecture : {parsed}  (terminee ?, numero, nom)" if parsed else "Titre non reconnu comme une commande.")
 
+    def _cmd_ds_titles(self) -> None:
+        """Diagnostic des langues : lit en memoire TOUS les titres de points de controle (~1 min) et dit si chacun est reconnu comme « commande terminee »."""
+        ctx = self.ctx
+        if not ctx.backend.attached():
+            self.output("Le jeu n'est pas attache.")
+            return
+        words = ctx.saves.words
+        self.output("Recherche des titres de points de controle en memoire (environ 1 minute)...")
+
+        async def run() -> None:
+            loop = asyncio.get_running_loop()
+            try:
+                titles = await loop.run_in_executor(None, ctx.memory.list_titles, ctx.title_zones or None)
+                if not titles:
+                    titles = await loop.run_in_executor(None, ctx.memory.list_titles, None)
+            except Exception as e:      # noqa: BLE001 - diagnostic : on affiche l'erreur
+                self.output(f"Echec de la lecture : {e}")
+                return
+            if not titles:
+                self.output("Aucun titre de la forme « <etat> : n° N « nom » - hh:mm:ss » trouve. Fais un enregistrement en jeu (commande acceptee ou terminee) puis reessaie, "
+                            "et envoie une capture du titre affiche dans le menu de chargement si rien n'apparait.")
+                return
+            from .memory import _fold, state_completed
+            for state, num, name, hhmmss in sorted(titles, key=lambda t: t[3])[-12:]:
+                ok = state_completed(_fold(state), words)
+                self.output(f"  etat « {state} » | n°{num} « {name} » | {hhmmss} -> {'TERMINEE' if ok else 'pas terminee'}")
+            self.output("Si une commande terminee est notee « pas terminee », ajoute un fragment du mot de l'etat (sans accents, en minuscules) dans saves.completed_words de memory_map.json, ou signale-le.")
+
+        asyncio.ensure_future(run())
+
     def _cmd_ds_catchup(self) -> None:
         """Traite TOUS les checkpoints existants (y compris anciens) et envoie les checks correspondants."""
         w = self.ctx.saves
@@ -644,7 +674,7 @@ class DeathStrandingContext(CommonContext):
         if self.settings.get("resigner_off"):
             exe = None
         root = self.settings.get("saves_root") or self.map.get("saves", {}).get("root") or autodetect_root()
-        words = self.map.get("saves", {}).get("completed_words", DEFAULT_COMPLETED_WORDS)
+        words = tuple(dict.fromkeys((*DEFAULT_COMPLETED_WORDS, *self.map.get("saves", {}).get("completed_words", ()))))   # les mots du fichier s'AJOUTENT aux mots par defaut
         self.saves = SaveWatcher(root, ResignerCli(exe) if exe else None, words)
         if exe and not root:
             logger.info("Sauvegardes : dossier introuvable. Tape /ds_saves_dir <dossier>.")

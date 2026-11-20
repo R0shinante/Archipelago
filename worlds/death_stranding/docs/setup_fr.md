@@ -31,7 +31,7 @@ tous types confondus, `/ds_orders`) et `standard_checks` / `standard_step` (comm
 ## Comment les checks sont détectés
 À chaque checkpoint, le jeu écrit « Commande terminée : nº N … » dans le titre de la sauvegarde. Le client lit ce titre directement dans la mémoire du jeu
 et envoie le check « Order N - … » correspondant (les commandes 61 à 65, 67, 68 et 70 sont même reconnues tout de suite, par une clé que le jeu crée à leur fin). Seules les commandes terminées **après** le démarrage du client comptent.
-Si ton jeu n'est pas en français, ajuste `saves.completed_words` dans `memory_map.json`.
+Si ton jeu n'est pas en français (les autres langues sont des suppositions, pas encore vérifiées en jeu), tape `/ds_titles` après un enregistrement pour voir ce que lit le client, et ajoute si besoin les mots manquants dans `saves.completed_words` de `memory_map.json`.
 
 ### Déchiffrement des sauvegardes (optionnel)
 En secours, ou pour une autre langue : l'outil [DeathStrandingSaveDataResigner](https://github.com/mi5hmash/DeathStrandingSaveDataResigner) (version ligne de commande)

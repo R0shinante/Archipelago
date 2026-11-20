@@ -143,12 +143,18 @@ temporaire** de vos checkpoints : vos sauvegardes ne sont jamais modifiées.
 
 ### Autres langues
 
-La lecture en mémoire a été validée sur le jeu en **français**. Pour une autre langue, les mots signifiant « terminée » se règlent dans la section `saves.completed_words`
-de `memory_map.json` (copiez `memory_map.default.json` en `memory_map.json` dans le dossier utilisateur d'Archipelago, c'est le même fichier qui sert à modifier les offsets) :
+La lecture en mémoire n'a été validée que sur le jeu en **français**. Le client reconnaît par défaut, **sans réglage**, des formulations probables dans d'autres langues
+(anglais « Order Completed : No. 12 … », allemand, espagnol, italien, portugais, néerlandais, polonais, tchèque, turc, suédois, russe, japonais, chinois, coréen), mais ce sont des **suppositions** :
+le format exact n'est pas confirmé en jeu. Les états « en cours » / « incomplet » ne sont jamais pris pour une fin de commande.
+
+Pour vérifier avec ton jeu : fais un enregistrement (accepte ou termine une commande), puis tape **`/ds_titles`** (~1 minute). Le client affiche les derniers titres de points de contrôle lus en mémoire,
+avec « TERMINEE » / « pas terminee » pour chacun. Si une commande terminée est notée « pas terminee », ajoute un fragment du mot de l'état dans `saves.completed_words` de `memory_map.json`
+(copiez `memory_map.default.json` en `memory_map.json` dans le dossier utilisateur d'Archipelago, c'est le même fichier qui sert à modifier les offsets). Ces mots **s'ajoutent** aux mots par défaut :
 ```
-"saves": { "completed_words": ["termin", "complet", "abgeschlossen", "completad"] }
+"saves": { "completed_words": ["accompli"] }
 ```
-Un fragment de mot suffit (sans accents, en minuscules). En cas de doute, utilisez le déchiffrement des sauvegardes.
+Un fragment de mot suffit (sans accents, en minuscules). Si `/ds_titles` ne trouve aucun titre, ouvre une issue GitHub avec une capture du titre affiché dans le menu de chargement du jeu : le format de ta langue sera ajouté.
+En cas de doute, utilisez le déchiffrement des sauvegardes.
 
 ## Commandes du client
 
@@ -187,6 +193,7 @@ Un fragment de mot suffit (sans accents, en minuscules). En cas de doute, utilis
 | `/ds_saves_dir <dossier>` | (optionnel) Dossier des sauvegardes |
 | `/ds_saves` | (optionnel) État du déchiffrement (checkpoints vus, commandes détectées) |
 | `/ds_selftest` | (optionnel) Teste le déchiffrement et la lecture du titre |
+| `/ds_titles` | Diagnostic des langues : liste les titres de points de contrôle lus en mémoire et dit s'ils sont reconnus comme « terminée » |
 | `/ds_catchup` | (optionnel) Traite aussi les checkpoints déjà présents (avec prudence) |
 
 </details>

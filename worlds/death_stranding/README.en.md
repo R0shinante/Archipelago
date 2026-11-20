@@ -142,12 +142,18 @@ of your checkpoints: your saves are never modified.
 
 ### Other languages
 
-Memory reading has been validated on the **French** game. For another language, the words meaning "completed" are set in the `saves.completed_words` section of `memory_map.json`
-(copy `memory_map.default.json` to `memory_map.json` in Archipelago's user folder; the same file is used to change the memory offsets):
+Memory reading has only been validated on the **French** game. By default, with **no setup**, the client recognises likely wordings in other languages
+(English "Order Completed : No. 12 ...", German, Spanish, Italian, Portuguese, Dutch, Polish, Czech, Turkish, Swedish, Russian, Japanese, Chinese, Korean), but these are **guesses**:
+the exact format is not confirmed in game. "In progress" / "incomplete" states are never taken for a completed order.
+
+To check with your game: make a save (accept or finish an order), then type **`/ds_titles`** (~1 minute). The client prints the latest checkpoint titles read from memory,
+each marked "TERMINEE" (completed) or "pas terminee" (not completed). If a completed order is marked "pas terminee", add a fragment of the state word to `saves.completed_words` in `memory_map.json`
+(copy `memory_map.default.json` to `memory_map.json` in Archipelago's user folder; the same file is used to change the memory offsets). These words are **added** to the defaults:
 ```
-"saves": { "completed_words": ["termin", "complet", "abgeschlossen", "completad"] }
+"saves": { "completed_words": ["accompli"] }
 ```
-A word fragment is enough (no accents, lowercase). If in doubt, use save decryption.
+A word fragment is enough (no accents, lowercase). If `/ds_titles` finds no title, send a screenshot of the title shown in the game's load menu (GitHub issue) and your language's format will be added.
+If in doubt, use save decryption.
 
 ## Client commands
 
@@ -186,6 +192,7 @@ A word fragment is enough (no accents, lowercase). If in doubt, use save decrypt
 | `/ds_saves_dir <folder>` | (optional) Saves folder |
 | `/ds_saves` | (optional) Decryption status (checkpoints seen, orders detected) |
 | `/ds_selftest` | (optional) Tests decryption and title reading |
+| `/ds_titles` | Language diagnostic: lists the checkpoint titles read from memory and whether they are recognised as completed |
 | `/ds_catchup` | (optional) Also processes checkpoints that already exist (use with care) |
 
 </details>

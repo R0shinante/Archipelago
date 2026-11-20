@@ -623,7 +623,7 @@
     "hash_offset": 0,
     "key_offset": 4,
     "value_offset": 20,
-    "min_occupied": 100,
+    "min_occupied": 12,
     "counters": {
       "nobot": {
         "key": "02738f312da146bfaf6d91b7c20fb3a7",

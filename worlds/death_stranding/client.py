@@ -1380,7 +1380,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                             ctx.update_hint([base])
                         table_scan_fails = 0 if base else min(table_scan_fails + 1, 3)
                         logger.info(f"Compteurs de commandes : table retrouvee (0x{base:X})." if base else
-                                    "Compteurs de commandes : table introuvable (sera retentee ; elle n'existe qu'apres la 1re livraison de la sauvegarde).")
+                                    f"Compteurs de commandes : table introuvable ({getattr(ctx.memory, 'scan_note', '?')}) ; sera retentee.")
                     except Exception as e:
                         logger.warning(f"Recherche de la table de compteurs : {e}")
                     finally:

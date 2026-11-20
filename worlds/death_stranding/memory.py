@@ -449,7 +449,7 @@ class GameMemory:
                     occ += 1
                     if (s - (h & (n - 1))) % n < 64:
                         ok += 1
-            if occ >= int(cfg.get("min_occupied", 100)) and ok * 10 >= occ * 9:
+            if occ >= min(int(cfg.get("min_occupied", 12)), 12) and ok * 10 >= occ * 9:      # 12 : une sauvegarde neuve a une table peu remplie (100 la rejetait, releve 20/11)
                 return data, n
         return None, 0
 
@@ -598,6 +598,7 @@ class GameMemory:
         if progress:
             progress(f"{len(hits)} occurrence(s) de la signature.")
         lo, hi = int(cfg.get("slots", 512)), int(cfg.get("max_slots", 4096))
+        self.scan_note = f"signature « {next(iter(counters))} » vue {len(hits)} fois" + ("" if hits else " (ce compteur n'existe pas encore : il est cree par la 1re livraison)")
         for hit in hits:
             n = lo
             while n <= hi:
@@ -606,10 +607,12 @@ class GameMemory:
                     base = hit - (home + d) * size
                     if base <= 0:
                         break
-                    out, _ = self._read_counters_at(cfg, base)
+                    out, why = self._read_counters_at(cfg, base)
                     if out is not None:
                         self._named_base = base
                         return base
+                    if "peu remplie" not in why and why not in self.scan_note:
+                        self.scan_note = f"signature « {next(iter(counters))} » vue {len(hits)} fois ; derniere raison de rejet : {why}"[:400]
                 n *= 2
         return None
 

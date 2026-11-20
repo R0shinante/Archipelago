@@ -1092,6 +1092,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
     last_table_scan = -1e9
     last_title_poll, last_title_full, title_running = 0.0, -1e9, False
     table_scan_running = False
+    table_scan_fails = 0           # recherches de la table sans resultat de suite : espace les suivantes (2 min, 4, 8, puis 10 min)
     while not ctx.exit_event.is_set():
         await asyncio.sleep(0.5)
         if ctx.slot is None:
@@ -1342,15 +1343,15 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
         if any(step > 0 and cnt > 0 for step, cnt in wanted.values()) and loop.time() - last_types_poll >= SAVE_POLL_SECONDS:
             last_types_poll = loop.time()
             cur = ctx.memory.read_order_types()
-            if cur is None and not table_scan_running and ctx.memory.read_standard_orders() is not None \
-                    and loop.time() - last_table_scan >= 120.0:
+            if cur is None and not table_scan_running and (ctx.memory.read_standard_orders() is not None or ctx.memory.read_vitals() is not None) \
+                    and loop.time() - last_table_scan >= min(120.0 * 2 ** table_scan_fails, 600.0):
                 # les chaines de pointeurs ne marchent plus (redemarrage, autre sauvegarde) : recherche de la table par sa signature, en arriere-plan
                 last_table_scan = loop.time()
                 table_scan_running = True
                 logger.info("Compteurs de commandes : recherche de la table en memoire (jusqu'a quelques minutes)...")
 
                 async def _scan() -> None:
-                    nonlocal table_scan_running
+                    nonlocal table_scan_running, table_scan_fails
                     try:
                         hint = ctx.hint_windows()
                         base = await loop.run_in_executor(None, ctx.memory.scan_named_table, 240.0, None, hint) if hint else None
@@ -1358,8 +1359,9 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                             base = await loop.run_in_executor(None, ctx.memory.scan_named_table)
                         if base:
                             ctx.update_hint([base])
+                        table_scan_fails = 0 if base else min(table_scan_fails + 1, 3)
                         logger.info(f"Compteurs de commandes : table retrouvee (0x{base:X})." if base else
-                                    "Compteurs de commandes : table introuvable (sera retentee).")
+                                    "Compteurs de commandes : table introuvable (sera retentee ; elle n'existe qu'apres la 1re livraison de la sauvegarde).")
                     except Exception as e:
                         logger.warning(f"Recherche de la table de compteurs : {e}")
                     finally:

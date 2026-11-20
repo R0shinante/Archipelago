@@ -408,8 +408,10 @@ class GameMemory:
                 known += 1
             if k == key and state in (1, 2):
                 found = val if state == 2 else 0
-        if known < 5 or found is None:   # ce n'est pas la table attendue
+        if known < 5:                    # ce n'est pas la table attendue
             return None
+        if found is None:                # table reconnue mais cle absente : aucune commande standard livree sur cette sauvegarde (releve 20/11 : sauvegarde neuve)
+            found = 0
         return found if 0 <= found <= 1_000_000 else None
 
     def _follow_chain(self, rel: int, offs: typing.List[int]) -> typing.Tuple[typing.Optional[int], str]:

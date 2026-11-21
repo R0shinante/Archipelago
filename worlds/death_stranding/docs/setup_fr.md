@@ -82,3 +82,7 @@ Les autres objets d'équipement (Cargo Skeleton, Trike, Truck, Road Paver, ancra
 
 Même mécanique que les pièges : l'effet attend que Sam soit lisible. `/ds_debug on` puis `/ds_effect Blood Bag` permet de tester.
 Les valeurs sont dans `memory_map.default.json` (sections `boosts` et `item_grants`).
+
+## Suivi avec PopTracker (optionnel)
+
+Un pack PopTracker (carte des 70 commandes, objets reçus, compteurs, autotracking Archipelago) est disponible dans la release (`death_stranding_poptracker_vX.Y.Z.zip`). Placez-le sans le décompresser dans le dossier `packs` de PopTracker, ouvrez-le, cliquez sur le « AP » gris et saisissez serveur, **nom du slot** et mot de passe. Voir le README, section « Suivi avec PopTracker ».

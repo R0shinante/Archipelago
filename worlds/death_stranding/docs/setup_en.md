@@ -74,3 +74,7 @@ Effects wait until Sam is readable. Test with `/ds_debug on` then `/ds_effect Bl
 - The 70 main orders (no. 1 to 70) are the checks. 19 are optional (Fandom “Story: No” + pizza no. 66: 6, 10-13, 15, 17, 25, 26, 29, 31, 35, 37, 40, 42, 45, 56, 57, 66): generation never puts progression items on them. Order 1 and tutorial-type orders (6, 10, 15, 25, 29) are unverified in game: use `/check <location>` if one is not detected.
 - "Episode N Access" items lock nothing in game. Victory (last order of the goal episode) is validated in game for No. 70 (episode 14 goal) and No. 68 (episode 12 goal); `/check <location name>` sends a check by hand if it does not go out. With `episode_gating`, victory waits for the access items of every episode up to the goal.
 - Memory offsets come from a community table (game v1.004); if `/ds_status` finds nothing while the game is loaded, they do not match your version.
+
+## Tracking with PopTracker (optional)
+
+A PopTracker pack (map of the 70 orders, received items, counters, Archipelago autotracking) is available in the release (`death_stranding_poptracker_vX.Y.Z.zip`). Put it unextracted in PopTracker's `packs` folder, open it, click the grey "AP" and enter the server, **slot name** and password. See the README, section "Tracking with PopTracker".

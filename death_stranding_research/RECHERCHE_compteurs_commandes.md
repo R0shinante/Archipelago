@@ -409,3 +409,20 @@ Heures du joueur : 63 livrée 15:59:01 (sortie de l'écran de résultat 15:59:27
 - **Missions à plusieurs objectifs** (n°15, relevé du 21/11 21:16-21:19) : chaque étape intermédiaire valide sa propre clé (absent → 1 à la validation de l'étape), toutes repassent à 0 à la validation finale, et la clé de l'objectif final est créée absent → 0 à cet instant. L'**ordre des objectifs dans les fichiers n'est pas fiable** (dans l'ordre du déroulement pour la n°15, inversé pour d'autres) : l'objectif final est déduit du texte (ramasser / récupérer, puis livrer).
 - **Numéro de mission ≠ numéro de commande** : correspondance établie par le texte des objectifs (n°1 = 00010, 2 = 00020, 3 = 00030, 4 = 00050, 5 = 00060, 6 = 00065, 7 = 00070, 8 = 00075, 9 = 00080, 10 = 00085, 11 = 00090…, 15 = 00127, 16 = 00130, 17 = 00125, 37 = 00205…). `ds/mission/system/mission_list.core` : 65 missions classées par numéro puis 5 « tutoriels » en queue (00175, 00065, 00085, 00165, 00127 = n°31, 6, 10, 25, 15), 5 pizzas (00700 à 00740 ; la n°26 = 00700 a été vérifiée le 21/11 21:39:43, la clé créée à la livraison est celle de 00700) et 6 missions de puces (00910 à 00960). Aucune table `mission_*` du dossier `system` ne donne le numéro de commande ni l'ordre des objectifs.
 - Le client branche ces clés dans `DECIMA_ORDER_FLAGS` (46 commandes de 11 à 66) ; les commandes aux objectifs ambigus (1, 29, 38, 39, 46, 54, 69) restent détectées par les titres. Validées en jeu : 14, 15, 26 (en plus de 2-10 et 61-70).
+
+## Relevé de 103 sauvegardes et validation des commandes 38 et 39 (21/11)
+
+**Méthode.** `tools/scan_saves.py` (déchiffrement par l'outil tiers, décompression de la section 3 du point de contrôle, lecture de la table de compteurs de 20 octets par entrée) a été lancé sur deux jeux de sauvegardes de la même partie (54 + 49 relevés, de 0 à 26 h de jeu). Pour chaque sauvegarde, le titre (« Commande terminée/en cours : nº N ») a été confronté à la présence des clés de fin de commande.
+
+**Résultats.**
+- Aucun faux positif réel et aucune absence réelle. Les 8 écarts apparents viennent du titre : il désigne la dernière commande *sélectionnée*, pas la progression (la 8 peut être faite avant la 7, la 58 pendant que la 59 est « en cours »).
+- Présence de la clé après la fin de la commande, confirmée dans 24 à 38 sauvegardes pour 12, 14, 16, 18 à 24, 26 à 28, 30, 32 à 36, 41, 43, 44, 47 à 53, 55, 58 à 60 ; dans 18, 6, 3, 3, 3, 2 et 1 pour 61, 62, 63, 64, 65, 67 et 68. Jamais rencontrées (toutes optionnelles) : 13, 17, 37, 40, 42, 45, 56, 57, 66 ; la 70 n'est jamais terminée dans ces sauvegardes.
+- Toutes les clés de fin connues valent **0** une fois la commande faite (aucune valeur non nulle sur 103 sauvegardes) ; une étape intermédiaire est à 1 jusqu'à la validation finale. Le client exige donc la valeur 0.
+- Trou d'échantillonnage : aucune sauvegarde entre la n°32 (9 h 57) et la n°59 (18 h 34).
+- Le compteur « total » est absent jusqu'à la n°32 et présent à 18 h 34 (valeur proche du compteur « sans bot »).
+
+**Commande 38 (relevé en direct 22:30 → 22:34).** À la livraison (22:33:34), `a42c2ea3…` est créée à 0 : c'est la clé de fin. `7a2fe706…` et `6cdcc269…` sont des étapes (absentes → 3 à 22:32:14, puis 3 → 0 à la fin). Le compteur « total » est créé au même instant (absent → 2).
+
+**Commande 39 (22:36 → 22:43).** Aucune clé n'est créée à la validation finale. Les deux objectifs textuels passent à 1 quand ils sont terminés (`d812327c…` à 22:38:30, `ccecd94d…` à 22:42:25) et retombent à 0 à l'écran de résultat (22:43:00) ; « total » passe de 2 à 3. La clé retenue est la dernière étape, `ccecd94d…`, avec la valeur 0 exigée.
+
+**À confirmer.** n°46 (clé lue dans les fichiers, absente à la 32 et présente à la 59, jamais rejouée), n°54 (même structure que la 39 : probablement pas de clé de fin créée), n°29, n°69, n°1.

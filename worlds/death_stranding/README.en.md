@@ -14,9 +14,10 @@ Unofficial project, not affiliated with Kojima Productions, 505 Games or the Arc
 2. [Installation](#installation)
 3. [Configuration (YAML)](#configuration-yaml)
 4. [Starting a game](#starting-a-game)
-5. [Client commands](#client-commands)
-6. [Troubleshooting](#troubleshooting)
-7. [Known limitations](#known-limitations)
+5. [Tracking with PopTracker (optional)](#tracking-with-poptracker-optional)
+6. [Client commands](#client-commands)
+7. [Troubleshooting](#troubleshooting)
+8. [Known limitations](#known-limitations)
 
 ## What it does
 
@@ -40,7 +41,7 @@ equipment, traps) are applied in game by the client, which accesses the game's m
 | Traps: Injury, Fatigue, Boot Wear, Rust, Pickpocket | ✅ validated in game |
 | Bot orders delivered milestones as checks (`bot_checks` / `bot_step`, up to 100, no save needed) | ✅ validated in game: derived from internal game counters; the check arrives about 90 s after the delivery |
 | Detection of completed main orders by reading the game's memory (no tool, no decryption) | ✅ validated in game (French); save decryption remains available as an option |
-| Catching up orders already completed when the client starts, or that never show in the save title | ✅ validated in game: end-of-order keys validated on no. 2 to 10, 14, 15, 26 and 61 to 70; the others: see “Coverage of the immediate detection” (keys read from the game files, or inference from save titles) |
+| Catching up orders already completed when the client starts, or that never show in the save title | ✅ validated in game: end-of-order keys validated on no. 2 to 10, 14, 15, 26, 38, 39 and 61 to 70; the others: see “Coverage of the immediate detection” (keys read from the game files, or inference from save titles) |
 | Named checks per standard / optional order | ❌ |
 
 Checks are identified by `7,770,000 + order number`. The client detects a completed main order by reading, **directly from the game's memory**, the checkpoint title
@@ -52,11 +53,11 @@ launches (a few seconds). If the game moves its data (another save, a restart), 
 
 | Level | Orders | How the client sees them |
 |---|---|---|
-| ✅ Validated in game | 2 to 10, 14, 15, 26, 61 to 65, 67, 68 and 70 | End-of-order key created by the game: detected on delivery, and caught up when the client starts |
-| 🟡 Keys read from the game files, not replayed yet | 11 to 13, 16 to 25, 27, 28, 30 to 37, 40 to 45, 47 to 53, 55 to 60 and 66 | Same mechanism; if an order is reported too early, too late or never, please report it with a `/ds_counters watch on` capture |
-| ⚪ Save titles only | 1, 29, 38, 39, 46, 54 and 69 | The checkpoint title is read (a few seconds after the game saves) and orders are inferred; `/check <location>` as a last resort |
+| ✅ Validated in game | 2 to 10, 14, 15, 26, 38, 39, 61 to 65, 67, 68 and 70 | End-of-order key created by the game: detected on delivery, and caught up when the client starts |
+| 🟡 Keys read from the game files, not replayed yet | 11 to 13, 16 to 25, 27, 28, 30 to 37, 40 to 53, 55 to 60 and 66 | Same mechanism; if an order is reported too early, too late or never, please report it with a `/ds_counters watch on` capture |
+| ⚪ Save titles only | 1, 29, 54 and 69 | The checkpoint title is read (a few seconds after the game saves) and orders are inferred; `/check <location>` as a last resort |
 
-An order's end key is the identifier of the sentence of its **final objective** (for example "Deliver all four containers of aid." for no. 14). The keys of the other orders were read from the mission files of the author's own copy of the game (nothing from the game ships with the APWorld) and cross-checked against the keys measured in game. For orders with several objectives the final-objective key is inferred from the text (collect, then deliver); those whose final objective remains ambiguous are in the last row.
+An order's end key is the identifier of the sentence of its **final objective** (for example "Deliver all four containers of aid." for no. 14). The keys of the other orders were read from the mission files of the author's own copy of the game (nothing from the game ships with the APWorld) and cross-checked against the keys measured in game. For orders with several objectives the final-objective key is inferred from the text (collect, then deliver); those whose final objective remains ambiguous are in the last row. The client requires the key to be **0**: an intermediate step stays at 1 until the final validation, and no. 39 does not even create a key at the end (its last step is what falls back from 1 to 0).
 
 ## Installation
 
@@ -118,7 +119,7 @@ It measures steps, all types combined, and does not count lost-cargo deliveries.
 
 **Standard orders.** The "Standard Orders N" check unlocks when you have delivered N × `standard_step` standard orders **since your first connection**. This is the game's exact counter, read live with no save needed: main orders, bot orders and lost-cargo deliveries do not count. Standard orders only become available in game after the delivery of no. 9 (observed): no milestone before that. `/ds_standard` shows the progress and `/ds_standard_rebase` resets the baseline.
 
-**Bot orders.** The "Bot Orders N" check unlocks after N × `bot_step` bot deliveries **since your first connection**, with no save needed. The counter is derived from two internal game counters (total and non-bot) that are not written at the same moment: the client waits about 90 s without change before confirming, to avoid false positives during a delivery, and holds the confirmation while a standard order (results screen) is being finalised. The end of a main or special order (the game then raises only the total counter) is recognised by the key the game creates at the same moment, or by a likes jump: the confirmation is held for 5 minutes, then the increase is dropped from the bot baseline (log: "Fin de commande principale ou speciale reconnue dans les compteurs"). **Known limitations:** the game keeps no separate counter for returned lost cargo, which raises the bot counter like a bot delivery and therefore counts towards these milestones (seen on two deliveries); a real bot collected within 10 s of an unrelated key creation may, more rarely, be dropped by mistake. Equipment requests have not been tested (they need the game to be online). `/ds_bot` shows the progress and `/ds_bot_rebase` resets the baseline. Main orders are not affected: they have their named checks. **Availability:** bot orders only exist in game from about no. 24, and the "total" counter this calculation relies on is not in the table of every save (observed: absent on a save at no. 36, present on another at no. 61). While it is missing, `/ds_bot` says "unavailable for now", no bot milestone goes out and the rest of the client works normally; once it appears, the baseline is set after about 90 s of stable values. If `/ds_bot` stays unavailable on your game after several bot deliveries, set `bot_checks` to 0: those checks will not unlock.
+**Bot orders.** The "Bot Orders N" check unlocks after N × `bot_step` bot deliveries **since your first connection**, with no save needed. The counter is derived from two internal game counters (total and non-bot) that are not written at the same moment: the client waits about 90 s without change before confirming, to avoid false positives during a delivery, and holds the confirmation while a standard order (results screen) is being finalised. The end of a main or special order (the game then raises only the total counter) is recognised by the key the game creates at the same moment, or by a likes jump: the confirmation is held for 5 minutes, then the increase is dropped from the bot baseline (log: "Fin de commande principale ou speciale reconnue dans les compteurs"). **Known limitations:** the game keeps no separate counter for returned lost cargo, which raises the bot counter like a bot delivery and therefore counts towards these milestones (seen on two deliveries); a real bot collected within 10 s of an unrelated key creation may, more rarely, be dropped by mistake. Equipment requests have not been tested (they need the game to be online). `/ds_bot` shows the progress and `/ds_bot_rebase` resets the baseline. Main orders are not affected: they have their named checks. **Availability:** bot orders only exist in game from about no. 24, and the "total" counter this calculation relies on is not in the table of every save (observed: absent on a save at no. 36, created on delivery of no. 38 on the tested game, present on another save at no. 61). While it is missing, `/ds_bot` says "unavailable for now", no bot milestone goes out and the rest of the client works normally; once it appears, the baseline is set after about 90 s of stable values. If `/ds_bot` stays unavailable on your game after several bot deliveries, set `bot_checks` to 0: those checks will not unlock.
 
 **DeathLink.** The client reads Sam's health: at 0 it notifies the other players; when a DeathLink is received it sets Sam's health to 0
 (as soon as it is readable, so not during a loading screen or a menu). A received death is not sent back (20 s grace) and a sent death blocks further sends for 30 s.
@@ -165,6 +166,15 @@ each marked "TERMINEE" (completed) or "pas terminee" (not completed). If a compl
 ```
 A word fragment is enough (no accents, lowercase). If `/ds_titles` finds no title, send a screenshot of the title shown in the game's load menu (GitHub issue) and your language's format will be added.
 If in doubt, use save decryption.
+
+## Tracking with PopTracker (optional)
+
+A [PopTracker](https://github.com/black-sliver/PopTracker/releases) pack is provided (`death_stranding_poptracker_vX.Y.Z.zip` in the release, or the `death_stranding_poptracker/pack` folder of the repository). It shows the 70 orders by episode (green: reachable according to the generation logic, red: an "Episode N Access" item is missing, dark: check sent), episode access, equipment, materials and traps received, the slot's goal, and "checked / total" counters (main orders, likes, order-progress, standard-order and bot-order milestones).
+
+1. Put the zip **unextracted** in PopTracker's `packs` folder, then *Open Pack* → "Death Stranding (Archipelago)".
+2. Click the grey "AP", enter the server, **your slot name** and the password: tracking is automatic (the game is never read).
+
+Right click on a square marks the order as done by hand; the **SYNC** button (*Progress* section) puts every square back to the server's state. The **ALL** button shows everything as reachable (useful without `episode_gating`, since the game is never locked). With `episode_gating`, an order that is done but held back (`/ds_held`) stays red until its episode item arrives. The Victory square is not autotracked. Validated in game on 21/11 (connection, items, counters, checked squares, SYNC, ALL). The pack is regenerated by `death_stranding_poptracker/tools/make_poptracker.py`.
 
 ## Client commands
 
@@ -217,7 +227,7 @@ If in doubt, use save decryption.
 | A completed main order is not detected | Wait for the "lecture en memoire active" line at startup; the check goes out within seconds of the game writing its checkpoint. Only orders completed after the client starts count. As a last resort, set up save decryption (see above) |
 | "aucun titre de sauvegarde en memoire pour l'instant" | Normal until the game has written a checkpoint; the client retries (every 1 to 10 minutes when idle, continuously for 6 minutes after each delivery) |
 | Order counters (standard, bot) stay silent | The client searches memory for the table as soon as you are in game (up to a few minutes, retries spaced out) after a game restart or a change of save. Wait for the save to finish loading, then `/ds_counters scan` restarts the search immediately; `/ds_bot` shows the state. If "table introuvable" persists, `/ds_counters partial` describes what was seen: send the console with an issue |
-| "Compteur « total » absent de la table…" / `/ds_bot`: unavailable | Normal on some saves: the game only creates this counter later. Only the bot milestones are affected (see "Bot orders") |
+| "Compteur « total » absent de la table…" / `/ds_bot`: unavailable | Normal on some saves: the game only creates this counter later (observed in game: on delivery of no. 38 on the tested game). Only the bot milestones are affected (see "Bot orders") |
 | An effect or trap does not apply | It waits until Sam is readable (not during a loading screen or menu). Test with `/ds_debug on` then `/ds_effect <name>` |
 
 ## Known limitations

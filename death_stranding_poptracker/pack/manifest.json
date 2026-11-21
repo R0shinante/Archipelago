@@ -1,0 +1,17 @@
+{
+  "name": "Death Stranding (Archipelago)",
+  "game_name": "Death Stranding",
+  "package_uid": "death_stranding_archipelago_tracker",
+  "package_version": "0.1.0",
+  "platform": "pc",
+  "author": "Roshinante",
+  "min_poptracker_version": "0.26.0",
+  "variants": {
+    "orders_map": {
+      "display_name": "Orders map",
+      "flags": [
+        "ap"
+      ]
+    }
+  }
+}

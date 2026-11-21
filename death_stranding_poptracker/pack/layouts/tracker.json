@@ -1,0 +1,253 @@
+{
+  "tracker_default": {
+    "type": "container",
+    "background": "#0b0f14",
+    "content": {
+      "type": "array",
+      "orientation": "horizontal",
+      "content": [
+        {
+          "type": "array",
+          "orientation": "vertical",
+          "content": [
+            {
+              "type": "group",
+              "header": "Episode access",
+              "content": {
+                "type": "itemgrid",
+                "item_size": "44,44",
+                "item_margin": "2,2",
+                "h_alignment": "left",
+                "rows": [
+                  [
+                    "ep1",
+                    "ep2",
+                    "ep3",
+                    "ep4",
+                    "ep5",
+                    "ep6",
+                    "ep7"
+                  ],
+                  [
+                    "ep8",
+                    "ep9",
+                    "ep10",
+                    "ep11",
+                    "ep12",
+                    "ep13",
+                    "ep14"
+                  ]
+                ]
+              }
+            },
+            {
+              "type": "group",
+              "header": "Equipment",
+              "content": {
+                "type": "itemgrid",
+                "item_size": "44,44",
+                "item_margin": "2,2",
+                "h_alignment": "left",
+                "rows": [
+                  [
+                    "power_skeleton",
+                    "speed_skeleton",
+                    "cargo_skeleton",
+                    "trike",
+                    "truck",
+                    "road_paver",
+                    "zipline_anchor_set"
+                  ],
+                  [
+                    "ladder_set",
+                    "climbing_anchor_set",
+                    "assault_rifle",
+                    "hematic_grenade_pack",
+                    "bola_gun",
+                    "boot_upgrade"
+                  ]
+                ]
+              }
+            },
+            {
+              "type": "group",
+              "header": "Materials & supplies (received)",
+              "content": {
+                "type": "itemgrid",
+                "item_size": "44,44",
+                "item_margin": "2,2",
+                "h_alignment": "left",
+                "rows": [
+                  [
+                    "chiral_crystals",
+                    "metals",
+                    "ceramics",
+                    "resins",
+                    "blood_bag",
+                    "energy_drink",
+                    "repair_spray"
+                  ],
+                  [
+                    "chemicals",
+                    "special_alloys",
+                    "cryptobiote_pack",
+                    "d_cryptobiote_pack",
+                    "sandalweed_bundle",
+                    "likes_pack"
+                  ]
+                ]
+              }
+            },
+            {
+              "type": "group",
+              "header": "Traps (received)",
+              "content": {
+                "type": "itemgrid",
+                "item_size": "44,44",
+                "item_margin": "2,2",
+                "h_alignment": "left",
+                "rows": [
+                  [
+                    "injury_trap",
+                    "fatigue_trap",
+                    "boot_wear_trap",
+                    "rust_trap",
+                    "pickpocket_trap"
+                  ]
+                ]
+              }
+            },
+            {
+              "type": "group",
+              "header": "Progress",
+              "content": {
+                "type": "itemgrid",
+                "item_size": "44,44",
+                "item_margin": "2,2",
+                "h_alignment": "left",
+                "rows": [
+                  [
+                    "goal14",
+                    "freemode",
+                    "ms_main",
+                    "ms_likes",
+                    "ms_order",
+                    "ms_standard",
+                    "ms_bot",
+                    "resync"
+                  ]
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "dock",
+          "content": [
+            {
+              "type": "recentpins",
+              "dock": "bottom",
+              "style": "wrapped",
+              "max_height": 170
+            },
+            {
+              "type": "map",
+              "maps": [
+                "orders"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "tracker_broadcast": {
+    "type": "container",
+    "background": "#00000000",
+    "content": {
+      "type": "array",
+      "orientation": "vertical",
+      "content": [
+        {
+          "type": "group",
+          "header": "Episode access",
+          "content": {
+            "type": "itemgrid",
+            "item_size": "44,44",
+            "item_margin": "2,2",
+            "h_alignment": "left",
+            "rows": [
+              [
+                "ep1",
+                "ep2",
+                "ep3",
+                "ep4",
+                "ep5",
+                "ep6",
+                "ep7"
+              ],
+              [
+                "ep8",
+                "ep9",
+                "ep10",
+                "ep11",
+                "ep12",
+                "ep13",
+                "ep14"
+              ]
+            ]
+          }
+        },
+        {
+          "type": "group",
+          "header": "Equipment",
+          "content": {
+            "type": "itemgrid",
+            "item_size": "44,44",
+            "item_margin": "2,2",
+            "h_alignment": "left",
+            "rows": [
+              [
+                "power_skeleton",
+                "speed_skeleton",
+                "cargo_skeleton",
+                "trike",
+                "truck",
+                "road_paver",
+                "zipline_anchor_set"
+              ],
+              [
+                "ladder_set",
+                "climbing_anchor_set",
+                "assault_rifle",
+                "hematic_grenade_pack",
+                "bola_gun",
+                "boot_upgrade"
+              ]
+            ]
+          }
+        },
+        {
+          "type": "group",
+          "header": "Progress",
+          "content": {
+            "type": "itemgrid",
+            "item_size": "44,44",
+            "item_margin": "2,2",
+            "h_alignment": "left",
+            "rows": [
+              [
+                "goal14",
+                "ms_main",
+                "ms_likes",
+                "ms_order",
+                "ms_standard",
+                "ms_bot"
+              ]
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

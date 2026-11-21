@@ -1,0 +1,1632 @@
+[
+  {
+    "name": "Order 1 - Smart Drug Delivery",
+    "short_name": "Order 1",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 43,
+        "y": 64
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ]
+  },
+  {
+    "name": "Order 2 - Morphine Delivery - Isolation Ward",
+    "short_name": "Order 2",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 204,
+        "y": 64
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1"
+    ]
+  },
+  {
+    "name": "Order 3 - Cremation - President's Body",
+    "short_name": "Order 3",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 262,
+        "y": 64
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1"
+    ]
+  },
+  {
+    "name": "Order 4 - Smart Drug Delivery - Waystation West of Capital Knot City",
+    "short_name": "Order 4",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 43,
+        "y": 172
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2"
+    ]
+  },
+  {
+    "name": "Order 5 - Rare Metal Delivery - Distribution Center West of Capital Knot City",
+    "short_name": "Order 5",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 101,
+        "y": 172
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2"
+    ]
+  },
+  {
+    "name": "Order 6 - Construction - Postbox",
+    "short_name": "Order 6",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 159,
+        "y": 172
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2"
+    ]
+  },
+  {
+    "name": "Order 7 - Recovery - Chiral Printer Interface",
+    "short_name": "Order 7",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 217,
+        "y": 172
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2"
+    ]
+  },
+  {
+    "name": "Order 8 - Collection - Chiral Crystals",
+    "short_name": "Order 8",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 275,
+        "y": 172
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2"
+    ]
+  },
+  {
+    "name": "Order 9 - Power Supply Unit Delivery - Wind Farm",
+    "short_name": "Order 9",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 333,
+        "y": 172
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2"
+    ]
+  },
+  {
+    "name": "Order 10 - Construction - Bridge",
+    "short_name": "Order 10",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 391,
+        "y": 172
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2"
+    ]
+  },
+  {
+    "name": "Order 11 - Resins Delivery - Distribution Center West of Capital Knot City",
+    "short_name": "Order 11",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 449,
+        "y": 172
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2"
+    ]
+  },
+  {
+    "name": "Order 12 - Recovery - Confidential Documents",
+    "short_name": "Order 12",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 507,
+        "y": 172
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2"
+    ]
+  },
+  {
+    "name": "Order 13 - Cryptobiote Delivery - Capital Knot City",
+    "short_name": "Order 13",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 565,
+        "y": 172
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2"
+    ]
+  },
+  {
+    "name": "Order 14 - Aid Package Delivery - Port Knot City",
+    "short_name": "Order 14",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 623,
+        "y": 172
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2"
+    ]
+  },
+  {
+    "name": "Order 15 - Equipment Trial - Hematic Grenade",
+    "short_name": "Order 15",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 681,
+        "y": 172
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2"
+    ]
+  },
+  {
+    "name": "Order 16 - Elimination - BT",
+    "short_name": "Order 16",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 739,
+        "y": 172
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2"
+    ]
+  },
+  {
+    "name": "Order 17 - Ludens Flag Spear Delivery - Port Knot City",
+    "short_name": "Order 17",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 797,
+        "y": 172
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2"
+    ]
+  },
+  {
+    "name": "Order 18 - Aid Package Delivery - Lake Knot City",
+    "short_name": "Order 18",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 43,
+        "y": 280
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 19 - Evo-devo Unit Delivery - Engineer",
+    "short_name": "Order 19",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 101,
+        "y": 280
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 20 - Prescription Medicine Delivery - Elder",
+    "short_name": "Order 20",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 159,
+        "y": 280
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 21 - Gun Parts and Anti-BT Weapon Delivery - Craftsman",
+    "short_name": "Order 21",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 217,
+        "y": 280
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 22 - Recovery - Toolbox",
+    "short_name": "Order 22",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 275,
+        "y": 280
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 23 - Retrieval - System Server",
+    "short_name": "Order 23",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 333,
+        "y": 280
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 24 - Prototype Bot Delivery - Distribution Center South of Lake Knot City",
+    "short_name": "Order 24",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 391,
+        "y": 280
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 25 - Road Reconstruction",
+    "short_name": "Order 25",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 449,
+        "y": 280
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 26 - Fresh Pizza Delivery - Peter Englert",
+    "short_name": "Order 26",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 507,
+        "y": 280
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 27 - Chiralium Gauge Delivery - Weather Station",
+    "short_name": "Order 27",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 565,
+        "y": 280
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 28 - Wheat Seed Delivery - Timefall Farmers",
+    "short_name": "Order 28",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 623,
+        "y": 280
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 29 - Construction - Safe House",
+    "short_name": "Order 29",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 43,
+        "y": 352
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 30 - Old Component Delivery - Junk Dealer",
+    "short_name": "Order 30",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 101,
+        "y": 352
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 31 - Tablet Delivery - Film Director",
+    "short_name": "Order 31",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 159,
+        "y": 352
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 32 - Collection - Old Components",
+    "short_name": "Order 32",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 217,
+        "y": 352
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 33 - Hourglass Delivery - Chiral Artist",
+    "short_name": "Order 33",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 275,
+        "y": 352
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 34 - Chiral Artist Delivery - Junk Dealer",
+    "short_name": "Order 34",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 333,
+        "y": 352
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 35 - Prototype Delivery - Distribution Center South of Lake Knot City",
+    "short_name": "Order 35",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 391,
+        "y": 352
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 36 - Retrieval - Sticky Guns",
+    "short_name": "Order 36",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 449,
+        "y": 352
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 37 - Sewing Kit Delivery - Cosplayer",
+    "short_name": "Order 37",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 507,
+        "y": 352
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 38 - Emergency Provisions Delivery - South Knot City",
+    "short_name": "Order 38",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 565,
+        "y": 352
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3"
+    ]
+  },
+  {
+    "name": "Order 39 - Escape the Battlefield",
+    "short_name": "Order 39",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 699,
+        "y": 280
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4"
+    ]
+  },
+  {
+    "name": "Order 40 - Fresh Pizza Delivery - Peter Englert",
+    "short_name": "Order 40",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 43,
+        "y": 460
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5"
+    ]
+  },
+  {
+    "name": "Order 41 - Building Materials Delivery - Waystation North of Mountain Knot City",
+    "short_name": "Order 41",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 101,
+        "y": 460
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5"
+    ]
+  },
+  {
+    "name": "Order 42 - Collection - Scattered Rare Mineral Resources",
+    "short_name": "Order 42",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 159,
+        "y": 460
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5"
+    ]
+  },
+  {
+    "name": "Order 43 - Blood Delivery - Distribution Center North of Mountain Knot City",
+    "short_name": "Order 43",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 217,
+        "y": 460
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5"
+    ]
+  },
+  {
+    "name": "Order 44 - Antimatter Bomb Delivery - Mountain Knot City",
+    "short_name": "Order 44",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 275,
+        "y": 460
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5"
+    ]
+  },
+  {
+    "name": "Order 45 - Fresh Pizza Delivery - Peter Englert",
+    "short_name": "Order 45",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 333,
+        "y": 460
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5"
+    ]
+  },
+  {
+    "name": "Order 46 - Mama Delivery - Mountain Knot City",
+    "short_name": "Order 46",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 391,
+        "y": 460
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5"
+    ]
+  },
+  {
+    "name": "Order 47 - High-bounce Spring Delivery - Roboticist",
+    "short_name": "Order 47",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 43,
+        "y": 568
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6"
+    ]
+  },
+  {
+    "name": "Order 48 - Medicine Sample Delivery - Doctor",
+    "short_name": "Order 48",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 101,
+        "y": 568
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6"
+    ]
+  },
+  {
+    "name": "Order 49 - Antibiotic Delivery - Mountaineer",
+    "short_name": "Order 49",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 159,
+        "y": 568
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6"
+    ]
+  },
+  {
+    "name": "Order 50 - Medical Device Delivery - Mountaineer",
+    "short_name": "Order 50",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 217,
+        "y": 568
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6"
+    ]
+  },
+  {
+    "name": "Order 51 - Photograph Delivery - Photographer",
+    "short_name": "Order 51",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 275,
+        "y": 568
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6"
+    ]
+  },
+  {
+    "name": "Order 52 - Retrieval - Camera",
+    "short_name": "Order 52",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 333,
+        "y": 568
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6"
+    ]
+  },
+  {
+    "name": "Order 53 - Stone Fragment Delivery - Spiritualist",
+    "short_name": "Order 53",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 391,
+        "y": 568
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6"
+    ]
+  },
+  {
+    "name": "Order 54 - Escape the Battlefield",
+    "short_name": "Order 54",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 467,
+        "y": 568
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7"
+    ]
+  },
+  {
+    "name": "Order 55 - Corpse Delivery - Heartman's Lab",
+    "short_name": "Order 55",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 525,
+        "y": 568
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7"
+    ]
+  },
+  {
+    "name": "Order 56 - Recovery - Winter Clothes",
+    "short_name": "Order 56",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 43,
+        "y": 676
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8"
+    ]
+  },
+  {
+    "name": "Order 57 - Fresh Pizza Delivery - Peter Englert",
+    "short_name": "Order 57",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 101,
+        "y": 676
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8"
+    ]
+  },
+  {
+    "name": "Order 58 - Anti-chiralium Medication Delivery - Geologist",
+    "short_name": "Order 58",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 159,
+        "y": 676
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8"
+    ]
+  },
+  {
+    "name": "Order 59 - Antimatter Bomb Delivery - Paleontologist",
+    "short_name": "Order 59",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 217,
+        "y": 676
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8"
+    ]
+  },
+  {
+    "name": "Order 60 - Recovery - Ammonites",
+    "short_name": "Order 60",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 275,
+        "y": 676
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8"
+    ]
+  },
+  {
+    "name": "Order 61 - Tar Extraction Device & Ammonite Delivery - Evo-devo Biologist",
+    "short_name": "Order 61",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 333,
+        "y": 676
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8"
+    ]
+  },
+  {
+    "name": "Order 62 - Repair - Chiral Relay",
+    "short_name": "Order 62",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 391,
+        "y": 676
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8"
+    ]
+  },
+  {
+    "name": "Order 63 - Network Activation Key Delivery - Edge Knot City",
+    "short_name": "Order 63",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 467,
+        "y": 676
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8,ep9"
+    ]
+  },
+  {
+    "name": "Order 64 - Elimination - BT",
+    "short_name": "Order 64",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 525,
+        "y": 676
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8,ep9"
+    ]
+  },
+  {
+    "name": "Order 65 - Elimination - Higgs",
+    "short_name": "Order 65",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 583,
+        "y": 676
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8,ep9"
+    ]
+  },
+  {
+    "name": "Order 66 - Fresh Pizza Delivery - Peter Englert",
+    "short_name": "Order 66",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 43,
+        "y": 784
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check (optional)",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8,ep9,ep10"
+    ]
+  },
+  {
+    "name": "Order 67 - Escape the Battlefield",
+    "short_name": "Order 67",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 274,
+        "y": 784
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8,ep9,ep10,ep11"
+    ]
+  },
+  {
+    "name": "Order 68 - Cryptobiote Delivery - Capital Knot City Isolation Ward",
+    "short_name": "Order 68",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 511,
+        "y": 784
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8,ep9,ep10,ep11,ep12"
+    ]
+  },
+  {
+    "name": "Order 69 - Go to Her Beach",
+    "short_name": "Order 69",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 43,
+        "y": 892
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8,ep9,ep10,ep11,ep12,ep13"
+    ]
+  },
+  {
+    "name": "Order 70 - Cremation - BB",
+    "short_name": "Order 70",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 262,
+        "y": 892
+      }
+    ],
+    "sections": [
+      {
+        "name": "Order check",
+        "item_count": 1
+      }
+    ],
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8,ep9,ep10,ep11,ep12,ep13,ep14"
+    ]
+  },
+  {
+    "name": "Victory (finish the goal episode)",
+    "short_name": "Victory",
+    "chest_unopened_img": "images/chest_unopened.png",
+    "chest_opened_img": "images/chest_opened.png",
+    "access_rules": [
+      "freemode",
+      "ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8,ep9,ep10,ep11,ep12,ep13,ep14",
+      "goal12,ep1,ep2,ep3,ep4,ep5,ep6,ep7,ep8,ep9,ep10,ep11,ep12"
+    ],
+    "map_locations": [
+      {
+        "map": "orders",
+        "x": 417,
+        "y": 892
+      }
+    ],
+    "sections": [
+      {
+        "name": "Goal",
+        "item_count": 1
+      }
+    ]
+  }
+]

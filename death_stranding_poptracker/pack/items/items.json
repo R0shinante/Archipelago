@@ -1,0 +1,516 @@
+[
+  {
+    "name": "Episode 1 Access (Bridget)",
+    "type": "toggle",
+    "img": "images/items/ep1.png",
+    "codes": "ep1",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Episode 2 Access (Amelie)",
+    "type": "toggle",
+    "img": "images/items/ep2.png",
+    "codes": "ep2",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Episode 3 Access (Fragile)",
+    "type": "toggle",
+    "img": "images/items/ep3.png",
+    "codes": "ep3",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Episode 4 Access (Unger)",
+    "type": "toggle",
+    "img": "images/items/ep4.png",
+    "codes": "ep4",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Episode 5 Access (Mama)",
+    "type": "toggle",
+    "img": "images/items/ep5.png",
+    "codes": "ep5",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Episode 6 Access (Deadman)",
+    "type": "toggle",
+    "img": "images/items/ep6.png",
+    "codes": "ep6",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Episode 7 Access (Clifford)",
+    "type": "toggle",
+    "img": "images/items/ep7.png",
+    "codes": "ep7",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Episode 8 Access (Heartman)",
+    "type": "toggle",
+    "img": "images/items/ep8.png",
+    "codes": "ep8",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Episode 9 Access (Higgs)",
+    "type": "toggle",
+    "img": "images/items/ep9.png",
+    "codes": "ep9",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Episode 10 Access (Die-Hardman)",
+    "type": "toggle",
+    "img": "images/items/ep10.png",
+    "codes": "ep10",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Episode 11 Access (Clifford Unger)",
+    "type": "toggle",
+    "img": "images/items/ep11.png",
+    "codes": "ep11",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Episode 12 Access (Bridges)",
+    "type": "toggle",
+    "img": "images/items/ep12.png",
+    "codes": "ep12",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Episode 13 Access (Sam Strand)",
+    "type": "toggle",
+    "img": "images/items/ep13.png",
+    "codes": "ep13",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Episode 14 Access (Lou)",
+    "type": "toggle",
+    "img": "images/items/ep14.png",
+    "codes": "ep14",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Power Skeleton",
+    "type": "toggle",
+    "img": "images/items/power_skeleton.png",
+    "codes": "power_skeleton",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Speed Skeleton",
+    "type": "toggle",
+    "img": "images/items/speed_skeleton.png",
+    "codes": "speed_skeleton",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Cargo Skeleton",
+    "type": "toggle",
+    "img": "images/items/cargo_skeleton.png",
+    "codes": "cargo_skeleton",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Trike",
+    "type": "toggle",
+    "img": "images/items/trike.png",
+    "codes": "trike",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Truck",
+    "type": "toggle",
+    "img": "images/items/truck.png",
+    "codes": "truck",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Road Paver",
+    "type": "toggle",
+    "img": "images/items/road_paver.png",
+    "codes": "road_paver",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Zipline Anchor Set",
+    "type": "toggle",
+    "img": "images/items/zipline_anchor_set.png",
+    "codes": "zipline_anchor_set",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Ladder Set (x2 in the pool)",
+    "type": "consumable",
+    "img": "images/items/ladder_set.png",
+    "codes": "ladder_set",
+    "min_quantity": 0,
+    "max_quantity": 2,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Climbing Anchor Set (x2 in the pool)",
+    "type": "consumable",
+    "img": "images/items/climbing_anchor_set.png",
+    "codes": "climbing_anchor_set",
+    "min_quantity": 0,
+    "max_quantity": 2,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Assault Rifle",
+    "type": "toggle",
+    "img": "images/items/assault_rifle.png",
+    "codes": "assault_rifle",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Hematic Grenade Pack (x2 in the pool)",
+    "type": "consumable",
+    "img": "images/items/hematic_grenade_pack.png",
+    "codes": "hematic_grenade_pack",
+    "min_quantity": 0,
+    "max_quantity": 2,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Bola Gun",
+    "type": "toggle",
+    "img": "images/items/bola_gun.png",
+    "codes": "bola_gun",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Boot Upgrade (x2 in the pool)",
+    "type": "consumable",
+    "img": "images/items/boot_upgrade.png",
+    "codes": "boot_upgrade",
+    "min_quantity": 0,
+    "max_quantity": 2,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Chiral Crystals",
+    "type": "consumable",
+    "img": "images/items/chiral_crystals.png",
+    "codes": "chiral_crystals",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Metals",
+    "type": "consumable",
+    "img": "images/items/metals.png",
+    "codes": "metals",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Ceramics",
+    "type": "consumable",
+    "img": "images/items/ceramics.png",
+    "codes": "ceramics",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Resins",
+    "type": "consumable",
+    "img": "images/items/resins.png",
+    "codes": "resins",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Blood Bag",
+    "type": "consumable",
+    "img": "images/items/blood_bag.png",
+    "codes": "blood_bag",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Energy Drink",
+    "type": "consumable",
+    "img": "images/items/energy_drink.png",
+    "codes": "energy_drink",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Repair Spray",
+    "type": "consumable",
+    "img": "images/items/repair_spray.png",
+    "codes": "repair_spray",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Chemicals",
+    "type": "consumable",
+    "img": "images/items/chemicals.png",
+    "codes": "chemicals",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Special Alloys",
+    "type": "consumable",
+    "img": "images/items/special_alloys.png",
+    "codes": "special_alloys",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Cryptobiote Pack",
+    "type": "consumable",
+    "img": "images/items/cryptobiote_pack.png",
+    "codes": "cryptobiote_pack",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "D-Cryptobiote Pack",
+    "type": "consumable",
+    "img": "images/items/d_cryptobiote_pack.png",
+    "codes": "d_cryptobiote_pack",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Sandalweed Bundle",
+    "type": "consumable",
+    "img": "images/items/sandalweed_bundle.png",
+    "codes": "sandalweed_bundle",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Likes Pack",
+    "type": "consumable",
+    "img": "images/items/likes_pack.png",
+    "codes": "likes_pack",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Injury Trap",
+    "type": "consumable",
+    "img": "images/items/injury_trap.png",
+    "codes": "injury_trap",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Fatigue Trap",
+    "type": "consumable",
+    "img": "images/items/fatigue_trap.png",
+    "codes": "fatigue_trap",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Boot Wear Trap",
+    "type": "consumable",
+    "img": "images/items/boot_wear_trap.png",
+    "codes": "boot_wear_trap",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Rust Trap",
+    "type": "consumable",
+    "img": "images/items/rust_trap.png",
+    "codes": "rust_trap",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Pickpocket Trap",
+    "type": "consumable",
+    "img": "images/items/pickpocket_trap.png",
+    "codes": "pickpocket_trap",
+    "min_quantity": 0,
+    "max_quantity": 999,
+    "increment": 1,
+    "decrement": 1,
+    "initial_quantity": 0,
+    "overlay_font_size": 12,
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Goal",
+    "type": "progressive",
+    "allow_disabled": false,
+    "loop": true,
+    "initial_stage_idx": 0,
+    "stages": [
+      {
+        "name": "Goal: finish Episode 14",
+        "img": "images/items/goal14.png",
+        "codes": "goal14"
+      },
+      {
+        "name": "Goal: finish Episode 12",
+        "img": "images/items/goal12.png",
+        "codes": "goal12",
+        "inherit_codes": false
+      }
+    ]
+  },
+  {
+    "name": "Free mode: show every order as reachable (the game is never locked)",
+    "type": "toggle",
+    "img": "images/items/freemode.png",
+    "codes": "freemode",
+    "disabled_img_mods": "@disabled"
+  },
+  {
+    "name": "Main orders checked",
+    "type": "toggle",
+    "img": "images/items/ms_main.png",
+    "codes": "ms_main",
+    "disabled_img_mods": "@disabled",
+    "initial_active_state": true
+  },
+  {
+    "name": "Likes milestones",
+    "type": "toggle",
+    "img": "images/items/ms_likes.png",
+    "codes": "ms_likes",
+    "disabled_img_mods": "@disabled",
+    "initial_active_state": false
+  },
+  {
+    "name": "Order progress milestones",
+    "type": "toggle",
+    "img": "images/items/ms_order.png",
+    "codes": "ms_order",
+    "disabled_img_mods": "@disabled",
+    "initial_active_state": false
+  },
+  {
+    "name": "Standard order milestones",
+    "type": "toggle",
+    "img": "images/items/ms_standard.png",
+    "codes": "ms_standard",
+    "disabled_img_mods": "@disabled",
+    "initial_active_state": false
+  },
+  {
+    "name": "Bot order milestones",
+    "type": "toggle",
+    "img": "images/items/ms_bot.png",
+    "codes": "ms_bot",
+    "disabled_img_mods": "@disabled",
+    "initial_active_state": false
+  }
+]

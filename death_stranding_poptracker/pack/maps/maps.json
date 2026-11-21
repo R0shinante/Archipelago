@@ -1,0 +1,8 @@
+[
+  {
+    "name": "orders",
+    "img": "images/maps/orders.png",
+    "location_size": 34,
+    "location_border_thickness": 2
+  }
+]

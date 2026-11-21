@@ -1077,11 +1077,11 @@ EARLY_ORDER_FLAGS: typing.Dict[int, str] = {
 }
 
 
-# Drapeaux de fin des commandes 11 a 60 : cles retrouvees DANS LES FICHIERS DU JEU (ds/mission/main_sub_mission/<mission>/<mission>.core de la copie de Victor,
+# Drapeaux de fin des commandes 11 a 60 : cles retrouvees DANS LES FICHIERS DU JEU (ds/mission/main_sub_mission/<mission>/<mission>.core de la copie de l'auteur,
 # 21/11) : la cle est l'identifiant de la phrase d'OBJECTIF FINAL de la mission (texte dans localized/sentences/ds_ui/ds_mission/simpletext). Verifie sur les 17 cles deja
 # relevees en jeu, puis sur la n°14 (cle creee 6 s apres la livraison) et la n°15 (4 objectifs, seule la cle du dernier est creee a la validation finale ; les etapes intermediaires ont leur cle a 1 puis 0). On garde les missions a UN SEUL objectif candidat et celles dont les objectifs se classent sans doute par le texte
 # (ramasser / recuperer, PUIS livrer : le fichier ne donne pas l'ordre, mais le dernier objectif est la livraison, comme sur les 7 cas connus a plusieurs objectifs) ;
-# les autres (objectifs ambigus) restent detectees par titre / memoire. Commandes non listees : 1, 29, 38, 39, 46, 54 (et les n°>= 71).
+# les autres (objectifs ambigus) restent detectees par titre / memoire. Commandes non listees : 1, 29, 54, 69 (et les n°>= 71).
 DECIMA_ORDER_FLAGS: typing.Dict[int, str] = {
     11: "9ad18b19569b36248a33178c6c93e034",
     12: "3f46276477fb39a193163641657d4094",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
@@ -1109,12 +1109,15 @@ DECIMA_ORDER_FLAGS: typing.Dict[int, str] = {
     35: "38c480623cf935aba17662b9c5075dec",
     36: "328884e86c5e31f2a6f497f7fb44f238",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
     37: "3d2e48d3491a39e4b8e3b711a5b0833d",
+    38: "a42c2ea3968832b4b05564df4e50a94b",  # VALIDE en jeu (21/11 22:33:34 : cle CREEE a 0 a la livraison ; les 2 autres candidats (7a2fe706, 6cdcc269) sont des etapes, a 3 puis 0)
+    39: "ccecd94dccc23c53adde159b9846af71",  # VALIDE en jeu (21/11 22:43:00) : AUCUNE cle n'est creee a la validation finale ; la derniere etape (« Trouvez l'homme mysterieux ») passe a 1 puis a 0 a la fin -> valeur 0 exigee
     40: "c5ab755816da3dfd86e43a9aa6a369bd",  # pizza : missions 00710 / 00720 / 00730 / 00740 attribuees dans l'ordre croissant (la 00700 = n°26 est validee), pas encore rejouee
     41: "4d3f85fab3d2396085cdd6b8eaebea62",
     42: "92a68b85960231f382dd25dc009469f2",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
     43: "5d85d97d29a1323b8d5e681f558bcf04",
     44: "6e43dedf20d5392fa56f90affa311551",
     45: "64d85717e290380c898ad20e72c23b34",  # pizza : missions 00710 / 00720 / 00730 / 00740 attribuees dans l'ordre croissant (la 00700 = n°26 est validee), pas encore rejouee
+    46: "86f3dd70af4e3001ad977a2d65fd52ad",  # mission mono-objectif « Take Mama to meet Lockne. » ; cle absente a la 32, presente a la 59 sur les 103 releves, pas encore rejouee en direct
     47: "c7f7cec2ba103bab8a61ed6f6c0ab7ab",
     48: "9da69a44d1ca34dea1423a3289e401a5",
     49: "7835eba730e2301ea5ec740ac4408031",
@@ -1138,11 +1141,13 @@ EARLY_FLAG_NEEDS_ZERO = frozenset({3})
 
 
 def flag_orders(table: typing.Optional[typing.Dict[str, int]], done: typing.Iterable[int] = ()) -> typing.List[int]:
-    """Commandes dont le drapeau de fin est present dans la table des compteurs (`table` : cle hexadecimale -> valeur) et pas encore enregistrees (`done`)."""
+    """Commandes dont le drapeau de fin est present dans la table des compteurs (`table` : cle hexadecimale -> valeur) et pas encore enregistrees (`done`).
+    Pour les commandes de DECIMA_ORDER_FLAGS (et la 3), la valeur doit etre 0 : une etape intermediaire est a 1 jusqu'a la validation finale (n°39 : aucune cle n'est creee a la fin,
+    seule la derniere etape retombe de 1 a 0) ; sur tous les releves (103 sauvegardes), ces cles valent toujours 0 une fois la commande terminee."""
     if not table:
         return []
     done = set(done)
-    return [n for n, k in sorted({**DECIMA_ORDER_FLAGS, **EARLY_ORDER_FLAGS}.items()) if k in table and n not in done and (n not in EARLY_FLAG_NEEDS_ZERO or table[k] == 0)]
+    return [n for n, k in sorted({**DECIMA_ORDER_FLAGS, **EARLY_ORDER_FLAGS}.items()) if k in table and n not in done and (table[k] == 0 or (n not in EARLY_FLAG_NEEDS_ZERO and n not in DECIMA_ORDER_FLAGS))]
 
 
 SIGNATURE_GRACE = 15.0          # une fin de commande plus recente que cela n'est pas encore « orpheline » (le titre n'est lu que quelques secondes apres l'ecriture ; releve 19/11 : 48 a 77 s apres la fin)

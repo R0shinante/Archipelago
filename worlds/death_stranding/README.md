@@ -14,9 +14,10 @@ Projet non officiel, sans lien avec Kojima Productions, 505 Games ni l'équipe d
 2. [Installation](#installation)
 3. [Configuration (YAML)](#configuration-yaml)
 4. [Lancer une partie](#lancer-une-partie)
-5. [Commandes du client](#commandes-du-client)
-6. [Dépannage](#dépannage)
-7. [Limites connues](#limites-connues)
+5. [Suivi avec PopTracker (optionnel)](#suivi-avec-poptracker-optionnel)
+6. [Commandes du client](#commandes-du-client)
+7. [Dépannage](#dépannage)
+8. [Limites connues](#limites-connues)
 
 ## Ce que fait le mod
 
@@ -40,7 +41,7 @@ Les autres objets du multimonde (cristaux, matériaux, équipement, pièges) son
 | Pièges : Injury, Fatigue, Boot Wear, Rust, Pickpocket | ✅ validé en jeu |
 | Paliers de commandes de bot livrées comme checks (`bot_checks` / `bot_step`, jusqu'à 100, sans sauvegarde) | ✅ validé en jeu : déduit de compteurs internes du jeu ; le check arrive environ 90 s après la livraison |
 | Détection des commandes principales terminées en lisant la mémoire du jeu (sans outil ni déchiffrement) | ✅ validé en jeu (français) ; le déchiffrement des sauvegardes reste disponible en option |
-| Rattrapage des commandes déjà terminées quand le client se lance ou qu'une commande n'apparaît pas dans le titre | ✅ validé en jeu : clés de fin de commande validées sur les n°2 à 10, 14, 15, 26 et 61 à 70 ; les autres : voir « Couverture de la détection immédiate » (clés lues dans les fichiers du jeu ou déduction par les titres de sauvegarde) |
+| Rattrapage des commandes déjà terminées quand le client se lance ou qu'une commande n'apparaît pas dans le titre | ✅ validé en jeu : clés de fin de commande validées sur les n°2 à 10, 14, 15, 26, 38, 39 et 61 à 70 ; les autres : voir « Couverture de la détection immédiate » (clés lues dans les fichiers du jeu ou déduction par les titres de sauvegarde) |
 | Checks nominatifs par commande standard / optionnelle | ❌ |
 
 Les checks sont identifiés par `7 770 000 + numéro de commande`. Le client détecte une commande principale terminée en lisant, **directement dans la mémoire du jeu**,
@@ -52,11 +53,11 @@ redémarrage), la recherche complète reprend toute seule. Le déchiffrement des
 
 | Niveau | Commandes | Comment le client les voit |
 |---|---|---|
-| ✅ Validées en jeu | 2 à 10, 14, 15, 26, 61 à 65, 67, 68 et 70 | Clé de fin de commande créée par le jeu : détection à la livraison, et rattrapage au lancement du client |
-| 🟡 Clés lues dans les fichiers du jeu, pas encore rejouées | 11 à 13, 16 à 25, 27, 28, 30 à 37, 40 à 45, 47 à 53, 55 à 60 et 66 | Même mécanisme ; si une commande est signalée trop tôt, trop tard ou jamais, merci de le signaler avec un relevé `/ds_counters watch on` |
-| ⚪ Par les titres de sauvegarde seulement | 1, 29, 38, 39, 46, 54 et 69 | Lecture du titre du point de contrôle (quelques secondes après la sauvegarde du jeu) et déduction ; `/check <lieu>` en dernier recours |
+| ✅ Validées en jeu | 2 à 10, 14, 15, 26, 38, 39, 61 à 65, 67, 68 et 70 | Clé de fin de commande créée par le jeu : détection à la livraison, et rattrapage au lancement du client |
+| 🟡 Clés lues dans les fichiers du jeu, pas encore rejouées | 11 à 13, 16 à 25, 27, 28, 30 à 37, 40 à 53, 55 à 60 et 66 | Même mécanisme ; si une commande est signalée trop tôt, trop tard ou jamais, merci de le signaler avec un relevé `/ds_counters watch on` |
+| ⚪ Par les titres de sauvegarde seulement | 1, 29, 54 et 69 | Lecture du titre du point de contrôle (quelques secondes après la sauvegarde du jeu) et déduction ; `/check <lieu>` en dernier recours |
 
-La clé de fin d'une commande est l'identifiant de la phrase de son **objectif final** (par exemple « Deliver all four containers of aid. » pour la n°14). Les clés des autres commandes ont été lues dans les fichiers de mission de la copie du jeu de l'auteur (rien du jeu n'est livré avec l'APWorld) et recoupées avec les clés relevées en jeu. Les commandes à plusieurs objectifs ont leur clé d'objectif final déduite du texte (ramasser, puis livrer) ; celles dont l'objectif final reste ambigu sont dans la dernière ligne.
+La clé de fin d'une commande est l'identifiant de la phrase de son **objectif final** (par exemple « Deliver all four containers of aid. » pour la n°14). Les clés des autres commandes ont été lues dans les fichiers de mission de la copie du jeu de l'auteur (rien du jeu n'est livré avec l'APWorld) et recoupées avec les clés relevées en jeu. Les commandes à plusieurs objectifs ont leur clé d'objectif final déduite du texte (ramasser, puis livrer) ; celles dont l'objectif final reste ambigu sont dans la dernière ligne. Le client exige que la clé vaille **0** : une étape intermédiaire est à 1 jusqu'à la validation finale, et la n°39 ne crée même aucune clé à la fin (c'est sa dernière étape qui retombe de 1 à 0).
 
 ## Installation
 
@@ -167,6 +168,15 @@ avec « TERMINEE » / « pas terminee » pour chacun. Si une commande terminée 
 Un fragment de mot suffit (sans accents, en minuscules). Si `/ds_titles` ne trouve aucun titre, ouvre une issue GitHub avec une capture du titre affiché dans le menu de chargement du jeu : le format de ta langue sera ajouté.
 En cas de doute, utilisez le déchiffrement des sauvegardes.
 
+## Suivi avec PopTracker (optionnel)
+
+Un pack [PopTracker](https://github.com/black-sliver/PopTracker/releases) est fourni (fichier `death_stranding_poptracker_vX.Y.Z.zip` de la release, ou dossier `death_stranding_poptracker/pack` du dépôt). Il affiche les 70 commandes par épisode (vert : accessible d'après la logique de génération, rouge : il manque un objet « Episode N Access », sombre : check envoyé), les accès d'épisode, l'équipement, les matériaux et les pièges reçus, l'objectif du slot et des compteurs « cochés / total » (commandes principales, paliers de likes, de progression, de commandes standard et de bots).
+
+1. Placez le zip **sans le décompresser** dans le dossier `packs` de PopTracker, puis *Open Pack* → « Death Stranding (Archipelago) ».
+2. Cliquez sur le « AP » gris, saisissez le serveur, **le nom de votre slot** et le mot de passe : le suivi est automatique (aucune lecture du jeu).
+
+Clic droit sur une case : marque la commande comme faite à la main ; le bouton **SYNC** (section *Progress*) remet toutes les cases dans l'état du serveur. Le bouton **ALL** affiche tout en accessible (utile sans `episode_gating`, car le jeu n'est jamais verrouillé). Avec `episode_gating`, une commande faite mais retenue (`/ds_held`) reste rouge tant que l'objet d'épisode n'est pas arrivé. La case Victoire n'est pas autotrackée. Validé en jeu le 21/11 (connexion, objets, compteurs, cases cochées, SYNC, ALL). Le pack est régénéré par `death_stranding_poptracker/tools/make_poptracker.py`.
+
 ## Commandes du client
 
 <details>
@@ -218,7 +228,7 @@ En cas de doute, utilisez le déchiffrement des sauvegardes.
 | Une commande principale terminée n'est pas détectée | Attendez la ligne « lecture en mémoire active » au démarrage ; le check part dans les secondes qui suivent la sauvegarde du jeu. Seules les commandes terminées après le démarrage du client comptent. En dernier recours, configurez le déchiffrement des sauvegardes (voir plus haut) |
 | « aucun titre de sauvegarde en mémoire pour l'instant » | Normal tant que le jeu n'a pas écrit de point de contrôle ; le client réessaie (toutes les 1 à 10 minutes au repos, en continu pendant 6 minutes après chaque livraison) |
 | Les compteurs de commandes (standard, bot) restent muets | Le client cherche la table en mémoire dès l'entrée en jeu (jusqu'à quelques minutes, réessais espacés) après un redémarrage du jeu ou un changement de sauvegarde. Attends la fin du chargement, puis `/ds_counters scan` relance la recherche immédiatement ; `/ds_bot` indique l'état. Si « table introuvable » persiste, `/ds_counters partial` décrit ce qui a été vu : envoie la console avec une issue |
-| « Compteur « total » absent de la table… » / `/ds_bot` : indisponibles | Normal sur certaines sauvegardes : le jeu ne crée ce compteur que plus tard. Seuls les paliers de bot sont concernés (voir « Commandes de bot ») |
+| « Compteur « total » absent de la table… » / `/ds_bot` : indisponibles | Normal sur certaines sauvegardes : le jeu ne crée ce compteur que plus tard (relevé en jeu : à la livraison de la n°38 sur la partie testée). Seuls les paliers de bot sont concernés (voir « Commandes de bot ») |
 | Un effet ou piège ne s'applique pas | Il attend que Sam soit lisible (pas pendant un chargement ou un menu). Testez avec `/ds_debug on` puis `/ds_effect <nom>` |
 
 ## Limites connues

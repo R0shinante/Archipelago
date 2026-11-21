@@ -178,7 +178,7 @@ En cas de doute, utilisez le déchiffrement des sauvegardes.
 | `/ds_standard_rebase` | Refixe la base des paliers de commandes standard |
 | `/ds_bot` | Commandes de bot livrées (compteur en direct) et progression des paliers |
 | `/ds_bot_rebase` | Refixe la base des paliers de commandes de bot |
-| `/ds_counters snap\|diff\|save\|watch [on\|off]` | Diagnostic (lecture seule) : photographie tous les compteurs nommés du jeu, affiche ceux qui ont changé depuis la photo, les écrit dans `DeathStranding_counters.json`, ou (`watch`) écrit en continu chaque changement dans la console (à couper après le test) |
+| `/ds_counters snap\|diff\|save [nom]\|watch [on\|off]` | Diagnostic (lecture seule) : photographie tous les compteurs nommés du jeu, affiche ceux qui ont changé depuis la photo, les écrit dans `DeathStranding_counters.json`, ou (`watch`) écrit en continu chaque changement dans la console (à couper après le test) |
 | `/ds_held` | Liste les checks retenus par l'option `episode_gating`, en attente d'un objet « Episode N Access » |
 | `/ds_hp` | Vie du joueur lue en mémoire (test) |
 | `/ds_kill` | Test (après `/ds_debug on`) : met la vie de Sam à 0 |

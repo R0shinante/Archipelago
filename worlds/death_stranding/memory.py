@@ -428,10 +428,10 @@ class GameMemory:
             return None, trace
         return p + (offs[-1] if offs else 0), trace
 
-    def _table_capacity(self, cfg: dict, base: int) -> typing.Tuple[typing.Optional[bytes], int]:
+    def _table_capacity(self, cfg: dict, base: int, min_occ: typing.Optional[int] = None) -> typing.Tuple[typing.Optional[bytes], int]:
         """Lit la table et devine sa capacite (puissance de 2) : la table de hachage grandit quand elle se remplit. Chaque case occupee doit se trouver
         pres de `hash & (capacite - 1)` ; on garde la plus grande capacite coherente (au-dela de la vraie table, la memoire est vide ou incoherente)."""
-        size, lo = int(cfg.get("slot_size", 24)), int(cfg.get("slots", 512))
+        size, lo = int(cfg.get("slot_size", 24)), min(int(cfg.get("slots", 16)), 16)      # 16 : la table d'une sauvegarde neuve est petite (elle grandit en se remplissant)
         ho = _num(cfg.get("hash_offset", 0))
         n = lo
         cands = []
@@ -449,19 +449,23 @@ class GameMemory:
                     occ += 1
                     if (s - (h & (n - 1))) % n < 64:
                         ok += 1
-            if occ >= min(int(cfg.get("min_occupied", 12)), 12) and ok * 10 >= occ * 9:      # 12 : une sauvegarde neuve a une table peu remplie (100 la rejetait, releve 20/11)
+            if occ >= (min_occ if min_occ is not None else min(int(cfg.get("min_occupied", 12)), 12)) and ok * 10 >= occ * 9:      # 12 : une sauvegarde neuve a une table peu remplie (100 la rejetait, releve 20/11)
                 return data, n
         return None, 0
 
-    def _read_counters_at(self, cfg: dict, base: int) -> typing.Tuple[typing.Optional[typing.Dict[str, int]], str]:
+    def _read_counters_at(self, cfg: dict, base: int, min_occ: typing.Optional[int] = None) -> typing.Tuple[typing.Optional[typing.Dict[str, int]], str]:
         size = int(cfg.get("slot_size", 24))
-        data, slots = self._table_capacity(cfg, base)
+        data, slots = self._table_capacity(cfg, base, min_occ)
         if data is None:
             return None, f"0x{base:X} : pas une table de compteurs (illisible, peu remplie ou incoherente)"
         ko, vo = _num(cfg.get("key_offset", 4)), _num(cfg.get("value_offset", 20))
         ho = _num(cfg.get("hash_offset", 0))
         wanted = {name: (bytes.fromhex(c["key"]), _num(c["hash"]) if c.get("hash") else None) for name, c in cfg.get("counters", {}).items()}
         optional = {name for name, c in cfg.get("counters", {}).items() if c.get("optional")}     # cle absente = compteur pas encore cree = 0
+        # « paresseux » : cle creee tard par le jeu (releve 21/11 : « total » n'existe pas a la commande 10, il apparait plus tard) ; absente = omise du resultat
+        # (pas 0 : bot = total - nobot serait faux), la table reste acceptee tant que les autres compteurs sont la. « total » l'est par defaut meme si un
+        # ancien memory_map.json de l'utilisateur ne le dit pas.
+        lazy = {name for name, c in cfg.get("counters", {}).items() if c.get("lazy", name == "total")}
         found: typing.Dict[str, typing.List[int]] = {name: [] for name in wanted}
         seen_key: typing.Dict[str, typing.List[str]] = {name: [] for name in wanted}
         for s in range(slots):
@@ -481,11 +485,14 @@ class GameMemory:
             if not vals and name in optional:
                 out[name] = 0
                 continue
+            if not vals and name in lazy:
+                continue
             if len(vals) != 1:
                 return None, f"0x{base:X} ({slots} cases) : compteur « {name} » : {len(vals)} case(s) valides ; cases avec la cle : {'; '.join(seen_key[name]) or 'aucune'}"
             if not 0 <= vals[0] <= 1_000_000:
                 return None, f"0x{base:X} : compteur « {name} » : valeur aberrante {vals[0]}"
             out[name] = vals[0]
+        self._last_cap = slots                  # capacite reconnue (sert a la recherche par signature : voir scan_named_table)
         return out, f"{slots} cases"
 
     def scan_titles(self, words: typing.Iterable[str], windows: typing.Optional[typing.List[typing.Tuple[int, int]]] = None,
@@ -524,6 +531,23 @@ class GameMemory:
             else:
                 zones.append((lo, hi - lo))
         return titles, zones
+
+    def dump_candidate(self) -> typing.Optional[typing.Dict[str, int]]:
+        """Diagnostic : contenu {cle hexadecimale: valeur} de la table « probable » de la derniere recherche, meme si elle a ete rejetee (compteur « total » absent...)."""
+        cand = getattr(self, "scan_candidate", None)
+        if not cand:
+            return None
+        base, n = cand
+        size = int(self.cfg.get("named_counters", {}).get("slot_size", 24))
+        data = self.backend.read(base, n * size)
+        if not data or len(data) < n * size:
+            return None
+        out: typing.Dict[str, int] = {}
+        for q in range(n):
+            h, = struct.unpack_from("<I", data, q * size)
+            if h:
+                out[data[q * size + 4:q * size + 20].hex()] = struct.unpack_from("<i", data, q * size + 20)[0]
+        return out
 
     def list_titles(self, windows: typing.Optional[typing.List[typing.Tuple[int, int]]] = None, deadline: float = 600.0
                     ) -> typing.List[typing.Tuple[str, int, str, str]]:
@@ -570,6 +594,9 @@ class GameMemory:
         first = next(iter(counters.values()))
         h0, size = _num(first["hash"]), int(cfg.get("slot_size", 24))
         pat = struct.pack("<I", h0) + bytes.fromhex(first["key"])
+        second = list(counters.values())[1] if len(counters) > 1 else None        # « total » : sert seulement au diagnostic (dans quelle table est-il ?)
+        pat2 = struct.pack("<I", _num(second["hash"])) + bytes.fromhex(second["key"]) if second else None
+        hits2: typing.List[int] = []
         rng, stop = self.backend.module_range(), time.time() + deadline
         hits: typing.List[int] = []
         chunk = 1 << 24
@@ -585,35 +612,71 @@ class GameMemory:
                 if data is None and n > (1 << 20):       # lecture partielle : on retente par blocs de 1 Mio
                     for sub_off in range(0, n, 1 << 20):
                         d = self.backend.read(base + off + sub_off, min(1 << 20, n - sub_off))
-                        i = d.find(pat) if d else -1
-                        while i >= 0:
-                            hits.append(base + off + sub_off + i)
-                            i = d.find(pat, i + 1)
+                        for pt, lst in ((pat, hits), (pat2, hits2)):
+                            i = d.find(pt) if d and pt else -1
+                            while i >= 0:
+                                lst.append(base + off + sub_off + i)
+                                i = d.find(pt, i + 1)
                 elif data:
-                    i = data.find(pat)
-                    while i >= 0:
-                        hits.append(base + off + i)
-                        i = data.find(pat, i + 1)
+                    for pt, lst in ((pat, hits), (pat2, hits2)):
+                        i = data.find(pt) if pt else -1
+                        while i >= 0:
+                            lst.append(base + off + i)
+                            i = data.find(pt, i + 1)
                 off += n - (len(pat) - 1) if off + n < total else n
         if progress:
             progress(f"{len(hits)} occurrence(s) de la signature.")
-        lo, hi = int(cfg.get("slots", 512)), int(cfg.get("max_slots", 4096))
-        self.scan_note = f"signature « {next(iter(counters))} » vue {len(hits)} fois" + ("" if hits else " (ce compteur n'existe pas encore : il est cree par la 1re livraison)")
-        for hit in hits:
+        lo, hi = min(int(cfg.get("slots", 16)), 16), int(cfg.get("max_slots", 4096))
+        self.scan_hits = len(hits)
+        near = [h2 for h2 in hits2 if hits and min(abs(h2 - h1) for h1 in hits) < 4096 * size]
+        self.scan_note = (f"signature « {next(iter(counters))} » vue {len(hits)} fois" + ("" if hits else " (ce compteur n'existe pas encore ou la table n'est pas chargee)")
+                          + (f", « {list(counters)[1]} » vue {len(hits2)} fois dont {len(near)} pres de la 1re" if second else ""))
+        if hits:       # profil de la table autour de la 1re occurrence, pour comprendre un rejet : (capacite : cases occupees / bien placees)
+            prof = []
             n = lo
             while n <= hi:
-                home = h0 & (n - 1)
-                for d in range(0, 256):   # la case peut etre decalee par le sondage lineaire
-                    base = hit - (home + d) * size
-                    if base <= 0:
-                        break
-                    out, why = self._read_counters_at(cfg, base)
-                    if out is not None:
-                        self._named_base = base
-                        return base
-                    if "peu remplie" not in why and why not in self.scan_note:
-                        self.scan_note = f"signature « {next(iter(counters))} » vue {len(hits)} fois ; derniere raison de rejet : {why}"[:400]
+                b0 = hits[0] - (h0 & (n - 1)) * size
+                d0 = self.backend.read(b0, n * size) if b0 > 0 else None
+                if d0 and len(d0) == n * size:
+                    occ = sum(1 for q in range(n) if struct.unpack_from("<I", d0, q * size)[0])
+                    ok = sum(1 for q in range(n) if (h := struct.unpack_from("<I", d0, q * size)[0]) and (q - (h & (n - 1))) % n < 64)
+                    prof.append(f"{n}:{occ}/{ok}")
                 n *= 2
+            self.scan_note += " ; profil capacite:occupees/bien placees = " + (" ".join(prof) or "illisible")
+            best = None            # plus grande capacite dont les cases sont bien placees : la vraie table probable ; on dit pourquoi elle est rejetee
+            for item in prof:
+                cap_s, rest = item.split(":")
+                occ_s, ok_s = rest.split("/")
+                if int(occ_s) >= 2 and int(ok_s) * 10 >= int(occ_s) * 9:
+                    best = int(cap_s)
+            if best:
+                self.scan_candidate = (hits[0] - (h0 & (best - 1)) * size, best)          # table « probable » meme rejetee : /ds_counters partial la decrit
+                _out, why = self._read_counters_at(cfg, hits[0] - (h0 & (best - 1)) * size, 2)
+                self.scan_note += f" ; table probable de {best} cases : " + (f"lue ({_out})" if _out is not None else why)[:260]
+        # Le test de placement ((case - hash & (capacite-1)) % capacite < 64) est VIDE pour une capacite <= 64 : n'importe quelle fenetre de 16 a 64 cases
+        # a l'interieur d'une grande table le passe (releve 21/11 : fenetre de 64 cases de la table de 256/512 cases acceptee, `total` hors fenetre -> faux
+        # « bot indisponible »). On essaie donc les capacites de la plus grande a la plus petite : la vraie base (capacite reelle) est trouvee avant toute fenetre.
+        #  - passe A : decalage de sondage <= 32, capacite reconnue > 64 exigee (cas courant, rapide) ;
+        #  - passe B : decalage <= 256 (« nobot » tres decale par le sondage), toute capacite (petites tables de sauvegarde neuve incluses) ;
+        #  - passe C : table presque vide (2 cases occupees suffisent, decalage <= 8) ; « nobot » (cle et hash exacts) reste exige.
+        sizes = []
+        n = lo
+        while n <= hi:
+            sizes.append(n)
+            n *= 2
+        for min_occ, max_shift, min_cap in ((None, 32, 65), (None, 256, 0), (2, 8, 0)):
+            for hit in hits:
+                for n in reversed(sizes):
+                    home = h0 & (n - 1)
+                    for d in range(0, max_shift):   # la case peut etre decalee par le sondage lineaire
+                        base = hit - (home + d) * size
+                        if base <= 0:
+                            break
+                        out, _ = self._read_counters_at(cfg, base, min_occ)
+                        if out is not None and getattr(self, "_last_cap", 0) >= min_cap:
+                            self._named_base = base
+                            self._named_min_occ = min_occ
+                            return base
         return None
 
     def named_counters_report(self) -> typing.Tuple[typing.Optional[typing.Dict[str, int]], str]:
@@ -626,9 +689,10 @@ class GameMemory:
             return None, "module ds.exe introuvable (jeu non detecte)"
         scanned = getattr(self, "_named_base", None)
         if scanned is not None:      # base retrouvee par recherche memoire : on la reverifie a chaque lecture
-            out, why = self._read_counters_at(cfg, scanned)
+            out, why = self._read_counters_at(cfg, scanned, getattr(self, "_named_min_occ", None))
             if out is not None:
                 self._named_last_base = scanned
+                self._named_last_min_occ = getattr(self, "_named_min_occ", None)
                 return out, f"ok (recherche memoire, {why})"
             self._named_base = None
         roots = cfg.get("roots") or []
@@ -647,6 +711,8 @@ class GameMemory:
             out, why = self._read_counters_at(cfg, base)
             if out is not None:
                 self._named_root = i
+                self._named_min_occ = None
+                self._named_last_min_occ = None
                 self._named_last_base = base
                 return out, f"ok (chaine n°{i + 1}, {why})"
             table_level.append(f"#{i + 1} {why}")
@@ -666,7 +732,7 @@ class GameMemory:
         base, cfg = getattr(self, "_named_last_base", None), self.cfg.get("named_counters", {})
         if base is None:
             return None
-        data, slots = self._table_capacity(cfg, base)
+        data, slots = self._table_capacity(cfg, base, getattr(self, "_named_last_min_occ", None))
         if data is None:
             return None
         size = int(cfg.get("slot_size", 24))
@@ -680,10 +746,13 @@ class GameMemory:
 
     def read_order_types(self) -> typing.Optional[typing.Dict[str, int]]:
         """Totaux de livraisons par type, a une constante pres (seuls les ecarts comptent) : {"standard", "main", "bot"}, ou None.
-        main = nobot - standard ; bot = total - nobot. Lecture coherente exigee (les trois compteurs sont ecrits separement par le jeu)."""
+        main = nobot - standard ; bot = total - nobot. Lecture coherente exigee (les trois compteurs sont ecrits separement par le jeu).
+        « total » n'existe pas encore sur une sauvegarde de debut de partie (releve 21/11) : "bot" vaut alors None (indisponible), pas une valeur inventee."""
         named, std = self.read_named_counters(), self.read_standard_orders()
-        if named is None or std is None or "nobot" not in named or "total" not in named:
+        if named is None or std is None or "nobot" not in named:
             return None
+        if "total" not in named:
+            return {"standard": std, "main": named["nobot"] - std, "bot": None}
         # "repair" : cle creee quand la commande de reparation n°62 se termine (absente avant = 0) ; le total monte alors, pas « nobot » : sans elle la 62 ressemblerait a un bot ;
         # le +1000 ne sert qu'a garder une valeur positive (seuls les ecarts comptent)
         return {"standard": std, "main": named["nobot"] - std, "bot": named["total"] - named["nobot"] - named.get("repair", 0) + 1000}

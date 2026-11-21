@@ -284,6 +284,9 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         if t is None:
             self._explain_types_failure()
             return
+        if t[kind] is None:
+            self.output(f"Livraisons de {label} : indisponibles pour l'instant (le compteur « total » n'existe pas encore sur cette sauvegarde ; le jeu le cree plus tard).")
+            return
         self.output(f"Livraisons de {label} (compteur relatif, a une constante pres) : {t[kind]}  [{self.ctx.memory.named_counters_report()[1]}]")
         st, step = self.ctx.type_state.get(kind, {}), int(self.ctx.slot_data.get(f"{opt}_step", 0))
         if "baseline" in st and step > 0:
@@ -295,6 +298,9 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         t = self.ctx.memory.read_order_types()
         if t is None:
             self._explain_types_failure()
+            return
+        if t[kind] is None:
+            self.output(f"Base des {ORDER_TYPES[kind][2]} non fixee : le compteur « total » n'existe pas encore sur cette sauvegarde (le jeu le cree plus tard).")
             return
         self.ctx.type_state.setdefault(kind, {})["baseline"] = t[kind]
         self.ctx.save_progress()
@@ -309,8 +315,37 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         self._type_rebase("bot")
 
     def _cmd_ds_counters(self, action: str = "", mode: str = "") -> None:
-        """Diagnostic (lecture seule) : tous les compteurs nommes du jeu. /ds_counters snap = photo ; /ds_counters diff = ce qui a change depuis la photo ; /ds_counters save = fichier complet ; /ds_counters watch [on|off] = ecrit en continu chaque changement (recherche)."""
+        """Diagnostic (lecture seule) : tous les compteurs nommes du jeu. /ds_counters snap = photo ; /ds_counters diff = ce qui a change depuis la photo ; /ds_counters save [nom] = fichier complet (DeathStranding_counters[_nom].json) ; /ds_counters watch [on|off] = ecrit en continu chaque changement (recherche)."""
         ctx = self.ctx
+        if action.strip().lower() == "scan":
+            ctx.table_scan_request = True
+            self.output("Recherche de la table demandee : elle demarre au prochain cycle (quelques secondes) ; le resultat s'affiche dans la console. Attends que la sauvegarde soit entierement chargee (en jeu, plus d'ecran de chargement).")
+            return
+        if action.strip().lower() == "partial":
+            cand = ctx.memory.dump_candidate()
+            if not cand:
+                self.output("Aucune table candidate : lance d'abord /ds_counters scan (il faut que la recherche ait vu la signature « nobot » sans accepter la table).")
+                return
+            names = {bytes.fromhex(c["key"]).hex(): n for n, c in ctx.map.get("named_counters", {}).get("counters", {}).items()}
+            old = ctx.partial_snap
+            ctx.partial_snap = cand
+            path = Utils.user_path("DeathStranding_counters_partial.json")
+            try:
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump({"time": time.strftime("%Y-%m-%d %H:%M:%S"), "base": hex(ctx.memory.scan_candidate[0]), "slots": ctx.memory.scan_candidate[1],
+                               "known": names, "counters": cand}, f, indent=1, sort_keys=True)
+                where = f" Fichier : {path}"
+            except OSError as e:
+                where = f" (ecriture impossible : {e})"
+            self.output(f"Table candidate rejetee : {len(cand)} compteurs, dont " + ", ".join(f"{n}={cand[k]}" for k, n in names.items() if k in cand) + "." + where)
+            if old is not None:
+                diff = [f"  {k} : {old.get(k, 'absent')} -> {v}" + (f"   [{names[k]}]" if k in names else "") for k, v in sorted(cand.items()) if old.get(k) != v]
+                self.output(f"{len(diff)} compteur(s) different(s) du precedent /ds_counters partial :" if diff else "Aucun changement depuis le precedent /ds_counters partial (table figee ou rien de fait entre-temps).")
+                for line in diff[:25]:
+                    self.output(line)
+            else:
+                self.output("Fais une livraison en jeu, attends la sauvegarde (~1 min) puis relance /ds_counters partial : on saura si cette table bouge (vivante) ou si c'est une copie perimee.")
+            return
         dump = ctx.memory.dump_named_table()
         if dump is None:
             self._explain_types_failure()
@@ -338,8 +373,9 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
             ctx.counters_watch_last = None
             self.output("Mode recherche ACTIF : chaque changement de compteur nomme est ecrit dans la console (toutes les 5 s). Pensez a le couper apres le test : /ds_counters watch off."
                         if ctx.counters_watch else "Mode recherche coupe.")
-        elif act == "save":
-            path = Utils.user_path("DeathStranding_counters.json")
+        elif act == "save" or act.startswith("save "):
+            tag = "".join(c for c in act[5:] if c.isalnum() or c in "-_")[:24]       # /ds_counters save n36 -> DeathStranding_counters_n36.json (compare plusieurs sauvegardes sans ecraser)
+            path = Utils.user_path(f"DeathStranding_counters_{tag}.json" if tag else "DeathStranding_counters.json")
             try:
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump({"time": time.strftime("%Y-%m-%d %H:%M:%S"), "known": known, "counters": dump}, f, indent=1, sort_keys=True)
@@ -347,7 +383,7 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
             except OSError as e:
                 self.output(f"Ecriture impossible : {e}")
         else:
-            self.output(f"{len(dump)} compteurs dans la table nommee ({len(known)} utilises par le client). /ds_counters snap | diff | save | watch [on|off]")
+            self.output(f"{len(dump)} compteurs dans la table nommee ({len(known)} utilises par le client). /ds_counters snap | diff | save [nom] | watch [on|off] | scan | partial")
 
     def _cmd_ds_likes_rebase(self) -> None:
         """Refixe la base des paliers de likes au total actuel (les checks deja envoyes restent envoyes)."""
@@ -628,6 +664,8 @@ class DeathStrandingContext(CommonContext):
         self.type_history: typing.List[tuple] = []
         self.title_zones: typing.Optional[typing.List[typing.Tuple[int, int]]] = None
         self.title_seen: typing.Set[typing.Tuple[int, str]] = set()
+        self.partial_snap: typing.Optional[typing.Dict[str, int]] = None        # /ds_counters partial : dernier contenu de la table candidate
+        self.table_scan_request = False                    # /ds_counters scan : relance la recherche de la table tout de suite
         self.title_seen_all: typing.Set[typing.Tuple[int, str]] = set()      # tous les titres vus, quel que soit l'etat (deduction des commandes precedentes)
         self.title_baselined = False
         self.title_force_full = False
@@ -642,8 +680,10 @@ class DeathStrandingContext(CommonContext):
         self.sig_last_ta = None
         self.created_keys: typing.Dict[str, float] = {}      # cle -> heure de creation (120 s), pour les cles marqueurs de commande
         self.marker_done: typing.Set[tuple] = set()
+        self.flag_orders_done: typing.Set[int] = set()       # commandes deja enregistrees par leur drapeau (EARLY_ORDER_FLAGS)
         self.bot_hold_keys: typing.Optional[typing.Set[str]] = None     # cles de la table au releve precedent (detecte les creations)
         self.raw_logged: typing.Optional[tuple] = None
+        self.bot_was_missing = False          # « total » absent de la table (debut de partie) : bot indisponible, base du bot differee a son apparition
         self.title_burst_until = 0.0
         self.title_active_logged = False
         self.title_last_main: typing.Optional[typing.Tuple[int, int]] = None
@@ -1019,6 +1059,31 @@ def marker_orders(created: typing.Dict[str, float], total_at: typing.Optional[fl
     return {n for n, keys in markers.items() if keys and all(k in created and abs(created[k] - total_at) <= window for k in keys)}
 
 
+# Drapeaux de fin des premieres commandes : cle creee (absent -> 0) par le jeu quand la commande est livree, puis PRESENTE tant que la sauvegarde existe (releve
+# 21/11, partie neuve : creee 2 a 10 s apres le debut de la livraison, a chaque fois seule ou presque dans le releve ; on la retrouve, a 0, dans les tables des trois
+# autres sauvegardes). Contrairement aux marqueurs ci-dessus, aucune hausse du total n'est necessaire (« total » n'existe pas en debut de partie) : la PRESENCE de la cle
+# suffit, donc aussi au lancement du client (rattrapage immediat, sans attendre un titre de sauvegarde). 1 et 3 : pas encore releves (titre / deduction) ; 8 n'apparait
+# jamais dans un titre quand la 7 est livree ensuite.
+EARLY_ORDER_FLAGS: typing.Dict[int, str] = {
+    2: "f9db6f9623b4341aa6e7a998709c2fd4",
+    4: "19af8d70ab483b208555c9069e5d62ee",
+    5: "1ed9b4217ab23a12b89c2c36f85f5a72",
+    6: "1f0fa33104663497a94f4578c5786912",
+    7: "424c79d1283130afafafd81fb857272d",
+    8: "d55e235620d337d78b67144532785659",
+    9: "89e67a16afac37c1b8f2345fa193da31",
+    10: "0f77238620cb326398ddea1eaeb61f39",
+}
+
+
+def flag_orders(table: typing.Optional[typing.Dict[str, int]], done: typing.Iterable[int] = ()) -> typing.List[int]:
+    """Commandes dont le drapeau de fin est present dans la table des compteurs (`table` : cle hexadecimale -> valeur) et pas encore enregistrees (`done`)."""
+    if not table:
+        return []
+    done = set(done)
+    return [n for n, k in sorted(EARLY_ORDER_FLAGS.items()) if k in table and n not in done]
+
+
 SIGNATURE_GRACE = 15.0          # une fin de commande plus recente que cela n'est pas encore « orpheline » (le titre n'est lu que quelques secondes apres l'ecriture ; releve 19/11 : 48 a 77 s apres la fin)
 
 
@@ -1105,6 +1170,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
     last_table_scan = -1e9
     last_title_poll, last_title_full, title_running = 0.0, -1e9, False
     table_scan_running = False
+    table_scan_partial = 0         # essais rapproches (30 s) apres une signature trouvee mais une table rejetee (chargement en cours ?)
     table_scan_fails = 0           # recherches de la table sans resultat de suite : espace les suivantes (2 min, 4, 8, puis 10 min)
     while not ctx.exit_event.is_set():
         await asyncio.sleep(0.5)
@@ -1363,14 +1429,15 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
             last_types_poll = loop.time()
             cur = ctx.memory.read_order_types()
             if cur is None and not table_scan_running and (ctx.memory.read_standard_orders() is not None or ctx.memory.read_vitals() is not None) \
-                    and loop.time() - last_table_scan >= min(120.0 * 2 ** table_scan_fails, 600.0):
+                    and (ctx.table_scan_request or loop.time() - last_table_scan >= min(120.0 * 2 ** table_scan_fails, 600.0)):
+                ctx.table_scan_request = False
                 # les chaines de pointeurs ne marchent plus (redemarrage, autre sauvegarde) : recherche de la table par sa signature, en arriere-plan
                 last_table_scan = loop.time()
                 table_scan_running = True
                 logger.info("Compteurs de commandes : recherche de la table en memoire (jusqu'a quelques minutes)...")
 
                 async def _scan() -> None:
-                    nonlocal table_scan_running, table_scan_fails
+                    nonlocal table_scan_running, table_scan_fails, last_table_scan, table_scan_partial
                     try:
                         hint = ctx.hint_windows()
                         base = await loop.run_in_executor(None, ctx.memory.scan_named_table, 240.0, None, hint) if hint else None
@@ -1379,6 +1446,11 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                         if base:
                             ctx.update_hint([base])
                         table_scan_fails = 0 if base else min(table_scan_fails + 1, 3)
+                        table_scan_partial = 0 if base else table_scan_partial
+                        if not base and getattr(ctx.memory, "scan_hits", 0) and table_scan_partial < 6:
+                            # la signature est la mais la table est rejetee : probablement encore en cours de chargement (sauvegarde chargee a l'instant) -> nouvel essai dans 30 s
+                            table_scan_partial += 1
+                            last_table_scan = loop.time() - (min(120.0 * 2 ** table_scan_fails, 600.0) - 30.0)
                         logger.info(f"Compteurs de commandes : table retrouvee (0x{base:X})." if base else
                                     f"Compteurs de commandes : table introuvable ({getattr(ctx.memory, 'scan_note', '?')}) ; sera retentee.")
                     except Exception as e:
@@ -1386,6 +1458,13 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                     finally:
                         table_scan_running = False
                 Utils.async_start(_scan())
+            bot_missing = cur is not None and cur.get("bot") is None
+            if bot_missing:
+                cur = {**cur, "bot": 0}                  # valeur neutre pour les releves de stabilite ; le bot lui-meme est ignore tant que « total » manque
+                if not ctx.bot_was_missing:
+                    ctx.bot_was_missing = True
+                    logger.info("Compteur « total » absent de la table (sauvegarde de debut de partie : le jeu le cree plus tard) : "
+                                "commandes de bot indisponibles pour l'instant, les autres compteurs sont lus normalement.")
             if cur is not None and not ctx.types_source_logged:
                 ctx.types_source_logged = True
                 logger.debug(f"Compteurs de commandes : table lue [{ctx.memory.named_counters_report()[1]}].")
@@ -1404,7 +1483,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                         logger.debug(f"[{time.strftime('%H:%M:%S')}] Compteurs bruts : sans bot {ctx.raw_logged[0]} -> {raw_now[0]}, total {ctx.raw_logged[1]} -> {raw_now[1]}, "
                                     f"reparation {ctx.raw_logged[2]} -> {raw_now[2]}, standard {ctx.raw_logged[3]} -> {raw_now[3]}")
                     ctx.raw_logged = raw_now
-                if named and "repair" in named:
+                if named and "repair" in named and "total" in named:
                     sig = (named["nobot"], named["total"], named["repair"])
                     if sig != ctx.repair_last:      # releves bruts, sans attendre qu'ils soient stables : la 62 peut etre livree juste apres le lancement du client
                         done, ctx.repair_marks = repair_progress(ctx.repair_last, sig, time.time(), ctx.repair_marks)
@@ -1429,7 +1508,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                         ctx.bot_hold_keys = keys_now
                     delivery_flag = table.get(DELIVERY_FLAG_KEY, 0) if table else None
                     bot_held = bot_hold_step(ctx.bot_hold_state, loop.time(), named.get("total"), named.get("repair", 0),
-                                             table.get(LIKES_STAT_KEY), delivery_flag, new_keys, cur["bot"])
+                                             table.get(LIKES_STAT_KEY), delivery_flag, new_keys, None if bot_missing else cur["bot"])
                     sig_ta = ctx.bot_hold_state.get("cand_ta")
                     if sig_ta is not None and sig_ta != ctx.sig_last_ta:
                         ctx.sig_last_ta = sig_ta
@@ -1439,8 +1518,12 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                         if (n, ctx.bot_hold_state.get("total_at")) not in ctx.marker_done:
                             ctx.marker_done.add((n, ctx.bot_hold_state.get("total_at")))
                             ctx.register_completed_orders([n], "marqueur")
+                    got_flags = flag_orders(table, ctx.flag_orders_done)       # drapeaux de fin des premieres commandes : presence = commande terminee
+                    if got_flags:
+                        ctx.flag_orders_done.update(got_flags)
+                        ctx.register_completed_orders(got_flags, "marqueur")
                     bot_state = ctx.type_state.get("bot", {})
-                    if "baseline" in bot_state:
+                    if "baseline" in bot_state and not bot_missing:
                         shift = bot_absorb(ctx.bot_hold_state, loop.time(), bot_held, delivery_flag, cur["bot"], int(bot_state["baseline"]))
                         if shift:
                             bot_state["baseline"] = int(bot_state["baseline"]) + shift
@@ -1472,9 +1555,16 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 for kind, (step, cnt) in wanted.items():
                     if step <= 0 or cnt <= 0:
                         continue
+                    if kind == "bot" and bot_missing:
+                        continue                         # « total » n'existe pas encore : aucune base, aucun palier de bot
                     state = ctx.type_state.setdefault(kind, {})
                     if "baseline" not in state:
-                        if likes_baseline_ready(ctx.type_history, in_game):
+                        ready = likes_baseline_ready(ctx.type_history, in_game)
+                        if kind == "bot" and ctx.bot_was_missing:
+                            ready = ready and stable_bot          # « total » vient d'etre cree : on attend ~90 s que le jeu ait fini d'ecrire les compteurs avant de fixer la base
+                        if ready:
+                            if kind == "bot":
+                                ctx.bot_was_missing = False
                             state["baseline"] = cur[kind]
                             ctx.save_progress()
                             logger.info(f"{ORDER_TYPES[kind][2].capitalize()} : base fixee a {cur[kind]} (palier = {step} livraison(s)).")

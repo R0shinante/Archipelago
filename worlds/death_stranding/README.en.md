@@ -177,7 +177,7 @@ If in doubt, use save decryption.
 | `/ds_standard_rebase` | Resets the standard-orders baseline |
 | `/ds_bot` | Bot orders delivered (live counter) and milestone progress |
 | `/ds_bot_rebase` | Resets the bot-orders baseline |
-| `/ds_counters snap\|diff\|save\|watch [on\|off]` | Diagnostics (read-only): snapshots every named game counter, shows those that changed since the snapshot, writes them to `DeathStranding_counters.json`, or (`watch`) prints every change to the console as it happens (turn it off after testing) |
+| `/ds_counters snap\|diff\|save [nom]\|watch [on\|off]` | Diagnostics (read-only): snapshots every named game counter, shows those that changed since the snapshot, writes them to `DeathStranding_counters.json`, or (`watch`) prints every change to the console as it happens (turn it off after testing) |
 | `/ds_held` | Lists the checks held by the `episode_gating` option, waiting for an "Episode N Access" item |
 | `/ds_hp` | Player health read from memory (test) |
 | `/ds_kill` | Test (after `/ds_debug on`): sets Sam's health to 0 |

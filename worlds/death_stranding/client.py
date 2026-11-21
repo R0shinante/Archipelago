@@ -1077,6 +1077,61 @@ EARLY_ORDER_FLAGS: typing.Dict[int, str] = {
 }
 
 
+# Drapeaux de fin des commandes 11 a 60 : cles retrouvees DANS LES FICHIERS DU JEU (ds/mission/main_sub_mission/<mission>/<mission>.core de la copie de Victor,
+# 21/11) : la cle est l'identifiant de la phrase d'OBJECTIF FINAL de la mission (texte dans localized/sentences/ds_ui/ds_mission/simpletext). Verifie sur les 17 cles deja
+# relevees en jeu, puis sur la n°14 (cle creee 6 s apres la livraison) et la n°15 (4 objectifs, seule la cle du dernier est creee a la validation finale ; les etapes intermediaires ont leur cle a 1 puis 0). On garde les missions a UN SEUL objectif candidat et celles dont les objectifs se classent sans doute par le texte
+# (ramasser / recuperer, PUIS livrer : le fichier ne donne pas l'ordre, mais le dernier objectif est la livraison, comme sur les 7 cas connus a plusieurs objectifs) ;
+# les autres (objectifs ambigus) restent detectees par titre / memoire. Commandes non listees : 1, 29, 38, 39, 46, 54 (et les n°>= 71).
+DECIMA_ORDER_FLAGS: typing.Dict[int, str] = {
+    11: "9ad18b19569b36248a33178c6c93e034",
+    12: "3f46276477fb39a193163641657d4094",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
+    13: "cee7144f0ae93d51b6e9b7abbd80beae",
+    14: "b95c24ee2979331a99b902762b0a16fa",  # VALIDE en jeu (21/11 20:49:53)
+    15: "dd379b3c31203672a7fcda1b9cb60867",  # VALIDE en jeu (21/11 21:18:50, objectif final « Recycle chiral crystals » ; les 3 etapes precedentes ont chacune leur cle, a 1 puis 0)
+    16: "2075e5df6eb33f9b8af0573b37f472cb",
+    17: "3acb305ea0e4390aaadce252f8550bfc",
+    18: "9e376d626c7d3dea8d32a062b594bcb7",
+    19: "595d777a27c43db982c5776069145d93",
+    20: "4ffb58b96e2f37a4ac442d0f350aadc7",
+    21: "6931bac5779f39dd8fbb9b0e638d6cee",
+    22: "1cb99a8b4f943bf68b3d7c8b061fddb6",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
+    23: "f2433ddd8bf531ca8867c17c93e370d1",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
+    24: "3057baa388313d4592bcdf558f4ad7a7",
+    25: "27b284671828385a9dd6e1f382af6911",
+    26: "c47bf77798a037ee8534d0058905f93b",  # VALIDE en jeu (21/11 21:39:43, cle de la mission 00700 creee a la livraison)
+    27: "46609effb6eb310381fe3f55842ac3fc",
+    28: "45d9222a29f53d169f26da034b0c0cb8",
+    30: "98b9b8854e3d37c88b40f12088406ee3",
+    31: "dbe8209364813f3e909788dd89ad4cd1",
+    32: "eb03497ed1d9305e87bd36811b685ff2",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
+    33: "87b31b59810133bda06a9e8a9cc8f5c5",
+    34: "d3bd74c3c0b233e8aab0d4fe1a4437d8",
+    35: "38c480623cf935aba17662b9c5075dec",
+    36: "328884e86c5e31f2a6f497f7fb44f238",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
+    37: "3d2e48d3491a39e4b8e3b711a5b0833d",
+    40: "c5ab755816da3dfd86e43a9aa6a369bd",  # pizza : missions 00710 / 00720 / 00730 / 00740 attribuees dans l'ordre croissant (la 00700 = n°26 est validee), pas encore rejouee
+    41: "4d3f85fab3d2396085cdd6b8eaebea62",
+    42: "92a68b85960231f382dd25dc009469f2",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
+    43: "5d85d97d29a1323b8d5e681f558bcf04",
+    44: "6e43dedf20d5392fa56f90affa311551",
+    45: "64d85717e290380c898ad20e72c23b34",  # pizza : missions 00710 / 00720 / 00730 / 00740 attribuees dans l'ordre croissant (la 00700 = n°26 est validee), pas encore rejouee
+    47: "c7f7cec2ba103bab8a61ed6f6c0ab7ab",
+    48: "9da69a44d1ca34dea1423a3289e401a5",
+    49: "7835eba730e2301ea5ec740ac4408031",
+    50: "59bdb53f4fd7312fab7e833db15c54eb",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
+    51: "6abeef8c6fd333c4888a5a5b32f49571",
+    52: "df117a304f79332d8c6deca7e83af8d0",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
+    53: "1e0a0125c9203b98bdc1d22b55869fec",
+    55: "a7832327bf0d3e4aabaf815b00f3f8d4",
+    56: "9b2b7df7485136079a6e148fc37c320a",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
+    57: "caf3899bffd63825aaa2e8a909e83425",  # pizza : missions 00710 / 00720 / 00730 / 00740 attribuees dans l'ordre croissant (la 00700 = n°26 est validee), pas encore rejouee
+    58: "8ffd1692d72534fa8acd6f27d207f05a",
+    59: "c29c74fcdc1e379ab707b68ddb26cc2a",
+    60: "1ce82f7acf933e44bd7aeaf88d667a3b",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
+    66: "9d5270ef18663b4eba568c909f81bab8",  # pizza : missions 00710 / 00720 / 00730 / 00740 attribuees dans l'ordre croissant (la 00700 = n°26 est validee), pas encore rejouee
+}
+
+
 # La cle de la 3 est creee A 1 au debut de la cinematique de livraison puis passe a 0 a l'ouverture de l'ecran de resultat (releves 21/11 17:40:06 -> 17:40:50 et
 # rejeu 18:22:03 -> 18:23:09, aucune autre commande ne la touche) : la commande n'est terminee que lorsque la cle est a 0.
 EARLY_FLAG_NEEDS_ZERO = frozenset({3})
@@ -1087,7 +1142,7 @@ def flag_orders(table: typing.Optional[typing.Dict[str, int]], done: typing.Iter
     if not table:
         return []
     done = set(done)
-    return [n for n, k in sorted(EARLY_ORDER_FLAGS.items()) if k in table and n not in done and (n not in EARLY_FLAG_NEEDS_ZERO or table[k] == 0)]
+    return [n for n, k in sorted({**DECIMA_ORDER_FLAGS, **EARLY_ORDER_FLAGS}.items()) if k in table and n not in done and (n not in EARLY_FLAG_NEEDS_ZERO or table[k] == 0)]
 
 
 SIGNATURE_GRACE = 15.0          # une fin de commande plus recente que cela n'est pas encore « orpheline » (le titre n'est lu que quelques secondes apres l'ecriture ; releve 19/11 : 48 a 77 s apres la fin)

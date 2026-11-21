@@ -17,7 +17,7 @@
 
 ## How checks are detected
 At every checkpoint the game writes "Commande terminée : nº N ..." (French) in the save title. The client reads that title directly from the game's memory and sends
-the matching "Order N - ..." check (orders 61 to 65, 67, 68 and 70 are even recognised immediately, by a key the game creates at their end). Only orders completed **after** the client starts count.
+the matching "Order N - ..." check (orders 2 to 10, 61 to 65, 67, 68 and 70 are even recognised immediately, by a key the game creates at their end). Only orders completed **after** the client starts count.
 If your game is not in French (other languages are guesses, not yet verified in game), type `/ds_titles` after a save to check what the client reads, and add missing words in `saves.completed_words` of `memory_map.json` if needed.
 
 ### Save decryption (optional)

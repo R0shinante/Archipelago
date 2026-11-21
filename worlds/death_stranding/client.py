@@ -1062,10 +1062,11 @@ def marker_orders(created: typing.Dict[str, float], total_at: typing.Optional[fl
 # Drapeaux de fin des premieres commandes : cle creee (absent -> 0) par le jeu quand la commande est livree, puis PRESENTE tant que la sauvegarde existe (releve
 # 21/11, partie neuve : creee 2 a 10 s apres le debut de la livraison, a chaque fois seule ou presque dans le releve ; on la retrouve, a 0, dans les tables des trois
 # autres sauvegardes). Contrairement aux marqueurs ci-dessus, aucune hausse du total n'est necessaire (« total » n'existe pas en debut de partie) : la PRESENCE de la cle
-# suffit, donc aussi au lancement du client (rattrapage immediat, sans attendre un titre de sauvegarde). 1 et 3 : pas encore releves (titre / deduction) ; 8 n'apparait
+# suffit, donc aussi au lancement du client (rattrapage immediat, sans attendre un titre de sauvegarde). 1 : pas encore releve (titre / deduction) ; 8 n'apparait
 # jamais dans un titre quand la 7 est livree ensuite.
 EARLY_ORDER_FLAGS: typing.Dict[int, str] = {
     2: "f9db6f9623b4341aa6e7a998709c2fd4",
+    3: "640537e9d01f355ba3d8a6d269b57d1f",
     4: "19af8d70ab483b208555c9069e5d62ee",
     5: "1ed9b4217ab23a12b89c2c36f85f5a72",
     6: "1f0fa33104663497a94f4578c5786912",
@@ -1076,12 +1077,17 @@ EARLY_ORDER_FLAGS: typing.Dict[int, str] = {
 }
 
 
+# La cle de la 3 est creee A 1 au debut de la cinematique de livraison puis passe a 0 a l'ouverture de l'ecran de resultat (releves 21/11 17:40:06 -> 17:40:50 et
+# rejeu 18:22:03 -> 18:23:09, aucune autre commande ne la touche) : la commande n'est terminee que lorsque la cle est a 0.
+EARLY_FLAG_NEEDS_ZERO = frozenset({3})
+
+
 def flag_orders(table: typing.Optional[typing.Dict[str, int]], done: typing.Iterable[int] = ()) -> typing.List[int]:
     """Commandes dont le drapeau de fin est present dans la table des compteurs (`table` : cle hexadecimale -> valeur) et pas encore enregistrees (`done`)."""
     if not table:
         return []
     done = set(done)
-    return [n for n, k in sorted(EARLY_ORDER_FLAGS.items()) if k in table and n not in done]
+    return [n for n, k in sorted(EARLY_ORDER_FLAGS.items()) if k in table and n not in done and (n not in EARLY_FLAG_NEEDS_ZERO or table[k] == 0)]
 
 
 SIGNATURE_GRACE = 15.0          # une fin de commande plus recente que cela n'est pas encore « orpheline » (le titre n'est lu que quelques secondes apres l'ecriture ; releve 19/11 : 48 a 77 s apres la fin)

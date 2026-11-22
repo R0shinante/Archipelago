@@ -33,11 +33,11 @@
     }
   },
   "saves": {
-    "_comment": "Detection des commandes terminees : mots du titre du point de controle qui signifient « terminee » (sans accents, minuscules, un fragment suffit). Valide en francais seulement ; la liste ci-dessous S'AJOUTE aux mots par defaut du client (anglais, allemand, espagnol, italien, portugais, russe, japonais, chinois, coreen... supposes, a confirmer avec /ds_titles). Facultatif : resigner (chemin de l'outil de dechiffrement), root (dossier des sauvegardes).",
+    "_comment": "Detection des commandes terminees : mots du titre du point de controle qui signifient « terminee » (sans accents, minuscules, un fragment suffit). Valide en francais seulement ; la liste ci-dessous S'AJOUTE aux mots par defaut du client (anglais, allemand, espagnol, italien, portugais, russe, japonais, chinois, coreen... supposes, a confirmer avec /ds_titles).",
     "completed_words": []
   },
   "item_grants": {
-    "_comment": "item Archipelago -> ressource du jeu et quantite ajoutee a la reception",
+    "_comment": "item Archipelago -> ressource du jeu et quantite ajoutee a la reception. Les equipements dont le deblocage reel est impossible a ecrire en memoire sont compenses par des materiaux (voir aussi 'boosts').",
     "Chiral Crystals": {
       "resource": "Chiral Crystals",
       "amount": 100
@@ -81,6 +81,38 @@
     "Likes Pack": {
       "likes": "npc",
       "amount": 500
+    },
+    "Trike": {
+      "stock": "Metals",
+      "amount": 100
+    },
+    "Truck": {
+      "stock": "Special Alloys",
+      "amount": 50
+    },
+    "Road Paver": {
+      "stock": "Ceramics",
+      "amount": 100
+    },
+    "Zipline Anchor Set": {
+      "stock": "Metals",
+      "amount": 50
+    },
+    "Ladder Set": {
+      "stock": "Resins",
+      "amount": 50
+    },
+    "Climbing Anchor Set": {
+      "stock": "Ceramics",
+      "amount": 50
+    },
+    "Assault Rifle": {
+      "stock": "Chemicals",
+      "amount": 100
+    },
+    "Bola Gun": {
+      "resource": "Chiral Crystals",
+      "amount": 100
     }
   },
   "likes": {
@@ -511,6 +543,25 @@
       "field": "fatigue",
       "delta": -2000,
       "floor": 0
+    },
+    "Cargo Skeleton": [
+      {
+        "field": "stamina",
+        "frac": 1.0,
+        "of": "max_stamina",
+        "ceil_frac": 1.0
+      },
+      {
+        "field": "fatigue",
+        "delta": -1000,
+        "floor": 0
+      }
+    ],
+    "Hematic Grenade Pack": {
+      "field": "health",
+      "frac": 0.4,
+      "of": "max_health",
+      "ceil_frac": 1.0
     }
   },
   "order_progress": {

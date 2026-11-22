@@ -1,14 +1,15 @@
-"""Client Archipelago pour Death Stranding (PC).
+"""Archipelago client for Death Stranding (PC).
 
-  * reseau (CommonClient)  : connexion, checks, items recus, victoire ;
-  * memoire (memory.py)    : ressources, stocks, likes, compteurs de commandes, et titre du dernier point de controle
-                             (detection des commandes principales terminees, sans dechiffrer les sauvegardes) ;
-  * sauvegardes (savewatch): meme detection par dechiffrement des checkpoints, en option (secours) ;
-  * mode manuel            : /check <lieu> envoie un check a la main.
+  * network (CommonClient) : connection, checks, received items, victory;
+  * memory (memory.py)     : resources, stocks, likes, order counters, and the title of the latest checkpoint
+                             (detection of completed main orders);
+  * titles (savewatch)     : reading a checkpoint title (completed or not, order number);
+  * manual mode            : /check <location> sends a check by hand.
 
-Commandes : /ds_status, /ds_give, /ds_stock, /ds_stock_give, /ds_stock_target, /ds_stock_mode, /ds_stock_pool, /ds_hp, /ds_kill, /ds_effect, /ds_trap (alias),
-/ds_likes, /ds_likes_give, /ds_likes_rebase, /ds_orders, /ds_orders_rebase, /ds_standard, /ds_standard_rebase, /ds_bot, /ds_bot_rebase, /ds_counters, /ds_held,
-/ds_items, /ds_items_reset, /ds_resigner, /ds_saves, /ds_saves_dir, /ds_selftest, /ds_catchup.
+Player commands: /ds_status, /ds_items, /ds_held, /ds_likes, /ds_orders, /ds_standard, /ds_bot (+ their _rebase), /ds_stock, /ds_stock_mode, /ds_stock_pool,
+/ds_stock_target, /ds_titles.
+Test and diagnostic commands (off until /ds_debug on): /ds_give, /ds_effect, /ds_likes_give, /ds_stock_give, /ds_kill, /ds_hp, /ds_items_reset,
+/ds_counters, /ds_memdiff, /ds_memdump.
 """
 from __future__ import annotations
 
@@ -27,14 +28,14 @@ from NetUtils import ClientStatus
 
 from .data import BASE_ID, EPISODES, ORDER_TO_LOCATION, implied_completed
 from .locations import BOT_ORDER_BASE_ID, ORDER_PROGRESS_BASE_ID, STANDARD_ORDER_BASE_ID, location_name_to_id
-from .memory import GameMemory, PymemBackend
-from .savewatch import DEFAULT_COMPLETED_WORDS, ResignerCli, SaveWatcher, autodetect_root, parse_title, read_header
+from .memory import GameMemory, PymemBackend, format_word, hexdump_lines, memdiff
+from .savewatch import DEFAULT_COMPLETED_WORDS
 
 # lieu -> episode (option episode_gating) : meme table que la generation (data.EPISODES) ; le prologue (episode 0) n'est jamais retenu
 EPISODE_OF_LOCATION: typing.Dict[int, int] = {location_name_to_id[name]: ep for ep, names in EPISODES.items() if ep > 0 for name in names}
 
 # Familles de checks par type de commande lues dans la table de compteurs nommes : (base d'id, prefixe d'option, libelle, nom du lieu)
-ORDER_TYPES = {"bot": (BOT_ORDER_BASE_ID, "bot", "commandes de bot", "Bot Orders")}
+ORDER_TYPES = {"bot": (BOT_ORDER_BASE_ID, "bot", "bot orders", "Bot Orders")}
 
 MAP_FILE = "memory_map.json"
 PROGRESS_FILE = "DeathStranding_progress.json"
@@ -48,25 +49,15 @@ def load_map() -> dict:
     path = Utils.user_path(MAP_FILE)
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
-            logger.info(f"Configuration memoire : {path}")
+            logger.info(f"Memory configuration: {path}")
             user = json.load(f)
         missing = [k for k in default if k not in user and not k.startswith("_")]
         if missing:   # un fichier d'une ancienne version ne doit pas masquer les sections ajoutees depuis
-            logger.info(f"Configuration memoire : sections absentes de votre fichier, valeurs du paquet utilisees : {', '.join(missing)}")
+            logger.info(f"Memory configuration: sections missing from your file, using the package values: {', '.join(missing)}")
             user = {**{k: default[k] for k in missing}, **user}
         return user
-    logger.info("Configuration memoire : valeurs par defaut du paquet.")
+    logger.info("Memory configuration: package defaults.")
     return default
-
-
-def _clean_path(text: str) -> str:
-    """Chemin saisi a la main : espaces et guillemets autour retires, "\\\\" doubles ramenes a "\\" si le chemin existe ainsi."""
-    p = text.strip().strip('"').strip("'").strip()
-    if "\\\\" in p and not os.path.exists(p):
-        p2 = p.replace("\\\\", "\\")
-        if os.path.exists(p2):
-            return p2
-    return p
 
 
 RESEND_SECONDS = 15.0
@@ -101,76 +92,76 @@ def _json_save(name: str, data: dict) -> None:
         with open(Utils.user_path(name), "w", encoding="utf-8") as f:
             json.dump(data, f, indent=1)
     except OSError:
-        logger.warning(f"Impossible d'ecrire {name}.")
+        logger.warning(f"Cannot write {name}.")
 
 
 class DeathStrandingCommandProcessor(ClientCommandProcessor):
     def _debug_enabled(self) -> bool:
-        """Les commandes de test qui ECRIVENT dans le jeu (/ds_give, /ds_effect, /ds_trap, /ds_likes_give, /ds_stock_give, /ds_kill) sont coupees
-        par defaut : /ds_debug on les active pour la session en cours (jamais enregistre : elles sont coupees a chaque lancement du client)."""
+        """Test and diagnostic commands (the ones that WRITE to the game, and the read-only research tools) are off by default:
+        /ds_debug on enables them for the current session (never saved: they are off at every client start)."""
         if getattr(self.ctx, "debug_commands", False):
             return True
-        self.output("Commande de test desactivee : elle ecrit dans le jeu. Tapez /ds_debug on pour l'activer (jusqu'a la fermeture du client).")
+        self.output("Debug command disabled. Type /ds_debug on to enable it (until the client is closed).")
         return False
 
     def _cmd_ds_debug(self, mode: str = "") -> None:
-        """Active ou coupe les commandes de test qui ecrivent dans le jeu : /ds_debug on | off (coupees a chaque lancement)."""
+        """Enables or disables the test and diagnostic commands: /ds_debug on | off (disabled at every client start)."""
         m = mode.strip().lower()
         if m in ("on", "off"):
             self.ctx.debug_commands = (m == "on")
-        names = "/ds_give, /ds_effect, /ds_trap, /ds_likes_give, /ds_stock_give, /ds_kill"
-        self.output(f"Commandes de test {'ACTIVEES' if getattr(self.ctx, 'debug_commands', False) else 'desactivees'} : {names}. "
-                    "Usage : /ds_debug on | off.")
+        names = "/ds_give, /ds_effect, /ds_likes_give, /ds_stock_give, /ds_kill, /ds_hp, /ds_items_reset, /ds_counters, /ds_memdiff, /ds_memdump"
+        self.output(f"Debug commands {'ENABLED' if getattr(self.ctx, 'debug_commands', False) else 'disabled'}: {names}. "
+                    "Usage: /ds_debug on | off.")
 
     @mark_raw
     def _cmd_check(self, name: str = "") -> None:
-        """Envoie manuellement un check : /check <nom exact du lieu>"""
+        """Sends a check by hand: /check <exact location name>"""
         loc = name.strip()
         if loc not in location_name_to_id:
-            self.output(f"Lieu inconnu : {loc}")
+            self.output(f"Unknown location: {loc}")
             return
         self.ctx.manual_checks.add(location_name_to_id[loc])
-        self.output(f"Check en file : {loc}")
+        self.output(f"Check queued: {loc}")
 
     def _cmd_locations(self) -> None:
-        """Liste les lieux restants."""
+        """Lists the remaining locations."""
         for name, code in location_name_to_id.items():
             if code in self.ctx.missing_locations:
                 self.output(name)
 
     def _cmd_ds_status(self) -> None:
-        """Diagnostic : le client voit-il le jeu et l'inventaire ?"""
+        """Does the client see the game and the inventory?"""
         ctx = self.ctx
         if not ctx.backend.attached() and not ctx.backend.attach():
-            self.output("Jeu introuvable (ds.exe). Lance le jeu et charge une sauvegarde.")
+            self.output("Game not found (ds.exe). Start the game and load a save.")
             return
         obj = ctx.memory.resolve_object()
         if obj is None:
-            self.output("Jeu detecte, mais inventaire introuvable (menu principal ? sauvegarde pas chargee ?).")
+            self.output("Game detected, but inventory not found (main menu? save not loaded?).")
             return
-        self.output(f"Inventaire trouve a {obj:#x}.")
+        self.output(f"Inventory found at {obj:#x}.")
         for name in ctx.map.get("inventory", {}).get("resources", {}):
-            self.output(f"  {name} : {ctx.memory.read_resource(name)} (quantite, maximum)")
+            self.output(f"  {name} : {ctx.memory.read_resource(name)} (quantity, maximum)")
 
     def _cmd_ds_give(self, *args: str) -> None:
-        """[test, /ds_debug on] /ds_give <ressource> <quantite>   ex : /ds_give Chiral Crystals 100"""
+        """[debug] /ds_give <resource> <quantity>   e.g. /ds_give Chiral Crystals 100"""
         if not self._debug_enabled():
             return
         if len(args) < 2:
-            self.output("Usage : /ds_give <ressource> <quantite>")
+            self.output("Usage: /ds_give <resource> <quantity>")
             return
         resource = " ".join(args[:-1])
         try:
             n = int(args[-1])
         except ValueError:
-            self.output("Quantite invalide.")
+            self.output("Invalid quantity.")
             return
         new = self.ctx.memory.add_resource(resource, n)
-        self.output(f"{resource} -> {new}" if new is not None else "Echec (voir /ds_status).")
+        self.output(f"{resource} -> {new}" if new is not None else "Failed (see /ds_status).")
 
     @mark_raw
     def _cmd_ds_effect(self, name: str = "") -> None:
-        """[test, /ds_debug on] Test d'un piege ou d'un effet : /ds_effect <nom>  (ex : /ds_effect Injury, /ds_effect Blood Bag). Sans nom : liste."""
+        """[debug] Tests a trap or an effect: /ds_effect <name>  (e.g. /ds_effect Injury, /ds_effect Blood Bag). Without a name: list."""
         if not self._debug_enabled():
             return
         ctx = self.ctx
@@ -180,103 +171,98 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         q = name.strip().lower()
         match = [n for n in all_names if q and q in n.lower()]
         if len(match) != 1:
-            self.output("Pieges : " + ", ".join(all_names) + ("  -> precisez le nom." if q else ""))
+            self.output("Traps and effects: " + ", ".join(all_names) + ("  -> give the name." if q else ""))
             return
         n = match[0]
         if n in traps:
             status, done = apply_effects(ctx.memory, traps[n])
             self.output({"ok": f"{n} : " + ", ".join(f"{f} {r[0]:.1f} -> {r[1]:.1f}" for f, r in done),
-                         "wait": "Joueur illisible (menu ? chargement ?). Voir /ds_hp.",
-                         "fail": "Valeur incoherente : effet abandonne."}[status])
+                         "wait": "Player unreadable (menu? loading?). See /ds_hp.",
+                         "fail": "Inconsistent value: effect dropped."}[status])
         else:
             g = ctx.map["item_grants"][n]
             q2 = ctx.memory.add_resource(g["resource"], int(g["amount"]))
-            self.output(f"{n} : {g['resource']} -> {q2}" if q2 is not None else "Inventaire illisible (voir /ds_status).")
-
-    @mark_raw
-    def _cmd_ds_trap(self, name: str = "") -> None:
-        """[test, /ds_debug on] Alias de /ds_effect (ancien nom)."""
-        self._cmd_ds_effect(name)
+            self.output(f"{n} : {g['resource']} -> {q2}" if q2 is not None else "Inventory unreadable (see /ds_status).")
 
     def _cmd_ds_held(self) -> None:
-        """Checks retenus en attente d'un objet « Episode N Access » (option episode_gating)."""
+        """Checks held back, waiting for an "Episode N Access" item (episode_gating option)."""
         ctx = self.ctx
         if not ctx.slot_data.get("episode_gating"):
-            self.output("L'option episode_gating n'est pas activee dans cette partie : aucun check n'est retenu.")
+            self.output("The episode_gating option is not enabled in this game: no check is held back.")
             return
         if not ctx.held_codes:
-            self.output("Aucun check retenu.")
+            self.output("No check held back.")
             return
         for code in sorted(ctx.held_codes):
             self.output(f"  {ctx.location_names.lookup_in_game(code)} (episode {EPISODE_OF_LOCATION[code]})")
 
     def _cmd_ds_likes(self) -> None:
-        """Likes lus en memoire (PNJ / autres joueurs / total)."""
+        """Likes read from memory (NPC / other players / total)."""
         v = self.ctx.memory.read_likes()
         if v is None:
-            self.output("Likes illisibles (jeu non charge ?).")
+            self.output("Likes unreadable (game not loaded?).")
             return
-        self.output(f"Likes : PNJ {v[0]} + joueurs {v[1]} = {v[0] + v[1]}")
+        self.output(f"Likes: NPC {v[0]} + players {v[1]} = {v[0] + v[1]}")
         st, step = self.ctx.likes_state, int(self.ctx.slot_data.get("likes_step", 0))
         if "baseline" in st and step:
             gained = max(0, v[0] + v[1] - int(st["baseline"]) - int(st.get("granted", 0)))
-            self.output(f"Paliers : {gained} likes gagnes depuis la base ({st['baseline']}), prochain palier a {(gained // step + 1) * step} "
-                        f"(paliers atteints : {len(self.ctx.likes_checks)}/{self.ctx.slot_data.get('likes_checks', 0)})")
+            self.output(f"Milestones: {gained} likes gained since the baseline ({st['baseline']}), next milestone at {(gained // step + 1) * step} "
+                        f"(milestones reached: {len(self.ctx.likes_checks)}/{self.ctx.slot_data.get('likes_checks', 0)})")
 
     def _cmd_ds_orders(self) -> None:
-        """Compteur d'etapes de commande lu en memoire et etat des paliers de progression des commandes."""
+        """Order-step counter read from memory and state of the order-progress milestones."""
         v = self.ctx.memory.read_order_progress()
         if v is None:
-            self.output("Compteur de commandes illisible (jeu non charge ?).")
+            self.output("Order counter unreadable (game not loaded?).")
             return
-        self.output(f"Compteur d'etapes de commande : {v}")
+        self.output(f"Order-step counter: {v}")
         st, step = self.ctx.order_state, int(self.ctx.slot_data.get("order_step", 0))
         if "baseline" in st and step > 0:
             gained = max(0, v - int(st["baseline"]))
-            self.output(f"Paliers : {gained} etapes depuis la base ({st['baseline']}), prochain palier a {(gained // step + 1) * step} "
-                        f"(paliers atteints : {len(self.ctx.order_checks)}/{self.ctx.slot_data.get('order_checks', 0)})")
+            self.output(f"Milestones: {gained} steps since the baseline ({st['baseline']}), next milestone at {(gained // step + 1) * step} "
+                        f"(milestones reached: {len(self.ctx.order_checks)}/{self.ctx.slot_data.get('order_checks', 0)})")
 
     def _cmd_ds_orders_rebase(self) -> None:
-        """Refixe la base des paliers de progression des commandes au compteur actuel (les checks deja envoyes restent envoyes)."""
+        """Resets the order-progress milestone baseline to the current counter (checks already sent stay sent)."""
         v = self.ctx.memory.read_order_progress()
         if v is None:
-            self.output("Compteur de commandes illisible (jeu non charge ?).")
+            self.output("Order counter unreadable (game not loaded?).")
             return
         self.ctx.order_state["baseline"] = v
         self.ctx.save_progress()
-        self.output(f"Base de progression des commandes : {v}.")
+        self.output(f"Order-progress baseline: {v}.")
 
     def _cmd_ds_standard(self) -> None:
-        """Commandes standard livrees (compteur exact du jeu) et etat des paliers « Standard Orders »."""
+        """Standard orders delivered (the game's exact counter) and state of the "Standard Orders" milestones."""
         v = self.ctx.memory.read_standard_orders()
         if v is None:
-            self.output("Compteur de commandes standard illisible (jeu non charge ?).")
+            self.output("Standard-order counter unreadable (game not loaded?).")
             return
-        self.output(f"Commandes standard livrees : {v}")
+        self.output(f"Standard orders delivered: {v}")
         st, step = self.ctx.standard_state, int(self.ctx.slot_data.get("standard_step", 0))
         if "baseline" in st and step > 0:
             gained = max(0, v - int(st["baseline"]))
-            self.output(f"Paliers : {gained} livraison(s) depuis la base ({st['baseline']}), prochain palier a {(gained // step + 1) * step} "
-                        f"(paliers atteints : {len(self.ctx.standard_checks)}/{self.ctx.slot_data.get('standard_checks', 0)})")
+            self.output(f"Milestones: {gained} delivery(ies) since the baseline ({st['baseline']}), next milestone at {(gained // step + 1) * step} "
+                        f"(milestones reached: {len(self.ctx.standard_checks)}/{self.ctx.slot_data.get('standard_checks', 0)})")
 
     def _cmd_ds_standard_rebase(self) -> None:
-        """Refixe la base des paliers de commandes standard au compteur actuel (les checks deja envoyes restent envoyes)."""
+        """Resets the standard-order milestone baseline to the current counter (checks already sent stay sent)."""
         v = self.ctx.memory.read_standard_orders()
         if v is None:
-            self.output("Compteur de commandes standard illisible (jeu non charge ?).")
+            self.output("Standard-order counter unreadable (game not loaded?).")
             return
         self.ctx.standard_state["baseline"] = v
         self.ctx.save_progress()
-        self.output(f"Base des commandes standard : {v}.")
+        self.output(f"Standard-order baseline: {v}.")
 
     def _explain_types_failure(self) -> None:
         named, why = self.ctx.memory.named_counters_report()
         if named is None:
-            self.output(f"Compteurs de commandes illisibles : {why}")
+            self.output(f"Order counters unreadable: {why}")
         elif self.ctx.memory.read_standard_orders() is None:
-            self.output("Compteurs de commandes illisibles : le compteur de commandes standard (table de statistiques) est illisible.")
+            self.output("Order counters unreadable: the standard-order counter (statistics table) is unreadable.")
         else:
-            self.output("Compteurs de commandes illisibles (jeu non charge ?).")
+            self.output("Order counters unreadable (game not loaded?).")
 
     def _type_status(self, kind: str) -> None:
         label, opt = ORDER_TYPES[kind][2], ORDER_TYPES[kind][1]
@@ -285,14 +271,14 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
             self._explain_types_failure()
             return
         if t[kind] is None:
-            self.output(f"Livraisons de {label} : indisponibles pour l'instant (le compteur « total » n'existe pas encore sur cette sauvegarde ; le jeu le cree plus tard).")
+            self.output(f"Deliveries of {label}: unavailable for now (the \"total\" counter does not exist yet on this save; the game creates it later).")
             return
-        self.output(f"Livraisons de {label} (compteur relatif, a une constante pres) : {t[kind]}  [{self.ctx.memory.named_counters_report()[1]}]")
+        self.output(f"Deliveries of {label} (relative counter, up to a constant): {t[kind]}  [{self.ctx.memory.named_counters_report()[1]}]")
         st, step = self.ctx.type_state.get(kind, {}), int(self.ctx.slot_data.get(f"{opt}_step", 0))
         if "baseline" in st and step > 0:
             gained = max(0, t[kind] - int(st["baseline"]))
-            self.output(f"Paliers : {gained} livraison(s) depuis la base ({st['baseline']}), prochain palier a {(gained // step + 1) * step} "
-                        f"(paliers atteints : {len(self.ctx.type_checks[kind])}/{self.ctx.slot_data.get(f'{opt}_checks', 0)})")
+            self.output(f"Milestones: {gained} delivery(ies) since the baseline ({st['baseline']}), next milestone at {(gained // step + 1) * step} "
+                        f"(milestones reached: {len(self.ctx.type_checks[kind])}/{self.ctx.slot_data.get(f'{opt}_checks', 0)})")
 
     def _type_rebase(self, kind: str) -> None:
         t = self.ctx.memory.read_order_types()
@@ -300,31 +286,33 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
             self._explain_types_failure()
             return
         if t[kind] is None:
-            self.output(f"Base des {ORDER_TYPES[kind][2]} non fixee : le compteur « total » n'existe pas encore sur cette sauvegarde (le jeu le cree plus tard).")
+            self.output(f"Baseline of {ORDER_TYPES[kind][2]} not set: the \"total\" counter does not exist yet on this save (the game creates it later).")
             return
         self.ctx.type_state.setdefault(kind, {})["baseline"] = t[kind]
         self.ctx.save_progress()
-        self.output(f"Base des {ORDER_TYPES[kind][2]} : {t[kind]}.")
+        self.output(f"Baseline of {ORDER_TYPES[kind][2]}: {t[kind]}.")
 
     def _cmd_ds_bot(self) -> None:
-        """Commandes de bot livrees (compteur en direct) et etat des paliers « Bot Orders »."""
+        """Bot orders delivered (live counter) and state of the "Bot Orders" milestones."""
         self._type_status("bot")
 
     def _cmd_ds_bot_rebase(self) -> None:
-        """Refixe la base des paliers de commandes de bot au compteur actuel (les checks deja envoyes restent envoyes)."""
+        """Resets the bot-order milestone baseline to the current counter (checks already sent stay sent)."""
         self._type_rebase("bot")
 
     def _cmd_ds_counters(self, action: str = "", mode: str = "") -> None:
-        """Diagnostic (lecture seule) : tous les compteurs nommes du jeu. /ds_counters snap = photo ; /ds_counters diff = ce qui a change depuis la photo ; /ds_counters save [nom] = fichier complet (DeathStranding_counters[_nom].json) ; /ds_counters watch [on|off] = ecrit en continu chaque changement (recherche)."""
+        """[debug, read-only] All the game's named counters. /ds_counters snap = snapshot; /ds_counters diff = what changed since the snapshot; /ds_counters save [name] = full file (DeathStranding_counters[_name].json); /ds_counters watch [on|off] = prints every change continuously; scan = restart the table search; partial = describe a rejected candidate table."""
+        if not self._debug_enabled():
+            return
         ctx = self.ctx
         if action.strip().lower() == "scan":
             ctx.table_scan_request = True
-            self.output("Recherche de la table demandee : elle demarre au prochain cycle (quelques secondes) ; le resultat s'affiche dans la console. Attends que la sauvegarde soit entierement chargee (en jeu, plus d'ecran de chargement).")
+            self.output("Table search requested: it starts on the next cycle (a few seconds); the result is shown in the console. Wait until the save is fully loaded (in game, no loading screen).")
             return
         if action.strip().lower() == "partial":
             cand = ctx.memory.dump_candidate()
             if not cand:
-                self.output("Aucune table candidate : lance d'abord /ds_counters scan (il faut que la recherche ait vu la signature « nobot » sans accepter la table).")
+                self.output("No candidate table: run /ds_counters scan first (the search must have seen the \"nobot\" signature without accepting the table).")
                 return
             names = {bytes.fromhex(c["key"]).hex(): n for n, c in ctx.map.get("named_counters", {}).get("counters", {}).items()}
             old = ctx.partial_snap
@@ -334,17 +322,17 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump({"time": time.strftime("%Y-%m-%d %H:%M:%S"), "base": hex(ctx.memory.scan_candidate[0]), "slots": ctx.memory.scan_candidate[1],
                                "known": names, "counters": cand}, f, indent=1, sort_keys=True)
-                where = f" Fichier : {path}"
+                where = f" File: {path}"
             except OSError as e:
-                where = f" (ecriture impossible : {e})"
-            self.output(f"Table candidate rejetee : {len(cand)} compteurs, dont " + ", ".join(f"{n}={cand[k]}" for k, n in names.items() if k in cand) + "." + where)
+                where = f" (cannot write: {e})"
+            self.output(f"Rejected candidate table: {len(cand)} counters, including " + ", ".join(f"{n}={cand[k]}" for k, n in names.items() if k in cand) + "." + where)
             if old is not None:
                 diff = [f"  {k} : {old.get(k, 'absent')} -> {v}" + (f"   [{names[k]}]" if k in names else "") for k, v in sorted(cand.items()) if old.get(k) != v]
-                self.output(f"{len(diff)} compteur(s) different(s) du precedent /ds_counters partial :" if diff else "Aucun changement depuis le precedent /ds_counters partial (table figee ou rien de fait entre-temps).")
+                self.output(f"{len(diff)} counter(s) differ from the previous /ds_counters partial:" if diff else "No change since the previous /ds_counters partial (frozen table or nothing happened in between).")
                 for line in diff[:25]:
                     self.output(line)
             else:
-                self.output("Fais une livraison en jeu, attends la sauvegarde (~1 min) puis relance /ds_counters partial : on saura si cette table bouge (vivante) ou si c'est une copie perimee.")
+                self.output("Make a delivery in game, wait for the save (~1 min), then run /ds_counters partial again: we will see whether this table moves (live) or is a stale copy.")
             return
         dump = ctx.memory.dump_named_table()
         if dump is None:
@@ -354,49 +342,49 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         act = (action.strip() + " " + mode.strip()).strip().lower()
         if act == "snap":
             ctx.counters_snap = dump
-            self.output(f"Photo prise : {len(dump)} compteurs. Faites l'action a tester dans le jeu, attendez la fin de la sauvegarde (environ une minute), puis /ds_counters diff.")
+            self.output(f"Snapshot taken: {len(dump)} counters. Do the action to test in game, wait for the save to finish (about a minute), then /ds_counters diff.")
         elif act == "diff":
             if ctx.counters_snap is None:
-                self.output("Aucune photo : faites d'abord /ds_counters snap.")
+                self.output("No snapshot: run /ds_counters snap first.")
                 return
             old = ctx.counters_snap
             lines = [f"  {k} : {old[k] if k in old else 'absent'} -> {v}" + (f"   [{known[k]}]" if k in known else "")
                      for k, v in sorted(dump.items()) if old.get(k) != v]
-            lines += [f"  {k} : {old[k]} -> disparu" + (f"   [{known[k]}]" if k in known else "") for k in sorted(old) if k not in dump]
-            self.output(f"{len(lines)} compteur(s) different(s) de la photo ({len(old)} -> {len(dump)} compteurs) :" if lines else "Aucun compteur n'a change depuis la photo.")
+            lines += [f"  {k} : {old[k]} -> gone" + (f"   [{known[k]}]" if k in known else "") for k in sorted(old) if k not in dump]
+            self.output(f"{len(lines)} counter(s) differ from the snapshot ({len(old)} -> {len(dump)} counters):" if lines else "No counter changed since the snapshot.")
             for line in lines[:40]:
                 self.output(line)
             if len(lines) > 40:
-                self.output(f"  ... et {len(lines) - 40} autres (utilisez /ds_counters save).")
+                self.output(f"  ... and {len(lines) - 40} more (use /ds_counters save).")
         elif act in ("watch", "watch on", "watch off"):
             ctx.counters_watch = act != "watch off" and not (act == "watch" and ctx.counters_watch)
             ctx.counters_watch_last = None
-            self.output("Mode recherche ACTIF : chaque changement de compteur nomme est ecrit dans la console (toutes les 5 s). Pensez a le couper apres le test : /ds_counters watch off."
-                        if ctx.counters_watch else "Mode recherche coupe.")
+            self.output("Watch mode ON: every named-counter change is printed to the console (every 5 s). Remember to turn it off after the test: /ds_counters watch off."
+                        if ctx.counters_watch else "Watch mode off.")
         elif act == "save" or act.startswith("save "):
             tag = "".join(c for c in act[5:] if c.isalnum() or c in "-_")[:24]       # /ds_counters save n36 -> DeathStranding_counters_n36.json (compare plusieurs sauvegardes sans ecraser)
             path = Utils.user_path(f"DeathStranding_counters_{tag}.json" if tag else "DeathStranding_counters.json")
             try:
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump({"time": time.strftime("%Y-%m-%d %H:%M:%S"), "known": known, "counters": dump}, f, indent=1, sort_keys=True)
-                self.output(f"{len(dump)} compteurs ecrits dans {path}")
+                self.output(f"{len(dump)} counters written to {path}")
             except OSError as e:
-                self.output(f"Ecriture impossible : {e}")
+                self.output(f"Cannot write: {e}")
         else:
-            self.output(f"{len(dump)} compteurs dans la table nommee ({len(known)} utilises par le client). /ds_counters snap | diff | save [nom] | watch [on|off] | scan | partial")
+            self.output(f"{len(dump)} counters in the named table ({len(known)} used by the client). /ds_counters snap | diff | save [name] | watch [on|off] | scan | partial")
 
     def _cmd_ds_likes_rebase(self) -> None:
-        """Refixe la base des paliers de likes au total actuel (les checks deja envoyes restent envoyes)."""
+        """Resets the likes milestone baseline to the current total (checks already sent stay sent)."""
         v = self.ctx.memory.read_likes()
         if v is None:
-            self.output("Likes illisibles (jeu non charge ?).")
+            self.output("Likes unreadable (game not loaded?).")
             return
         self.ctx.likes_state.update(baseline=v[0] + v[1], granted=0)
         self.ctx.save_progress()
-        self.output(f"Base des paliers de likes : {v[0] + v[1]}.")
+        self.output(f"Likes milestone baseline: {v[0] + v[1]}.")
 
     def _cmd_ds_likes_give(self, which: str = "", amount: str = "") -> None:
-        """[test, /ds_debug on] /ds_likes_give <npc|players> <quantite>"""
+        """[debug] /ds_likes_give <npc|players> <quantity>"""
         if not self._debug_enabled():
             return
         try:
@@ -404,207 +392,234 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
         except ValueError:
             n = None
         if which not in ("npc", "players") or n is None:
-            self.output("Usage : /ds_likes_give <npc|players> <quantite>")
+            self.output("Usage: /ds_likes_give <npc|players> <quantity>")
             return
         r = self.ctx.memory.add_likes(which, n)
-        self.output(f"Likes {which} -> {r}" if r is not None else "Likes illisibles (jeu non charge ?).")
+        self.output(f"Likes {which} -> {r}" if r is not None else "Likes unreadable (game not loaded?).")
 
-    def _cmd_ds_hp(self) -> None:
-        """Lit la vie du joueur en memoire (test avant d'activer DeathLink)."""
+    def _cmd_ds_memdiff(self, action: str = "", zone: str = "inventory", size: str = "") -> None:
+        """[debug, read-only] Snapshot then comparison of a game memory zone. /ds_memdiff snap [inventory|player|all|@0xOFFSET] [hex size] = snapshot;
+        /ds_memdiff diff = words changed since the snapshot; /ds_memdiff ptrs = nearby zones. Writes nothing to the game."""
+        if not self._debug_enabled():
+            return
+        ctx = self.ctx
+        action, zone = action.strip().lower(), (zone or "inventory").strip().lower()
+        if not ctx.backend.attached() and not ctx.backend.attach():
+            self.output("Game not found (ds.exe).")
+            return
+        try:
+            n = int(size, 16) if size else None
+        except ValueError:
+            n = None
+        if action == "ptrs":
+            ptrs = ctx.memory.parent_pointers()
+            if not ptrs:
+                self.output("Parent object not found (game not loaded?).")
+                return
+            inv = ctx.memory.resolve_object()
+            self.output(f"{len(ptrs)} nearby branch(es) (offset -> address); use /ds_memdiff snap @0x<offset> [hex size]:")
+            for off, p in ptrs:
+                tag = "  <- inventory" if p == inv else ("  <- player" if p == ctx.memory._player_object() else "")
+                self.output(f"  @{off:#06x} -> {p:#x}{tag}")
+            return
+        if action == "snap" and zone == "all":
+            zones = {z: ctx.memory.read_zone(z, n or 0x4000) for z in ctx.memory.heap_zones()}
+            zones = {z: d for z, d in zones.items() if d is not None}
+            if not zones:
+                self.output("No readable zone (game not loaded?).")
+                return
+            ctx.memdiff_snap = ("all", zones)
+            self.output(f"Snapshot of {len(zones)} nearby zones ({', '.join(zones)}) of {n or 0x4000:#x} bytes each. Do the action to test, then /ds_memdiff diff.")
+            return
+        if action == "diff" and getattr(ctx, "memdiff_snap", None) and ctx.memdiff_snap[0] == "all":
+            total = 0
+            for z, old in ctx.memdiff_snap[1].items():
+                new = ctx.memory.read_zone(z, len(old))
+                changes = memdiff(old, new) if new is not None else []
+                if not changes:
+                    continue
+                tag = {"@0x54c8": " (inventory)", "@0x54e0": " (player)"}.get(z, "")
+                self.output(f"Zone {z}{tag}: {len(changes)} word(s) changed out of {len(old) // 4}.")
+                for off, a, b in changes[:25]:
+                    self.output(f"  {z}+{off:#06x} : {format_word(a)} -> {format_word(b)}")
+                if len(changes) > 25:
+                    self.output(f"  ... and {len(changes) - 25} more")
+                total += len(changes)
+            if not total:
+                self.output("No word changed in any zone.")
+            return
+        if action == "snap":
+            data = ctx.memory.read_zone(zone, n)
+            if data is None:
+                self.output("Zone not found (zones: inventory, player, @0x<offset>; game not loaded?).")
+                return
+            ctx.memdiff_snap = (zone, data)
+            self.output(f"Snapshot of zone \"{zone}\": {len(data):#x} bytes. Do the action to test, then /ds_memdiff diff.")
+        elif action == "diff":
+            if not getattr(ctx, "memdiff_snap", None):
+                self.output("No snapshot: run /ds_memdiff snap first.")
+                return
+            zone, old = ctx.memdiff_snap
+            new = ctx.memory.read_zone(zone, len(old))
+            if new is None:
+                self.output("Zone unreadable (game not loaded?).")
+                return
+            changes = memdiff(old, new)
+            self.output(f"Zone \"{zone}\": {len(changes)} word(s) changed out of {len(old) // 4}.")
+            for off, a, b in changes[:80]:
+                self.output(f"  +{off:#06x} : {format_word(a)} -> {format_word(b)}")
+            if len(changes) > 80:
+                self.output(f"  ... and {len(changes) - 80} more (take a snapshot closer to the action).")
+        else:
+            self.output("Usage: /ds_memdiff snap [inventory|player|all|@0xOFFSET] [hex size]  then  /ds_memdiff diff  (/ds_memdiff ptrs: lists nearby branches)")
+
+    def _cmd_ds_memdump(self, zone: str = "inventory", offset: str = "0", length: str = "400") -> None:
+        """[debug, read-only] Prints bytes of a zone (4-byte words in hexadecimal). /ds_memdump inventory 3800 400 = 0x400 bytes from +0x3800."""
+        if not self._debug_enabled():
+            return
         ctx = self.ctx
         if not ctx.backend.attached() and not ctx.backend.attach():
-            self.output("Jeu introuvable (ds.exe).")
+            self.output("Game not found (ds.exe).")
+            return
+        try:
+            off, n = int(offset, 16), min(int(length, 16), 0x1000)
+        except ValueError:
+            self.output("Usage: /ds_memdump [inventory|player|@0xOFFSET] <hex offset> <hex length, max 1000>")
+            return
+        data = ctx.memory.read_zone(zone or "inventory", off + n)
+        if data is None:
+            self.output("Zone not found (game not loaded?).")
+            return
+        self.output(f"Zone \"{zone}\" +{off:#x}, {n:#x} bytes:")
+        for line in hexdump_lines(data[off:off + n], off):
+            self.output(line)
+
+    def _cmd_ds_hp(self) -> None:
+        """[debug] Reads the player's health from memory (test before enabling DeathLink)."""
+        if not self._debug_enabled():
+            return
+        ctx = self.ctx
+        if not ctx.backend.attached() and not ctx.backend.attach():
+            self.output("Game not found (ds.exe).")
             return
         v = ctx.memory.read_vitals()
-        self.output(f"Vie : {v[0]:.0f} / {v[1]:.0f}" if v else "Vie introuvable (menu ? chargement ? sauvegarde pas chargee ?).")
+        self.output(f"Health: {v[0]:.0f} / {v[1]:.0f}" if v else "Health not found (menu? loading? save not loaded?).")
 
     def _cmd_ds_kill(self) -> None:
-        """[test, /ds_debug on] Met la vie de Sam a 0 (verifie si cela le tue vraiment)."""
+        """[debug] Sets Sam's health to 0 (checks that it really kills him)."""
         if not self._debug_enabled():
             return
         ok = self.ctx.memory.kill_player()
-        self.output("Vie mise a 0." if ok else "Impossible (jeu non charge ou valeurs incoherentes). Voir /ds_hp.")
+        self.output("Health set to 0." if ok else "Impossible (game not loaded or inconsistent values). See /ds_hp.")
 
     def _cmd_ds_items(self) -> None:
-        """Diagnostic : objets recus du serveur et objets deja appliques en jeu."""
+        """Items received from the server and items already applied in game."""
         ctx = self.ctx
         names = [ctx.item_names.lookup_in_game(i.item) for i in ctx.items_received]
-        self.output(f"Objets recus : {len(names)} ; appliques : {ctx.applied_index} (cle {ctx._progress_key()})")
+        self.output(f"Items received: {len(names)}; applied: {ctx.applied_index} (key {ctx._progress_key()})")
         for k, n in enumerate(names[-5:], start=max(0, len(names) - 5)):
-            self.output(f"  #{k} {n} {'(applique)' if k < ctx.applied_index else '(EN ATTENTE)'}")
+            self.output(f"  #{k} {n} {'(applied)' if k < ctx.applied_index else '(PENDING)'}")
         if ctx.applied_index > len(names):
-            self.output("Index d'application superieur au nombre d'objets recus : /ds_items_reset pour le recaler.")
+            self.output("Applied index is higher than the number of items received: /ds_items_reset to realign it.")
 
     def _cmd_ds_items_reset(self, n: str = "") -> None:
-        """Recale l'index d'objets appliques : /ds_items_reset <n>  (les objets a partir de n seront reappliques)"""
+        """[debug] Realigns the applied-items index: /ds_items_reset <n>  (items from n on will be applied again)"""
+        if not self._debug_enabled():
+            return
         try:
             idx = int(n)
         except ValueError:
-            self.output("Usage : /ds_items_reset <n>  (0 = tout reappliquer ; attention aux ressources deja ajoutees)")
+            self.output("Usage: /ds_items_reset <n>  (0 = apply everything again; beware of resources already added)")
             return
         self.ctx.applied_index = max(0, idx)
         self.ctx.save_progress()
-        self.output(f"Index d'application : {self.ctx.applied_index}")
+        self.output(f"Applied index: {self.ctx.applied_index}")
 
     @mark_raw
     def _cmd_ds_stock(self, facility: str = "") -> None:
-        """Stocks de materiaux d'une installation : /ds_stock [installation]  (par defaut : celle(s) qui recoivent les objets)"""
+        """Material stocks of a facility: /ds_stock [facility]  (default: the one(s) receiving items)"""
         ctx = self.ctx
         if not ctx.backend.attached() and not ctx.backend.attach():
-            self.output("Jeu introuvable (ds.exe). Lance le jeu et charge une sauvegarde.")
+            self.output("Game not found (ds.exe). Start the game and load a save.")
             return
         known = ctx.map.get("facilities", {}).get("stock", {})
         names = [facility.strip()] if facility.strip() else ctx.stock_targets()
         if ctx.memory.stock_base() is None:
-            self.output("Stocks introuvables (menu principal ? sauvegarde pas chargee ? decalages a verifier).")
+            self.output("Stocks not found (main menu? save not loaded? offsets to check).")
             return
         for n in names:
             if n not in known:
-                self.output(f"Installation inconnue : {n}. Exemples : {', '.join(list(known)[:4])}...")
+                self.output(f"Unknown facility: {n}. Examples: {', '.join(list(known)[:4])}...")
                 continue
             vals = {m: ctx.memory.read_stock(n, m) for m in known[n]}
             self.output(f"{n} : " + ", ".join(f"{m} {v}" for m, v in vals.items()))
 
     def _cmd_ds_stock_mode(self, mode: str = "") -> None:
-        """Repartition des materiaux recus : /ds_stock_mode random (installation au hasard) ou target (installation choisie)"""
+        """Where received materials go: /ds_stock_mode random (random facility) or target (chosen facility)"""
         if mode not in ("random", "target"):
             cur = self.ctx.settings.get("stock_mode") or self.ctx.map.get("facilities", {}).get("stock_mode", "random")
-            self.output(f"Mode actuel : {cur}. Usage : /ds_stock_mode random | target")
+            self.output(f"Current mode: {cur}. Usage: /ds_stock_mode random | target")
             return
         self.ctx.settings["stock_mode"] = mode
         _json_save(SETTINGS_FILE, self.ctx.settings)
-        self.output(f"Mode de repartition des materiaux : {mode}")
+        self.output(f"Material distribution mode: {mode}")
 
     @mark_raw
     def _cmd_ds_stock_pool(self, names: str = "") -> None:
-        """Limite le mode random a certaines installations : /ds_stock_pool Nom1; Nom2; Nom3   (/ds_stock_pool all pour tout reprendre)"""
+        """Limits random mode to some facilities: /ds_stock_pool Name1; Name2; Name3   (/ds_stock_pool all to take them all again)"""
         known = self.ctx.map.get("facilities", {}).get("stock", {})
         n = names.strip()
         if n.lower() in ("", "all", "tout"):
             self.ctx.settings.pop("stock_pool", None)
             _json_save(SETTINGS_FILE, self.ctx.settings)
-            self.output(f"Pool : toutes les installations ({len(known)}).")
+            self.output(f"Pool: all facilities ({len(known)}).")
             return
         wanted = [x.strip() for x in n.split(";") if x.strip()]
         bad = [x for x in wanted if x not in known]
         if bad:
-            self.output(f"Installations inconnues : {', '.join(bad)}")
+            self.output(f"Unknown facilities: {', '.join(bad)}")
             return
         self.ctx.settings["stock_pool"] = wanted
         _json_save(SETTINGS_FILE, self.ctx.settings)
-        self.output(f"Pool du mode random : {', '.join(wanted)}")
+        self.output(f"Random mode pool: {', '.join(wanted)}")
 
     @mark_raw
     def _cmd_ds_stock_target(self, facility: str = "") -> None:
-        """Choisit l'installation qui recoit les materiaux : /ds_stock_target <installation>  (ex : Port Knot City)"""
+        """Chooses the facility that receives materials: /ds_stock_target <facility>  (e.g. Port Knot City)"""
         n = facility.strip()
         if n not in self.ctx.map.get("facilities", {}).get("stock", {}):
-            self.output(f"Installation inconnue : {n!r}. Voir /ds_stock pour un exemple de nom.")
+            self.output(f"Unknown facility: {n!r}. See /ds_stock for an example name.")
             return
         self.ctx.settings["stock_target"] = [n]
         _json_save(SETTINGS_FILE, self.ctx.settings)
-        self.output(f"Les materiaux recus seront credites a : {n}")
+        self.output(f"Received materials will be credited to: {n}")
 
     def _cmd_ds_stock_give(self, *args: str) -> None:
-        """[test, /ds_debug on] /ds_stock_give <materiau> <quantite>   ex : /ds_stock_give Metals 50  (credite l'installation choisie)"""
+        """[debug] /ds_stock_give <material> <quantity>   e.g. /ds_stock_give Metals 50  (credits the chosen facility)"""
         if not self._debug_enabled():
             return
         if len(args) < 2:
-            self.output("Usage : /ds_stock_give <Resins|Metals|Ceramics|Chemicals|Special Alloys|Chiral Crystals> <quantite>")
+            self.output("Usage: /ds_stock_give <Resins|Metals|Ceramics|Chemicals|Special Alloys|Chiral Crystals> <quantity>")
             return
         try:
             n = int(args[-1])
         except ValueError:
-            self.output("Quantite invalide.")
+            self.output("Invalid quantity.")
             return
         material = " ".join(args[:-1])
         for f in self.ctx.stock_targets():
             new = self.ctx.memory.add_stock(f, material, n)
-            self.output(f"{f} / {material} -> {new}" if new is not None else f"Echec pour {f} (voir /ds_stock).")
+            self.output(f"{f} / {material} -> {new}" if new is not None else f"Failed for {f} (see /ds_stock).")
 
-    # -- sauvegardes -------------------------------------------------------
-    @mark_raw
-    def _cmd_ds_resigner(self, path: str = "") -> None:
-        """Indique l'outil de dechiffrement : /ds_resigner <chemin complet de death-stranding-savedata-resigner-cli.exe>"""
-        if path.strip().lower() in ("off", "non", "desactiver"):
-            self.ctx.settings["resigner_off"] = True
-            _json_save(SETTINGS_FILE, self.ctx.settings)
-            self.ctx.setup_saves()
-            self.output("Dechiffrement des sauvegardes DESACTIVE (les commandes principales ne viennent plus que de la memoire). /ds_resigner on pour le reactiver.")
-            return
-        if path.strip().lower() in ("on", "oui", "activer"):
-            self.ctx.settings["resigner_off"] = False
-            _json_save(SETTINGS_FILE, self.ctx.settings)
-            self.ctx.setup_saves()
-            self.output("Dechiffrement des sauvegardes reactive.")
-            return
-        p = _clean_path(path)
-        if not p or not os.path.isfile(p):
-            self.output("Fichier introuvable. Exemple : /ds_resigner C:\\outils\\death-stranding-savedata-resigner-cli.exe")
-            return
-        self.ctx.settings["resigner"] = p
-        _json_save(SETTINGS_FILE, self.ctx.settings)
-        self.ctx.setup_saves()
-        self.output(f"Outil enregistre : {p}. Lance /ds_selftest pour verifier.")
-
-    def _cmd_ds_saves(self) -> None:
-        """Etat de la surveillance des sauvegardes."""
-        w = self.ctx.saves
-        self.output(f"Dossier des sauvegardes : {w.root or 'INTROUVABLE (voir /ds_saves_dir)'}")
-        self.output(f"Outil de dechiffrement : {self.ctx.settings.get('resigner') or 'NON CONFIGURE (/ds_resigner <chemin>)'}")
-        self.output(f"Checkpoints vus : {len(w.files())} ; commandes terminees detectees : {sorted(w.completed) or 'aucune'}")
-        if w.last_title:
-            self.output(f"Dernier titre lu : {w.last_title}")
-        if w.failures:
-            self.output(f"Echecs de dechiffrement : {w.failures} (dernier journal : {' | '.join(w.decryptor.log) if w.decryptor else '-'})")
-
-    @mark_raw
-    def _cmd_ds_saves_dir(self, path: str = "") -> None:
-        """Indique le dossier des sauvegardes : /ds_saves_dir <dossier contenant les sous-dossiers de checkpoints>"""
-        p = _clean_path(path)
-        if not p or not os.path.isdir(p):
-            self.output("Dossier introuvable. Exemple : /ds_saves_dir C:\\Users\\toi\\AppData\\Local\\KojimaProductions\\DeathStrandingDC\\123456789")
-            return
-        self.ctx.settings["saves_root"] = p
-        _json_save(SETTINGS_FILE, self.ctx.settings)
-        self.ctx.setup_saves()
-        self.output(f"Dossier enregistre : {p}")
-
-    def _cmd_ds_selftest(self) -> None:
-        """Dechiffre le checkpoint le plus recent et affiche son titre (verifie toute la chaine)."""
-        w = self.ctx.saves
-        if not w.ready():
-            self.output("Pas pret : verifie /ds_saves (dossier des sauvegardes et outil de dechiffrement).")
-            return
-        files = w.files()
-        if not files:
-            self.output("Aucun checkpoint.dat dans le dossier des sauvegardes.")
-            return
-        newest = max(files, key=lambda f: f.stat().st_mtime)
-        self.output(f"Test sur : {newest}")
-        data = w.decryptor.decrypt(newest)
-        for line in w.decryptor.log:
-            self.output(f"  {line}")
-        if data is None:
-            self.output("ECHEC du dechiffrement.")
-            return
-        header = read_header(data)
-        if header is None:
-            self.output("Fichier dechiffre mais en-tete illisible.")
-            return
-        title = header.get("Title", "")
-        self.output(f"Titre : {title}")
-        parsed = parse_title(title, w.words)
-        self.output(f"Lecture : {parsed}  (terminee ?, numero, nom)" if parsed else "Titre non reconnu comme une commande.")
-
+    # -- titres de points de controle ------------------------------------
     def _cmd_ds_titles(self) -> None:
-        """Diagnostic des langues : lit en memoire TOUS les titres de points de controle (~1 min) et dit si chacun est reconnu comme « commande terminee »."""
+        """Language diagnostic: reads ALL checkpoint titles from memory (~1 min) and says whether each is recognised as an order completed."""
         ctx = self.ctx
         if not ctx.backend.attached():
-            self.output("Le jeu n'est pas attache.")
+            self.output("The game is not attached.")
             return
-        words = ctx.saves.words
-        self.output("Recherche des titres de points de controle en memoire (environ 1 minute)...")
+        words = ctx.completed_words
+        self.output("Searching memory for checkpoint titles (about 1 minute)...")
 
         async def run() -> None:
             loop = asyncio.get_running_loop()
@@ -613,29 +628,19 @@ class DeathStrandingCommandProcessor(ClientCommandProcessor):
                 if not titles:
                     titles = await loop.run_in_executor(None, ctx.memory.list_titles, None)
             except Exception as e:      # noqa: BLE001 - diagnostic : on affiche l'erreur
-                self.output(f"Echec de la lecture : {e}")
+                self.output(f"Read failed: {e}")
                 return
             if not titles:
-                self.output("Aucun titre de la forme « <etat> : n° N « nom » - hh:mm:ss » trouve. Fais un enregistrement en jeu (commande acceptee ou terminee) puis reessaie, "
-                            "et envoie une capture du titre affiche dans le menu de chargement si rien n'apparait.")
+                self.output("No title of the form \"<state>: No. N \"name\" - hh:mm:ss\" found. Save in game (accept or complete an order) and try again, "
+                            "and send a screenshot of the title shown in the load menu if nothing appears.")
                 return
             from .memory import _fold, state_completed
             for state, num, name, hhmmss in sorted(titles, key=lambda t: t[3])[-12:]:
                 ok = state_completed(_fold(state), words)
-                self.output(f"  etat « {state} » | n°{num} « {name} » | {hhmmss} -> {'TERMINEE' if ok else 'pas terminee'}")
-            self.output("Si une commande terminee est notee « pas terminee », ajoute un fragment du mot de l'etat (sans accents, en minuscules) dans saves.completed_words de memory_map.json, ou signale-le.")
+                self.output(f"  state \"{state}\" | no. {num} \"{name}\" | {hhmmss} -> {'COMPLETED' if ok else 'not completed'}")
+            self.output("If a completed order is marked \"not completed\", add a fragment of the state word (no accents, lowercase) to saves.completed_words in memory_map.json, or report it.")
 
         asyncio.ensure_future(run())
-
-    def _cmd_ds_catchup(self) -> None:
-        """Traite TOUS les checkpoints existants (y compris anciens) et envoie les checks correspondants."""
-        w = self.ctx.saves
-        if not w.ready():
-            self.output("Pas pret : verifie /ds_saves.")
-            return
-        found = w.catch_up()
-        self.ctx.register_completed_orders(found)
-        self.output(f"Commandes terminees trouvees : {sorted(found) or 'aucune'}")
 
 
 class DeathStrandingContext(CommonContext):
@@ -699,6 +704,7 @@ class DeathStrandingContext(CommonContext):
         self.held_codes: typing.Set[int] = set()
         self.held_logged: typing.Set[int] = set()
         self.counters_watch_last: typing.Optional[typing.Dict[str, int]] = None
+        self.memdiff_snap: typing.Optional[typing.Tuple[str, typing.Any]] = None     # photo de /ds_memdiff snap (zone, octets)
         self.slot_data: dict = {}
         self.finished = False
         self.map = load_map()
@@ -709,18 +715,8 @@ class DeathStrandingContext(CommonContext):
         self.death_pending = False
         self.alive_polls = 0
         self.death_suppress_until = 0.0
-        self.saves: SaveWatcher
-        self.setup_saves()
-
-    def setup_saves(self) -> None:
-        exe = self.settings.get("resigner") or self.map.get("saves", {}).get("resigner")
-        if self.settings.get("resigner_off"):
-            exe = None
-        root = self.settings.get("saves_root") or self.map.get("saves", {}).get("root") or autodetect_root()
-        words = tuple(dict.fromkeys((*DEFAULT_COMPLETED_WORDS, *self.map.get("saves", {}).get("completed_words", ()))))   # les mots du fichier s'AJOUTENT aux mots par defaut
-        self.saves = SaveWatcher(root, ResignerCli(exe) if exe else None, words)
-        if exe and not root:
-            logger.info("Sauvegardes : dossier introuvable. Tape /ds_saves_dir <dossier>.")
+        # mots du fichier de configuration : ils s'AJOUTENT aux mots par defaut
+        self.completed_words = tuple(dict.fromkeys((*DEFAULT_COMPLETED_WORDS, *self.map.get("saves", {}).get("completed_words", ()))))
 
     def hint_windows(self) -> typing.Optional[typing.List[typing.Tuple[int, int]]]:
         """Zone de la memoire ou le jeu a place ses donnees lors de la derniere session (memorisee) : la recherche y commence."""
@@ -739,7 +735,7 @@ class DeathStrandingContext(CommonContext):
             self.settings["mem_hint"] = new
             _json_save(SETTINGS_FILE, self.settings)
 
-    def register_completed_orders(self, numbers: typing.Iterable[int], source: str = "sauvegarde") -> None:
+    def register_completed_orders(self, numbers: typing.Iterable[int], source: str = "save") -> None:
         newly: typing.List[int] = []
         for n in numbers:
             loc = ORDER_TO_LOCATION.get(n)
@@ -748,38 +744,38 @@ class DeathStrandingContext(CommonContext):
                 # principale absente de la liste (voir « Limites connues ») : on le signale une fois pour aider a completer la liste
                 if n < 100 and n not in self.unlisted_seen:
                     self.unlisted_seen.add(n)
-                    logger.info(f"Commande n°{n} terminee, mais absente de la liste des checks (commande principale manquante ?). "
-                                f"Merci de la signaler avec son nom et son episode.")
+                    logger.info(f"Order no. {n} completed, but it is not in the list of checks (missing main order?). "
+                                f"Please report it with its name and episode.")
                 else:
-                    logger.debug(f"Commande n°{n} terminee (hors liste des checks : ignoree).")
+                    logger.debug(f"Order no. {n} completed (not in the list of checks: ignored).")
                 continue
             code = location_name_to_id[loc]
             if code not in self.save_checks:
                 self.save_checks.add(code)
-                logger.info(f"Commande terminee detectee ({source}) : {loc}" if source != "deduction" else
-                            f"Commande terminee deduite (un titre de sauvegarde d'une commande plus avancee le prouve) : {loc}")
+                logger.info(f"Order completed ({source}): {loc}" if source != "inference" else
+                            f"Order completed (inferred: a save title of a later order proves it): {loc}")
                 newly.append(n)
         if newly:
-            self.sig_times, orphans = unmatched_signatures(self.sig_times, time.time(), len(newly), source in ("compteur", "marqueur"))
+            self.sig_times, orphans = unmatched_signatures(self.sig_times, time.time(), len(newly), source in ("counter", "marker"))
             if orphans:
                 top = max(newly)
                 maybe = sorted((n for n in ORDER_TO_LOCATION if n < top and location_name_to_id[ORDER_TO_LOCATION[n]] not in self.save_checks
                                 and location_name_to_id[ORDER_TO_LOCATION[n]] not in self.checked_locations), reverse=True)[:orphans]
-                logger.warning(f"{orphans} fin(s) de commande principale ou speciale reperee(s) dans les compteurs n'ont pas pu etre identifiee(s) : le jeu ne garde que la "
-                               f"derniere commande terminee a chaque enregistrement. " + (f"Probablement : {' ; '.join(ORDER_TO_LOCATION[n] for n in maybe)}. " if maybe else "")
-                               + "Si son check n'est pas parti, envoyez-le avec /check <nom exact du lieu> (ex. /check "
+                logger.warning(f"{orphans} main or special order end(s) spotted in the counters could not be identified: the game only keeps the "
+                               f"last completed order at each save. " + (f"Probably: {' ; '.join(ORDER_TO_LOCATION[n] for n in maybe)}. " if maybe else "")
+                               + "If its check was not sent, send it with /check <exact location name> (e.g. /check "
                                + (ORDER_TO_LOCATION[maybe[0]] if maybe else "Order 63 - Network Activation Key Delivery: Edge Knot City") + ").")
 
     def infer_from_titles(self, seen_all: typing.Iterable[typing.Tuple[int, str]]) -> None:
-        """Titres NOUVEAUX (tous etats) : prouvent que les commandes « Story : Yes » des episodes precedents (et des chaines strictement sequentielles) sont terminees."""
+        """NEW titles (any state): prove that the "Story: Yes" orders of earlier episodes (and of strictly sequential chains) are completed."""
         known = {c - BASE_ID for c in (self.save_checks | self.checked_locations) if 0 < c - BASE_ID < 1000}
         implied: typing.Set[int] = set()
         for n, _ in sorted(set(seen_all)):
             got = implied_completed(n, known | implied)
             if got:
-                logger.debug(f"Titre de la commande n°{n} vu : deduction des commandes {got}.")
+                logger.debug(f"Title of order no. {n} seen: inferring orders {got}.")
             implied |= set(got)
-        self.register_completed_orders(sorted(implied), "deduction")
+        self.register_completed_orders(sorted(implied), "inference")
 
     def stock_targets(self) -> typing.List[str]:
         """Installations qui recoivent les materiaux : reglage utilisateur, sinon valeur par defaut du paquet."""
@@ -1232,7 +1228,6 @@ def death_step(vitals: typing.Optional[typing.Tuple[float, float]], alive_polls:
 async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
     grants = ctx.map.get("item_grants", {})
     loop = asyncio.get_running_loop()
-    last_save_poll = 0.0
     last_likes_poll = 0.0
     last_order_poll = 0.0
     last_standard_poll = 0.0
@@ -1251,16 +1246,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
         if not ctx.backend.attached():
             ctx.backend.attach()
 
-        # 1. Checks : commandes terminees (sauvegardes) + manuels
-        if loop.time() - last_save_poll >= SAVE_POLL_SECONDS:
-            last_save_poll = loop.time()
-            try:
-                done = await loop.run_in_executor(None, ctx.saves.poll)
-            except Exception as e:  # le suivi des sauvegardes ne doit jamais faire tomber le client
-                logger.warning(f"Surveillance des sauvegardes : {e}")
-                done = []
-            ctx.register_completed_orders(done)
-        # 1b. Commandes terminees lues directement en memoire (titre du point de controle) : pas de dechiffrement
+        # 1. Commandes terminees : lues directement en memoire (titre du point de controle) et par les cles de fin de commande
         if ctx.settings.get("memory_titles", True) and not title_running and ctx.backend.attached() \
                 and loop.time() - last_title_poll >= 4.0:
             last_title_poll = loop.time()
@@ -1271,7 +1257,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
             if full:
                 last_title_full = loop.time()
                 if ctx.title_zones is None:
-                    logger.info("Commandes principales : recherche en memoire (jusqu'a 1 min la premiere fois)...")
+                    logger.info("Main orders: searching memory (up to 1 min the first time)...")
             title_running = True
 
             async def _titles(full: bool = full) -> None:
@@ -1283,7 +1269,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                     if full and not ctx.title_hint_failed:    # d'abord la zone memorisee de la derniere session, bien plus rapide
                         zones = ctx.hint_windows()
                         used_hint = zones is not None
-                    titles, new_zones = await loop.run_in_executor(None, ctx.memory.scan_titles, ctx.saves.words, zones, 600.0, lambda msg: loop.call_soon_threadsafe(logger.debug, msg))
+                    titles, new_zones = await loop.run_in_executor(None, ctx.memory.scan_titles, ctx.completed_words, zones, 600.0, lambda msg: loop.call_soon_threadsafe(logger.debug, msg))
                     if full:
                         ctx.title_zones = new_zones
                         if used_hint and not new_zones:
@@ -1300,7 +1286,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                             ctx.update_hint([z[0] for z in new_zones] + [z[0] + z[1] for z in new_zones], margin=256 << 20)
                         all_now = set(getattr(ctx.memory, "last_title_orders", ()))
                         if ctx.title_baselined:      # nouvelle recherche complete : ce qui est apparu entre-temps compte
-                            ctx.register_completed_orders([n for n, _ in sorted(titles - ctx.title_seen)], "memoire")
+                            ctx.register_completed_orders([n for n, _ in sorted(titles - ctx.title_seen)], "memory")
                             ctx.infer_from_titles(all_now - ctx.title_seen_all)
                         ctx.title_seen_all |= all_now
                         ctx.title_seen |= set(titles)
@@ -1308,12 +1294,12 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                         if not new_zones:
                             if not ctx.title_none_logged:
                                 ctx.title_none_logged = True
-                                logger.info(f"Commandes principales : aucun titre de sauvegarde en memoire pour l'instant (recherche en "
-                                            f"{loop.time() - t0:.0f} s) : nouvel essai espace (1 a 10 min) et immediat a chaque livraison.")
+                                logger.info(f"Main orders: no save title in memory for now (search took "
+                                            f"{loop.time() - t0:.0f} s): will retry (every 1 to 10 min, and right after each delivery).")
                         else:
                             (logger.debug if ctx.title_active_logged else logger.info)(
-                                f"Commandes principales : lecture en memoire active ({sum(z[1] for z in new_zones) >> 20} Mo surveilles, "
-                                f"recherche en {loop.time() - t0:.0f} s).")
+                                f"Main orders: memory reading active ({sum(z[1] for z in new_zones) >> 20} MB watched, "
+                                f"search took {loop.time() - t0:.0f} s).")
                             ctx.title_active_logged = True
                     else:
                         fresh = sorted(t for t in titles if t not in ctx.title_seen)
@@ -1321,12 +1307,12 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                         # les zones suivent les points de controle les plus recents ; si on n'en voit plus, on refait une recherche complete
                         ctx.title_zones = new_zones
                         if fresh:
-                            ctx.register_completed_orders([n for n, _ in fresh], "memoire")
+                            ctx.register_completed_orders([n for n, _ in fresh], "memory")
                         all_now = set(getattr(ctx.memory, "last_title_orders", ()))
                         ctx.infer_from_titles(all_now - ctx.title_seen_all)
                         ctx.title_seen_all |= all_now
                 except Exception as e:
-                    logger.warning(f"Lecture des titres en memoire : {e}")
+                    logger.warning(f"Reading titles from memory: {e}")
                 finally:
                     if full:
                         ctx.title_full_end = loop.time()
@@ -1341,10 +1327,10 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 for code in sorted(held - ctx.held_codes - ctx.held_logged):
                     ep = EPISODE_OF_LOCATION[code]
                     missing = [e for e in range(1, ep + 1) if e not in received]
-                    logger.info(f"Check retenu (objets manquants : {', '.join(f'Episode {e} Access' for e in missing)}) : {ctx.location_names.lookup_in_game(code)}")
+                    logger.info(f"Check held back (missing items: {', '.join(f'Episode {e} Access' for e in missing)}): {ctx.location_names.lookup_in_game(code)}")
                     ctx.held_logged.add(code)
                 for code in sorted(ctx.held_codes - held):
-                    logger.info(f"Check libere : {ctx.location_names.lookup_in_game(code)}")
+                    logger.info(f"Check released: {ctx.location_names.lookup_in_game(code)}")
                 ctx.held_codes = held
                 ctx.save_progress()
             released = ctx.save_checks - held
@@ -1353,8 +1339,8 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
         for code in unknown:
             if code not in ctx.warned_unknown:
                 ctx.warned_unknown.add(code)
-                logger.warning(f"Le lieu {code} n'existe pas dans la partie hebergee : la seed a probablement ete generee "
-                               "avec une autre version de l'APWorld. Regenere et relance la partie.")
+                logger.warning(f"Location {code} does not exist in the hosted game: the seed was probably generated "
+                               "with another version of the APWorld. Regenerate and restart the game.")
         if to_send:
             await ctx.send_msgs([{"cmd": "LocationChecks", "locations": to_send}])
             for code in to_send:
@@ -1369,49 +1355,51 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 targets = ctx.stock_targets_for(ctx.applied_index)
                 if ctx.memory.stock_base() is None:
                     if ctx._warned_item != ctx.applied_index:
-                        logger.info(f"En attente du jeu pour appliquer : {name}")
+                        logger.info(f"Waiting for the game to apply: {name}")
                         ctx._warned_item = ctx.applied_index
                     break
                 results = [ctx.memory.add_stock(f, grant["stock"], int(grant["amount"])) for f in targets]
-                logger.info(f"Objet applique : {name} (+{grant['amount']} {grant['stock']} -> "
+                logger.info(f"Item applied: {name} (+{grant['amount']} {grant['stock']} -> "
                             + ", ".join(f"{f} : {r}" for f, r in zip(targets, results)) + ")")
             elif isinstance(grant, dict) and "likes" in grant:
                 if int(ctx.slot_data.get("likes_checks", 0)) > 0 and "baseline" not in ctx.likes_state:
                     if ctx._warned_item != ctx.applied_index:   # la base des paliers doit etre fixee avant d'ajouter des likes
-                        logger.info(f"En attente de la base des paliers de likes pour appliquer : {name}")
+                        logger.info(f"Waiting for the likes milestone baseline to apply: {name}")
                         ctx._warned_item = ctx.applied_index
                     break
                 new_likes = ctx.memory.add_likes(grant["likes"], int(grant["amount"]))
                 if new_likes is None:
                     if ctx._warned_item != ctx.applied_index:
-                        logger.info(f"En attente du jeu pour appliquer : {name}")
+                        logger.info(f"Waiting for the game to apply: {name}")
                         ctx._warned_item = ctx.applied_index
                     break
                 ctx.likes_state["granted"] = int(ctx.likes_state.get("granted", 0)) + int(grant["amount"])
-                logger.info(f"Objet applique : {name} ({grant['amount']:+d} likes {grant['likes']} -> {new_likes})")
+                logger.info(f"Item applied: {name} ({grant['amount']:+d} likes {grant['likes']} -> {new_likes})")
             elif name in ctx.map.get("traps", {}) or name in ctx.map.get("boosts", {}):
                 is_trap = name in ctx.map.get("traps", {})
                 status, done = apply_effects(ctx.memory, (ctx.map["traps"] if is_trap else ctx.map["boosts"])[name])
                 if status == "wait":
                     if ctx._warned_item != ctx.applied_index:
-                        logger.info(f"En attente du jeu pour appliquer : {name}")
+                        logger.info(f"Waiting for the game to apply: {name}")
                         ctx._warned_item = ctx.applied_index
                     break
-                label = "Piege" if is_trap else "Effet"
+                label = "Trap" if is_trap else "Effect"
                 if status == "ok":
-                    logger.info(f"{label} applique : {name} (" + ", ".join(f"{f} : {r[0]:.0f} -> {r[1]:.0f}" for f, r in done) + ")")
+                    logger.info(f"{label} applied: {name} (" + ", ".join(f"{f} : {r[0]:.0f} -> {r[1]:.0f}" for f, r in done) + ")")
                 else:
-                    logger.warning(f"{label} ignore : {name} (valeur du jeu incoherente, voir /ds_effect)")
+                    logger.warning(f"{label} skipped: {name} (inconsistent game value, see /ds_effect)")
             elif isinstance(grant, dict):
                 new_qty = ctx.memory.add_resource(grant["resource"], int(grant["amount"]))
                 if new_qty is None:
                     if ctx._warned_item != ctx.applied_index:
-                        logger.info(f"En attente du jeu pour appliquer : {name}")
+                        logger.info(f"Waiting for the game to apply: {name}")
                         ctx._warned_item = ctx.applied_index
                     break
-                logger.info(f"Objet applique : {name} ({grant['amount']:+d} {grant['resource']} -> {new_qty})")
+                logger.info(f"Item applied: {name} ({grant['amount']:+d} {grant['resource']} -> {new_qty})")
+            elif re.fullmatch(r"Episode \d+ Access", name or ""):
+                logger.info(f"Item received: {name} (no effect in the game itself; releases held checks if episode_gating is on)")
             else:
-                logger.info(f"Objet recu (sans effet en jeu pour l'instant) : {name}")
+                logger.info(f"Item received (no in-game effect): {name}")
             ctx.applied_index += 1
             ctx.save_progress()
 
@@ -1421,11 +1409,11 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 ctx.memory.read_vitals(), ctx.alive_polls, ctx.death_pending, loop.time(), ctx.death_suppress_until)
             if action == "kill":
                 if ctx.memory.kill_player():
-                    logger.info("DeathLink recu : Sam est mort.")
+                    logger.info("DeathLink received: Sam died.")
                 else:
                     ctx.death_pending = True
             elif action == "send":
-                await ctx.send_death(f"{ctx.player_names.get(ctx.slot, 'Sam')} est mort dans Death Stranding.")
+                await ctx.send_death(f"{ctx.player_names.get(ctx.slot, 'Sam')} died in Death Stranding.")
 
         # 2c. Paliers de likes (optionnels) : gain organique = total - base - likes accordes par des objets
         step, count = int(ctx.slot_data.get("likes_step", 0)), int(ctx.slot_data.get("likes_checks", 0))
@@ -1441,13 +1429,13 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                     else:
                         ctx.likes_state.update(baseline=total, granted=0)
                         ctx.save_progress()
-                        logger.info(f"Paliers de likes : base fixee a {total} likes (palier = {step} likes gagnes).")
+                        logger.info(f"Likes milestones: baseline set to {total} likes (milestone = {step} likes gained).")
                         continue_likes = True
                 else:
                     continue_likes = True
                 new = set() if not continue_likes else set(likes_milestones(total, int(ctx.likes_state["baseline"]), int(ctx.likes_state.get("granted", 0)), step, count))
                 for code in sorted(new - ctx.likes_checks):
-                    logger.info(f"Palier de likes atteint : {code - 7_771_000} ({(code - 7_771_000) * step} likes gagnes)")
+                    logger.info(f"Likes milestone reached: {code - 7_771_000} ({(code - 7_771_000) * step} likes gained)")
                 ctx.likes_checks |= new
 
         # 2d. Progression des commandes (optionnelle) : compteur d'etapes de commande ([module+0x7BFA148]+0x168), gain depuis la base
@@ -1462,14 +1450,14 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                     if likes_baseline_ready(ctx.order_history, ctx.memory.read_vitals() is not None):
                         ctx.order_state["baseline"] = cur
                         ctx.save_progress()
-                        logger.info(f"Progression des commandes : base fixee a {cur} (palier = {ostep} etapes de commande).")
+                        logger.info(f"Order progress: baseline set to {cur} (milestone = {ostep} order steps).")
                     else:
                         ready = False
                 if ready:
                     new = set(order_progress_milestones(cur, int(ctx.order_state["baseline"]), ostep, ocount))
                     for code in sorted(new - ctx.order_checks):
-                        logger.info(f"Palier de progression des commandes atteint : {code - ORDER_PROGRESS_BASE_ID} "
-                                    f"({(code - ORDER_PROGRESS_BASE_ID) * ostep} etapes)")
+                        logger.info(f"Order-progress milestone reached: {code - ORDER_PROGRESS_BASE_ID} "
+                                    f"({(code - ORDER_PROGRESS_BASE_ID) * ostep} steps)")
                     ctx.order_checks |= new
 
         # 2e. Commandes standard livrees (optionnel) : cle 17 de la table de statistiques, gain depuis la base
@@ -1484,14 +1472,14 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                     if likes_baseline_ready(ctx.standard_history, ctx.memory.read_vitals() is not None):
                         ctx.standard_state["baseline"] = cur
                         ctx.save_progress()
-                        logger.info(f"Commandes standard : base fixee a {cur} (palier = {sstep} livraison(s)).")
+                        logger.info(f"Standard orders: baseline set to {cur} (milestone = {sstep} delivery(ies)).")
                     else:
                         ready = False
                 if ready:
                     new = set(standard_progress_milestones(cur, int(ctx.standard_state["baseline"]), sstep, scount))
                     for code in sorted(new - ctx.standard_checks):
-                        logger.info(f"Palier de commandes standard atteint : {code - STANDARD_ORDER_BASE_ID} "
-                                    f"({(code - STANDARD_ORDER_BASE_ID) * sstep} livraison(s))")
+                        logger.info(f"Standard-orders milestone reached: {code - STANDARD_ORDER_BASE_ID} "
+                                    f"({(code - STANDARD_ORDER_BASE_ID) * sstep} delivery(ies))")
                     ctx.standard_checks |= new
 
         # 2f. Commandes principales et de bot livrees (optionnel) : compteurs nommes du jeu, gain depuis la base
@@ -1505,7 +1493,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 # les chaines de pointeurs ne marchent plus (redemarrage, autre sauvegarde) : recherche de la table par sa signature, en arriere-plan
                 last_table_scan = loop.time()
                 table_scan_running = True
-                logger.info("Compteurs de commandes : recherche de la table en memoire (jusqu'a quelques minutes)...")
+                logger.info("Order counters: searching memory for the table (up to a few minutes)...")
 
                 async def _scan() -> None:
                     nonlocal table_scan_running, table_scan_fails, last_table_scan, table_scan_partial
@@ -1522,10 +1510,10 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                             # la signature est la mais la table est rejetee : probablement encore en cours de chargement (sauvegarde chargee a l'instant) -> nouvel essai dans 30 s
                             table_scan_partial += 1
                             last_table_scan = loop.time() - (min(120.0 * 2 ** table_scan_fails, 600.0) - 30.0)
-                        logger.info(f"Compteurs de commandes : table retrouvee (0x{base:X})." if base else
-                                    f"Compteurs de commandes : table introuvable ({getattr(ctx.memory, 'scan_note', '?')}) ; sera retentee.")
+                        logger.info(f"Order counters: table found (0x{base:X})." if base else
+                                    f"Order counters: table not found ({getattr(ctx.memory, 'scan_note', '?')}); will retry.")
                     except Exception as e:
-                        logger.warning(f"Recherche de la table de compteurs : {e}")
+                        logger.warning(f"Counter table search: {e}")
                     finally:
                         table_scan_running = False
                 Utils.async_start(_scan())
@@ -1534,11 +1522,11 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 cur = {**cur, "bot": 0}                  # valeur neutre pour les releves de stabilite ; le bot lui-meme est ignore tant que « total » manque
                 if not ctx.bot_was_missing:
                     ctx.bot_was_missing = True
-                    logger.info("Compteur « total » absent de la table (sauvegarde de debut de partie : le jeu le cree plus tard) : "
-                                "commandes de bot indisponibles pour l'instant, les autres compteurs sont lus normalement.")
+                    logger.info("Counter \"total\" missing from the table (early-game save: the game creates it later): "
+                                "bot orders unavailable for now, the other counters are read normally.")
             if cur is not None and not ctx.types_source_logged:
                 ctx.types_source_logged = True
-                logger.debug(f"Compteurs de commandes : table lue [{ctx.memory.named_counters_report()[1]}].")
+                logger.debug(f"Order counters: table read [{ctx.memory.named_counters_report()[1]}].")
             if cur is not None:
                 snap = (cur["standard"], cur["main"], cur["bot"])           # valeurs brutes : servent a juger de la stabilite
                 if ctx.title_last_main is not None and (cur["main"], cur["bot"]) != ctx.title_last_main:
@@ -1551,8 +1539,8 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 raw_now = (named.get("nobot"), named.get("total"), named.get("repair"), cur["standard"]) if named else None
                 if raw_now != ctx.raw_logged:
                     if ctx.raw_logged is not None and raw_now is not None:
-                        logger.debug(f"[{time.strftime('%H:%M:%S')}] Compteurs bruts : sans bot {ctx.raw_logged[0]} -> {raw_now[0]}, total {ctx.raw_logged[1]} -> {raw_now[1]}, "
-                                    f"reparation {ctx.raw_logged[2]} -> {raw_now[2]}, standard {ctx.raw_logged[3]} -> {raw_now[3]}")
+                        logger.debug(f"[{time.strftime('%H:%M:%S')}] Raw counters: nobot {ctx.raw_logged[0]} -> {raw_now[0]}, total {ctx.raw_logged[1]} -> {raw_now[1]}, "
+                                    f"repair {ctx.raw_logged[2]} -> {raw_now[2]}, standard {ctx.raw_logged[3]} -> {raw_now[3]}")
                     ctx.raw_logged = raw_now
                 if named and "repair" in named and "total" in named:
                     sig = (named["nobot"], named["total"], named["repair"])
@@ -1560,7 +1548,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                         done, ctx.repair_marks = repair_progress(ctx.repair_last, sig, time.time(), ctx.repair_marks)
                         ctx.repair_last = sig
                         if done:
-                            ctx.register_completed_orders([62], "compteur")
+                            ctx.register_completed_orders([62], "counter")
                 ctx.type_history = (ctx.type_history + [snap])[-60:]
                 bot_held = False
                 if named:
@@ -1593,22 +1581,22 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                     for n in sorted(marker_orders(ctx.created_keys, ctx.bot_hold_state.get("total_at"))):
                         if (n, ctx.bot_hold_state.get("total_at")) not in ctx.marker_done:
                             ctx.marker_done.add((n, ctx.bot_hold_state.get("total_at")))
-                            ctx.register_completed_orders([n], "marqueur")
+                            ctx.register_completed_orders([n], "marker")
                     got_flags = flag_orders(table, ctx.flag_orders_done)       # drapeaux de fin des premieres commandes : presence = commande terminee
                     if got_flags:
                         ctx.flag_orders_done.update(got_flags)
-                        ctx.register_completed_orders(got_flags, "marqueur")
+                        ctx.register_completed_orders(got_flags, "marker")
                     bot_state = ctx.type_state.get("bot", {})
                     if "baseline" in bot_state and not bot_missing:
                         shift = bot_absorb(ctx.bot_hold_state, loop.time(), bot_held, delivery_flag, cur["bot"], int(bot_state["baseline"]))
                         if shift:
                             bot_state["baseline"] = int(bot_state["baseline"]) + shift
                             ctx.save_progress()
-                            logger.info(f"Fin de commande principale ou speciale reconnue dans les compteurs (cle creee avec le total, pas de livraison de bot) : "
-                                        f"{shift} hausse(s) du compteur de bot ecartee(s) (base {bot_state['baseline'] - shift} -> {bot_state['baseline']}).")
+                            logger.info(f"Main or special order end recognised in the counters (key created with the total, not a bot delivery): "
+                                        f"{shift} bot counter increase(s) dropped (baseline {bot_state['baseline'] - shift} -> {bot_state['baseline']}).")
                     if bot_held and not ctx.bot_hold_logged:
                         ctx.bot_hold_logged = True
-                        logger.debug("Livraison de bot : confirmation retenue (fin de commande ordinaire ou speciale en cours).")
+                        logger.debug("Bot delivery: confirmation held (main or special order ending).")
                     elif not bot_held:
                         ctx.bot_hold_logged = False
                 # le jeu ecrit les compteurs separement et parfois a plusieurs secondes d'intervalle (le compteur total peut avancer seul
@@ -1643,14 +1631,14 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                                 ctx.bot_was_missing = False
                             state["baseline"] = cur[kind]
                             ctx.save_progress()
-                            logger.info(f"{ORDER_TYPES[kind][2].capitalize()} : base fixee a {cur[kind]} (palier = {step} livraison(s)).")
+                            logger.info(f"{ORDER_TYPES[kind][2].capitalize()}: baseline set to {cur[kind]} (milestone = {step} delivery(ies)).")
                         continue
                     if kind == "bot" and ctx.bot_rebase_pending:
                         # la base est memorisee dans la progression du slot, pas dans la sauvegarde du jeu : apres un lancement du client ou le chargement d'une autre sauvegarde,
                         # le compteur peut differer de la base sans qu'aucune livraison de bot n'ait eu lieu (releve 22/11 : « palier 1 » 90 s apres le lancement, sans livraison)
                         ctx.bot_rebase_pending = False
                         if cur[kind] != int(state["baseline"]):
-                            logger.info(f"Commandes de bot : base recalee sur la sauvegarde chargee ({state['baseline']} -> {cur[kind]}), aucune livraison de bot comptee.")
+                            logger.info(f"Bot orders: baseline realigned to the loaded save ({state['baseline']} -> {cur[kind]}), no bot delivery counted.")
                             state["baseline"] = cur[kind]
                             ctx.save_progress()
                         continue
@@ -1659,7 +1647,7 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                     base_id = ORDER_TYPES[kind][0]
                     new = set(order_type_milestones(base_id, cur[kind], int(state["baseline"]), step, cnt))
                     for code in sorted(new - ctx.type_checks[kind]):
-                        logger.info(f"Palier de {ORDER_TYPES[kind][2]} atteint : {code - base_id} ({(code - base_id) * step} livraison(s))")
+                        logger.info(f"Milestone of {ORDER_TYPES[kind][2]} reached: {code - base_id} ({(code - base_id) * step} delivery(ies))")
                     ctx.type_checks[kind] |= new
 
         # 2g. Mode recherche (/ds_counters watch) : ecrit chaque changement de la table nommee (lecture seule, coupe par defaut)
@@ -1671,19 +1659,19 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                 ctx.counters_watch_last = dump
                 if changes:
                     known = {bytes.fromhex(c["key"]).hex(): n for n, c in ctx.map.get("named_counters", {}).get("counters", {}).items()}
-                    logger.info(f"[{time.strftime('%H:%M:%S')}] {len(changes)} compteur(s) modifie(s) :")
+                    logger.info(f"[{time.strftime('%H:%M:%S')}] {len(changes)} counter(s) changed:")
                     for k, a, b in changes[:30]:
                         delta = f" ({b - a:+d})" if a is not None and b is not None else ""
-                        logger.info(f"  {k} : {'absent' if a is None else a} -> {'disparu' if b is None else b}{delta}" + (f"   [{known[k]}]" if k in known else ""))
+                        logger.info(f"  {k} : {'absent' if a is None else a} -> {'gone' if b is None else b}{delta}" + (f"   [{known[k]}]" if k in known else ""))
                     if len(changes) > 30:
-                        logger.info(f"  ... et {len(changes) - 30} autres (chargement d'une sauvegarde ?)")
+                        logger.info(f"  ... and {len(changes) - 30} more (save loading?)")
 
-        # 3. Victoire : derniere commande de l'episode but
+        # 3. Victory: last order of the goal episode
         goal_ep = ctx.slot_data.get("goal_episode", 14)
         last = location_name_to_id[EPISODES[goal_ep][-1]]
         if not ctx.finished and last in (ctx.checked_locations | ctx.manual_checks | (ctx.save_checks - ctx.held_codes)):
             ctx.finished = True
-            logger.info(f"Objectif atteint : {EPISODES[goal_ep][-1]} terminee, victoire envoyee au serveur.")
+            logger.info(f"Goal reached: {EPISODES[goal_ep][-1]} completed, victory sent to the server.")
             await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
 
 
@@ -1701,7 +1689,7 @@ async def game_watcher(ctx: DeathStrandingContext) -> None:
             text = traceback.format_exc()
             if text != last_error:  # une seule fois par erreur differente
                 last_error = text
-                logger.error("Erreur dans la surveillance du jeu (elle redemarre) :\n" + text)
+                logger.error("Error in the game watcher (restarting):\n" + text)
             await asyncio.sleep(2.0)
 
 
@@ -1723,7 +1711,7 @@ def launch(*launch_args: str) -> None:
         await watcher
 
     import colorama
-    parser = get_base_parser(description="Client Death Stranding")
+    parser = get_base_parser(description="Death Stranding Client")
     parser.add_argument("--name", default=None)
     parser.add_argument("url", nargs="?", help="Archipelago connection url")
     args = parser.parse_args(launch_args)

@@ -42,9 +42,9 @@ class DeathStrandingWeb(WebWorld):
 
 class DeathStrandingWorld(World):
     """
-    Death Stranding : livre des colis à travers une Amérique dévastée et reconnecte-la.
-    Chaque commande principale est un check. Les objets « Episode N Access » ne structurent que la logique de génération :
-    le jeu lui-même n'est pas (encore) verrouillé, le joueur peut avancer dans l'histoire sans les avoir reçus.
+    Death Stranding: deliver packages across a devastated America and reconnect it.
+    Every main order is a check. The "Episode N Access" items only shape the generation logic (and, with episode_gating, hold back the checks):
+    the game itself is not locked, you can progress through the story without having received them.
     """
     game = "Death Stranding"
     web = DeathStrandingWeb()
@@ -133,10 +133,10 @@ class DeathStrandingWorld(World):
             self.multiworld.regions.append(region)
             menu.connect(region, "Menu -> Bot Orders")
         # Événement de victoire
-        victory = DeathStrandingLocation(self.player, "Victoire", None, previous)
-        victory.place_locked_item(DeathStrandingItem("Victoire", ItemClassification.progression, None, self.player))
+        victory = DeathStrandingLocation(self.player, "Victory", None, previous)
+        victory.place_locked_item(DeathStrandingItem("Victory", ItemClassification.progression, None, self.player))
         previous.locations.append(victory)
-        self.multiworld.completion_condition[self.player] = lambda state: state.has("Victoire", self.player)
+        self.multiworld.completion_condition[self.player] = lambda state: state.has("Victory", self.player)
 
     def create_items(self) -> None:
         pool: list[Item] = []

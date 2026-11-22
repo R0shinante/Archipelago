@@ -1,50 +1,31 @@
 # Setup guide - Death Stranding Director's Cut (PC)
 
+> **Beta.** Play **offline**, in **single player**, on a **dedicated save**. The client reads and writes the game's memory.
+
 ## Requirements
-- Archipelago 0.6.x (run from source: Python 3.12 or 3.13) and `pip install pymem`
-- Death Stranding Director's Cut (Steam), played **offline** on a **dedicated save**
+- Archipelago 0.6.x (preferably run from source: Python 3.12 or 3.13) and `pip install pymem`
+- Death Stranding Director's Cut (Steam), preferably in French (see the README, "Other languages")
 
 ## Generating a game
-1. Generate your YAML from the Launcher ("Generate Template Options"), `game: Death Stranding`.
+1. Generate your YAML from the Launcher ("Generate Template Options"), `game: Death Stranding`, and set your options (see the README for the full table).
 2. Put `death_stranding.apworld` in `custom_worlds`, then Generate and Host.
-3. Options: `goal`, `trap_percentage`, `starting_episodes`, `episode_gating`, `death_link`, `likes_checks` / `likes_step`, `order_checks` / `order_step`, `standard_checks` / `standard_step`, `bot_checks` / `bot_step`.
-   "Episode N Access" items only shape the generation logic: they do not lock the game.
 
-## First client launch
-1. Start the game and load your save, then open "Death Stranding Client" and connect: `/connect address:port`.
-2. **Inventory:** `/ds_status` should show the amounts; write test (after `/ds_debug on`): `/ds_give Chiral Crystals 10`.
-3. **Main orders:** wait for the "Commandes principales : lecture en memoire active …" line (about a minute the first time, a few seconds afterwards). Completing a main order then sends its check.
+## First launch of the client
+1. Start the game and load your dedicated save, then open "Death Stranding Client" and connect: `/connect address:port`.
+2. **Memory access:** `/ds_status` must show your quantities.
+3. **Main orders:** wait for the log line "Main orders: memory reading active …" (about a minute the first time, a few seconds afterwards). Completing a main order then sends its check.
 
-## How checks are detected
-At every checkpoint the game writes "Commande terminée : nº N ..." (French) in the save title. The client reads that title directly from the game's memory and sends
-the matching "Order N - ..." check (most orders are even recognised immediately, by a key the game creates at their end). Only orders completed **after** the client starts count.
-If your game is not in French (other languages are guesses, not yet verified in game), type `/ds_titles` after a save to check what the client reads, and add missing words in `saves.completed_words` of `memory_map.json` if needed.
+If a check does not go out, `/check <exact location name>` sends it by hand. `/locations` lists the location names.
 
-### Save decryption (optional)
-As a fallback, or for another language: the third-party tool [DeathStrandingSaveDataResigner](https://github.com/mi5hmash/DeathStrandingSaveDataResigner) (command-line version)
-reads the checkpoints on a temporary copy (your saves are never modified). `/ds_resigner <path to the exe>`, then `/ds_selftest`;
-`/ds_saves_dir <folder>` if the folder is not found, `/ds_resigner off` / `on` to disable / re-enable it, `/ds_catchup` to process checkpoints that already exist.
+## Optional milestone checks
+Set in the YAML: `likes_checks` / `likes_step`, `order_checks` / `order_step`, `standard_checks` / `standard_step` and `bot_checks` / `bot_step`. They are counted since the slot's first connection and need no save. `/ds_likes`, `/ds_orders`, `/ds_standard` and `/ds_bot` show the progress.
 
-## Optional checks
-- **Likes milestones:** `likes_checks` checks, one every `likes_step` likes earned since the first connection. `/ds_likes` shows progress.
-- **Order progress:** `order_checks` checks, one every `order_step` completed order steps since the first connection. The counter goes up on
-  standard deliveries, bot orders, and acceptance and intermediate objectives of main orders (not lost-cargo deliveries). No save needed. `/ds_orders` shows progress.
+## Received items and effects
+Effects are one-shot and never change the game's balance permanently. An effect waits until Sam is readable (not during loading or menus).
 
-- **Standard orders:** `standard_checks` checks, one every `standard_step` standard orders delivered since the first connection (the game's exact counter). `/ds_standard` shows progress.
-- **Bot orders:** `bot_checks` / `bot_step`, counted live since the first connection (derived from internal game counters). `/ds_bot` shows progress.
+### Traps
+They never kill Sam.
 
-## Materials
-In game, resins, metals, ceramics, chemicals and special alloys are stored **per facility**, not in the backpack. Received items are credited to the stock of
-**one random facility** out of 39 (reproducible; the "applied item" message says which). `/ds_stock_mode target` credits the facility chosen with
-`/ds_stock_target`; `/ds_stock_pool Name1; Name2` limits the random draw. `/ds_stock` shows the six values of a facility.
-
-## DeathLink
-Enable `death_link` in the YAML and regenerate. The client sends a DeathLink when Sam's health reaches 0 and sets it to 0 when one is received
-(once readable: not during loading or menus). A received death is not sent back (20 s) and a sent death blocks sends for 30 s. Validated in game.
-Test by hand first: `/ds_hp` shows health, `/ds_debug on` then `/ds_kill` kills Sam.
-
-## Traps
-None can kill Sam.
 | Item | Effect |
 |---|---|
 | Injury Trap | -30% of max health (floor: 10%) |
@@ -53,8 +34,9 @@ None can kill Sam.
 | Rust Trap | -1500 suit condition (min 0) |
 | Pickpocket Trap | -50 Chiral Crystals from the backpack (min 0) |
 
-## Useful items with effects
-One-shot effects only, nothing permanent.
+The share of traps is set in the YAML (`trap_percentage`).
+
+### Useful items
 | Item | Effect |
 |---|---|
 | Blood Bag | +40% of max health (capped) |
@@ -66,15 +48,39 @@ One-shot effects only, nothing permanent.
 | Cryptobiote Pack | +5 cryptobiotes in the backpack |
 | D-Cryptobiote Pack | +3 D-cryptobiotes in the backpack |
 | Sandalweed Bundle | +5 sandalweed in the backpack |
+| Chiral Crystals | +100 chiral crystals in the backpack |
+| Likes Pack | +500 likes |
 
-Other equipment items (Cargo Skeleton, Trike, Truck, Road Paver, anchors, ladders, weapons, grenades) have **no in-game effect for now**.
-Effects wait until Sam is readable. Test with `/ds_debug on` then `/ds_effect Blood Bag`. Values live in `memory_map.default.json` (sections `traps`, `boosts`, `item_grants`).
+### Equipment (compensation)
+Equipment cannot be unlocked in the game by writing memory (each piece is tied to live game objects), so receiving it gives a compensation instead. This part is still to be confirmed in game.
 
-## Known limitations
-- The 70 main orders (no. 1 to 70) are the checks. 19 are optional (Fandom “Story: No” + pizza no. 66: 6, 10-13, 15, 17, 25, 26, 29, 31, 35, 37, 40, 42, 45, 56, 57, 66): generation never puts progression items on them. Order 1 and tutorial-type orders (6, 10, 15, 25, 29) are unverified in game: use `/check <location>` if one is not detected.
-- "Episode N Access" items lock nothing in game. Victory (last order of the goal episode) is validated in game for No. 70 (episode 14 goal) and No. 68 (episode 12 goal); `/check <location name>` sends a check by hand if it does not go out. With `episode_gating`, victory waits for the access items of every episode up to the goal.
-- Memory offsets come from a community table (game v1.004); if `/ds_status` finds nothing while the game is loaded, they do not match your version.
+| Item | Compensation |
+|---|---|
+| Cargo Skeleton | stamina refilled + -1000 fatigue |
+| Hematic Grenade Pack | +40% of max health (like a Blood Bag) |
+| Trike | +100 metals |
+| Truck | +50 special alloys |
+| Road Paver | +100 ceramics |
+| Zipline Anchor Set | +50 metals |
+| Ladder Set | +50 resins |
+| Climbing Anchor Set | +50 ceramics |
+| Assault Rifle | +100 chemicals |
+| Bola Gun | +100 chiral crystals in the backpack |
+
+### Materials
+Resins, metals, ceramics, chemicals and special alloys are stored **per facility** in the game, not in the backpack. Each received material item is credited to the stock of **one facility drawn at random** among the 39 (reproducible draw; the "Item applied" log line says which). `/ds_stock_mode target` turns the randomness off and always credits the facility chosen with `/ds_stock_target <facility>`; `/ds_stock_pool Name1; Name2` limits the draw to some facilities (`/ds_stock_pool all` to take them all again). `/ds_stock` shows the six values of a facility (`/ds_stock Port Knot City` for another one): open the facility's menu in game first to compare.
+
+### "Episode N Access"
+They do nothing in the game itself. They shape the generation logic and, with `episode_gating`, hold back the checks of an episode until its access is received.
+
+## DeathLink
+Enable `death_link` in the YAML and regenerate. The client reads Sam's health: when it drops to 0 it warns the other players, and when a DeathLink is received it sets Sam's health to 0 (as soon as it is readable). A death caused by a DeathLink is not sent back (20 s) and a sent death blocks sending for 30 s.
+
+## Test and diagnostic commands
+They are off by default. `/ds_debug on` enables them for the session (`/ds_give`, `/ds_effect`, `/ds_likes_give`, `/ds_stock_give`, `/ds_kill`, `/ds_hp`, `/ds_items_reset`, `/ds_counters`, `/ds_memdiff`, `/ds_memdump`); the values live in `memory_map.default.json` (sections `traps`, `boosts`, `item_grants`). Test an effect with `/ds_debug on` then `/ds_effect Blood Bag`.
 
 ## Tracking with PopTracker (optional)
+A PopTracker pack (map of the 70 orders, received items, counters, Archipelago autotracking) is available in the release (`death_stranding_poptracker_vX.Y.Z.zip`). Put it in PopTracker's `packs` folder without extracting it, open it, click the grey "AP" and enter server, **slot name** and password. See the README.
 
-A PopTracker pack (map of the 70 orders, received items, counters, Archipelago autotracking) is available in the release (`death_stranding_poptracker_vX.Y.Z.zip`). Put it unextracted in PopTracker's `packs` folder, open it, click the grey "AP" and enter the server, **slot name** and password. See the README, section "Tracking with PopTracker".
+## Known limitations
+See the README, section "Known limitations".

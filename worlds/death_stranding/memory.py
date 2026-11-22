@@ -194,6 +194,36 @@ class PymemBackend:
             return False
 
 
+def memdiff(old: bytes, new: bytes) -> typing.List[typing.Tuple[int, bytes, bytes]]:
+    """Mots de 4 octets differents entre deux photos d'une meme zone : [(decalage, ancien, nouveau)] (lecture seule, decouverte)."""
+    n = min(len(old), len(new)) // 4 * 4
+    return [(i, old[i:i + 4], new[i:i + 4]) for i in range(0, n, 4) if old[i:i + 4] != new[i:i + 4]]
+
+
+def hexdump_lines(data: bytes, start: int = 0, words_per_line: int = 8) -> typing.List[str]:
+    """Lignes « +0xDECALAGE : mot mot ... » (mots de 4 octets en hexadecimal) ; les lignes entierement a zero consecutives sont regroupees."""
+    out, zeros, step = [], 0, words_per_line * 4
+    for i in range(0, len(data) // 4 * 4, step):
+        chunk = data[i:i + step]
+        if not any(chunk):
+            zeros += 1
+            continue
+        if zeros:
+            out.append(f"  ... {zeros} zero line(s)")
+            zeros = 0
+        out.append(f"+{start + i:#06x} : " + " ".join(chunk[j:j + 4][::-1].hex() for j in range(0, len(chunk) // 4 * 4, 4)))
+    if zeros:
+        out.append(f"  ... {zeros} zero line(s)")
+    return out
+
+
+def format_word(raw: bytes) -> str:
+    """Un mot de 4 octets lu en entier signe, et en flottant s'il est plausible."""
+    i = struct.unpack("<i", raw)[0]
+    f = struct.unpack("<f", raw)[0]
+    return f"{i}" + (f" (~{f:.2f})" if f == f and 1e-3 <= abs(f) <= 1e7 else "")
+
+
 class GameMemory:
     def __init__(self, config: dict, backend):
         self.cfg = config
@@ -312,6 +342,71 @@ class GameMemory:
         return new if self.backend.write(obj + _num(res["qty"]), struct.pack("<i", new)) else None
 
     # -- instantanes et comparaison (decouverte, lecture seule) -------------
+    ZONES = {"inventory": 0x6000, "player": 0x1000}
+
+    def parent_object(self) -> typing.Optional[int]:
+        """Objet parent des branches d'inventaire et de joueur (chaine d'inventaire sans son dernier decalage), ou None."""
+        if self.resolve_object() is None or self._good_global is None:
+            return None
+        a = self._u64(self._good_global)
+        for off in self.inv.get("chain", [])[:-1]:
+            if not self._plausible(a):
+                return None
+            a = self._u64(a + _num(off))
+        return a if self._plausible(a) else None
+
+    def zone_base(self, zone: str) -> typing.Optional[int]:
+        """Adresse de depart d'une zone : « inventory », « player », ou « @0xNNNN » = objet pointe par le parent a ce decalage (branches voisines)."""
+        if zone == "inventory":
+            return self.resolve_object()
+        if zone == "player":
+            return self._player_object()
+        if zone.startswith("@"):
+            try:
+                off = int(zone[1:], 16)
+            except ValueError:
+                return None
+            parent = self.parent_object()
+            if parent is None:
+                return None
+            p = self._u64(parent + off)
+            return p if self._plausible(p) else None
+        return None
+
+    def parent_pointers(self, start: int = 0x5400, end: int = 0x5600) -> typing.List[typing.Tuple[int, int]]:
+        """Pointeurs plausibles (decalage, valeur) du parent entre `start` et `end` : les branches (inventaire, joueur, autres) voisines."""
+        parent = self.parent_object()
+        if parent is None:
+            return []
+        out = []
+        for off in range(start, end, 8):
+            p = self._u64(parent + off)
+            if self._plausible(p):
+                out.append((off, p))
+        return out
+
+    def heap_zones(self) -> typing.List[str]:
+        """Zones « @0xNNNN » des branches voisines qui pointent vers le tas du jeu (alignees sur 8, hors module, sans doublon d'adresse)."""
+        seen, out = set(), []
+        for off, p in self.parent_pointers():
+            if p & 7 or not (0x10000000000 <= p < 0x7F0000000000) or p in seen:
+                continue
+            seen.add(p)
+            out.append(f"@{off:#x}")
+        return out
+
+    def read_zone(self, zone: str, size: typing.Optional[int] = None) -> typing.Optional[bytes]:
+        """Photo brute d'une zone : objet d'inventaire (« inventory ») ou objet des stats du joueur (« player »). Les pages illisibles sont remplies de zeros."""
+        base = self.zone_base(zone)
+        if base is None:
+            return None
+        size = size or self.ZONES.get(zone, 0x2000)
+        out = bytearray()
+        for off in range(0, size, 0x400):
+            chunk = self.backend.read(base + off, min(0x400, size - off))
+            out += chunk if chunk else bytes(min(0x400, size - off))
+        return bytes(out)
+
     # -- stocks de materiaux par installation ------------------------------
     def _stock_sane(self, base: int) -> bool:
         """Controle : les 6 valeurs de la premiere installation sont des quantites plausibles (0..10 millions)."""
@@ -457,7 +552,7 @@ class GameMemory:
         size = int(cfg.get("slot_size", 24))
         data, slots = self._table_capacity(cfg, base, min_occ)
         if data is None:
-            return None, f"0x{base:X} : pas une table de compteurs (illisible, peu remplie ou incoherente)"
+            return None, f"0x{base:X} : not a counter table (unreadable, sparsely filled or inconsistent)"
         ko, vo = _num(cfg.get("key_offset", 4)), _num(cfg.get("value_offset", 20))
         ho = _num(cfg.get("hash_offset", 0))
         wanted = {name: (bytes.fromhex(c["key"]), _num(c["hash"]) if c.get("hash") else None) for name, c in cfg.get("counters", {}).items()}
@@ -475,7 +570,7 @@ class GameMemory:
             for name, (k, kh) in wanted.items():
                 if key == k:
                     v = struct.unpack_from("<i", data, o + vo)[0]
-                    seen_key[name].append(f"case {s} hash 0x{h:X} valeur {v}")
+                    seen_key[name].append(f"slot {s} hash 0x{h:X} value {v}")
                     # hash connu : on l'exige ; sinon (compteur dont le hash n'a pas ete releve) : hash non nul et case compatible avec le sondage
                     # (les copies anciennes ont un hash nul)
                     if (h == kh) if kh is not None else (h != 0 and (s - (h & (slots - 1))) % slots < 256):
@@ -488,12 +583,12 @@ class GameMemory:
             if not vals and name in lazy:
                 continue
             if len(vals) != 1:
-                return None, f"0x{base:X} ({slots} cases) : compteur « {name} » : {len(vals)} case(s) valides ; cases avec la cle : {'; '.join(seen_key[name]) or 'aucune'}"
+                return None, f"0x{base:X} ({slots} slots) : counter \"{name}\" : {len(vals)} valid slot(s); slots with the key: {'; '.join(seen_key[name]) or 'none'}"
             if not 0 <= vals[0] <= 1_000_000:
-                return None, f"0x{base:X} : compteur « {name} » : valeur aberrante {vals[0]}"
+                return None, f"0x{base:X} : counter \"{name}\" : outlier value {vals[0]}"
             out[name] = vals[0]
         self._last_cap = slots                  # capacite reconnue (sert a la recherche par signature : voir scan_named_table)
-        return out, f"{slots} cases"
+        return out, f"{slots} slots"
 
     def scan_titles(self, words: typing.Iterable[str], windows: typing.Optional[typing.List[typing.Tuple[int, int]]] = None,
                     deadline: float = 600.0, progress: typing.Optional[typing.Callable[[str], None]] = None) -> typing.Tuple[typing.Set[typing.Tuple[int, str]], typing.List[typing.Tuple[int, int]]]:
@@ -515,7 +610,7 @@ class GameMemory:
                 done += n
                 if progress and windows is None and time.time() - last_say >= 20:
                     last_say = time.time()
-                    progress(f"Recherche des titres : {done >> 20} / {grand >> 20} Mo lus...")
+                    progress(f"Searching titles: {done >> 20} / {grand >> 20} MB read...")
                 if data:
                     found, anchors = parse_memory_titles(data, words)
                     titles.update((num, hhmmss) for num, hhmmss, _ in found)
@@ -625,12 +720,12 @@ class GameMemory:
                             i = data.find(pt, i + 1)
                 off += n - (len(pat) - 1) if off + n < total else n
         if progress:
-            progress(f"{len(hits)} occurrence(s) de la signature.")
+            progress(f"{len(hits)} occurrence(s) of the signature.")
         lo, hi = min(int(cfg.get("slots", 16)), 16), int(cfg.get("max_slots", 4096))
         self.scan_hits = len(hits)
         near = [h2 for h2 in hits2 if hits and min(abs(h2 - h1) for h1 in hits) < 4096 * size]
-        self.scan_note = (f"signature « {next(iter(counters))} » vue {len(hits)} fois" + ("" if hits else " (ce compteur n'existe pas encore ou la table n'est pas chargee)")
-                          + (f", « {list(counters)[1]} » vue {len(hits2)} fois dont {len(near)} pres de la 1re" if second else ""))
+        self.scan_note = (f"signature \"{next(iter(counters))}\" seen {len(hits)} time(s)" + ("" if hits else " (this counter does not exist yet or the table is not loaded)")
+                          + (f", \"{list(counters)[1]}\" seen {len(hits2)} time(s), {len(near)} of them near the first" if second else ""))
         if hits:       # profil de la table autour de la 1re occurrence, pour comprendre un rejet : (capacite : cases occupees / bien placees)
             prof = []
             n = lo
@@ -642,7 +737,7 @@ class GameMemory:
                     ok = sum(1 for q in range(n) if (h := struct.unpack_from("<I", d0, q * size)[0]) and (q - (h & (n - 1))) % n < 64)
                     prof.append(f"{n}:{occ}/{ok}")
                 n *= 2
-            self.scan_note += " ; profil capacite:occupees/bien placees = " + (" ".join(prof) or "illisible")
+            self.scan_note += " ; profile capacity:occupied/well placed = " + (" ".join(prof) or "unreadable")
             best = None            # plus grande capacite dont les cases sont bien placees : la vraie table probable ; on dit pourquoi elle est rejetee
             for item in prof:
                 cap_s, rest = item.split(":")
@@ -652,7 +747,7 @@ class GameMemory:
             if best:
                 self.scan_candidate = (hits[0] - (h0 & (best - 1)) * size, best)          # table « probable » meme rejetee : /ds_counters partial la decrit
                 _out, why = self._read_counters_at(cfg, hits[0] - (h0 & (best - 1)) * size, 2)
-                self.scan_note += f" ; table probable de {best} cases : " + (f"lue ({_out})" if _out is not None else why)[:260]
+                self.scan_note += f" ; probable table of {best} slots : " + (f"read ({_out})" if _out is not None else why)[:260]
         # Le test de placement ((case - hash & (capacite-1)) % capacite < 64) est VIDE pour une capacite <= 64 : n'importe quelle fenetre de 16 a 64 cases
         # a l'interieur d'une grande table le passe (releve 21/11 : fenetre de 64 cases de la table de 256/512 cases acceptee, `total` hors fenetre -> faux
         # « bot indisponible »). On essaie donc les capacites de la plus grande a la plus petite : la vraie base (capacite reelle) est trouvee avant toute fenetre.
@@ -684,16 +779,16 @@ class GameMemory:
         la table doit contenir les bonnes cles avec le bon hash."""
         cfg, rng = self.cfg.get("named_counters", {}), self.backend.module_range()
         if not cfg:
-            return None, "section « named_counters » absente de la configuration memoire"
+            return None, "section \"named_counters\" missing from the memory configuration"
         if not rng:
-            return None, "module ds.exe introuvable (jeu non detecte)"
+            return None, "ds.exe module not found (game not detected)"
         scanned = getattr(self, "_named_base", None)
         if scanned is not None:      # base retrouvee par recherche memoire : on la reverifie a chaque lecture
             out, why = self._read_counters_at(cfg, scanned, getattr(self, "_named_min_occ", None))
             if out is not None:
                 self._named_last_base = scanned
                 self._named_last_min_occ = getattr(self, "_named_min_occ", None)
-                return out, f"ok (recherche memoire, {why})"
+                return out, f"ok (memory search, {why})"
             self._named_base = None
         roots = cfg.get("roots") or []
         order = list(range(len(roots)))
@@ -714,10 +809,10 @@ class GameMemory:
                 self._named_min_occ = None
                 self._named_last_min_occ = None
                 self._named_last_base = base
-                return out, f"ok (chaine n°{i + 1}, {why})"
+                return out, f"ok (chain no. {i + 1}, {why})"
             table_level.append(f"#{i + 1} {why}")
         shown = (table_level + reasons)[:3]
-        return None, f"aucune des {len(roots)} chaine(s) ne mene a la table ; " + " | ".join(shown) + (" ..." if len(table_level) + len(reasons) > 3 else "")
+        return None, f"none of the {len(roots)} chain(s) leads to the table ; " + " | ".join(shown) + (" ..." if len(table_level) + len(reasons) > 3 else "")
 
     def read_named_counters(self) -> typing.Optional[typing.Dict[str, int]]:
         """Compteurs nommes du jeu ({nom: valeur}), ou None si illisible ou incoherent (voir named_counters_report)."""

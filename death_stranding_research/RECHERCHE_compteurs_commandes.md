@@ -487,3 +487,17 @@ Rejouée en direct, client connecté dès la cinématique d'ouverture : « table
 - **29 (Construction : Safe House)** : aucune clé créée à 0. Étape 1 (« Build a safe house ») : `d4715a80835a34f6b8bf2a162bb230f0` absent → 1 (16:07:33). À la livraison (16:08:58) : `4ac395687f4f3036b3c27106174717d9` (« Upgrade the safe house ») absent → 1 ; à la sortie de l'écran de résultat (16:09:19) les deux passent à 0. Câblée : `4ac39568…`, valeur 0 exigée. Cette commande ne fait pas monter `nobot` (contrairement aux commandes ordinaires) : sur une sauvegarde où `total` existe, sa hausse relève de la retenue des fins spéciales.
 - Table de début de partie : `total` absent (bot indisponible), comme attendu.
 - Titre de la 28 vu avant sa livraison : déduction (1, 2–5, 7–9, 14, 16) ; le titre désigne la dernière commande *sélectionnée*, pas la progression.
+
+## Relevé du 22/11 16:50 : équipements dans la zone d'inventaire (`/ds_memdiff snap all`)
+- Test de bruit (10 s à l'arrêt) : plusieurs centaines de mots changent déjà dans les zones du tas (le monde tourne : animation, positions) ; seuls les entiers « petits » sont exploitables.
+- **Fabrication d'un squelette** : dans la zone d'inventaire (`@0x54c8`), un enregistrement apparaît vers `+0x3ab8` (champs 8193, 472, −512, `+0x3ac8` : 2097151 → 24711, 1400, 1400, un drapeau, 1056). `2097151` (0x1FFFFF) ressemble à la valeur « emplacement vide » et 24711 à l'identifiant de l'objet.
+- **Équipement** : le drapeau `0xFF010000 ↔ 0xFF000000` passe de `+0x3a14` à `+0x3ad4` (écart 0xC0 = pas des enregistrements) : drapeau « équipé » de l'enregistrement suivant. Hypothèse : tableau d'instances d'équipement, pas 0xC0, autour de `+0x39f8`.
+- Piste : `/ds_memdump inventory 3800 400` pour lire le tableau et décoder les enregistrements.
+
+### Décodage du tableau d'équipements (`/ds_memdump inventory 3800 400`, 22/11 16:56)
+Le tableau est une suite d'enregistrements de **0x40 octets** (et non 0xC0 : le drapeau « équipé » avait bougé de 3 enregistrements). Disposition (mots de 4 octets) :
+- `+0x00` numéro de série de l'instance (0x5b, 0x17b, 0x17c, 0x183, 0x1d8 : croissant) ; `+0x04` −512 pour une instance existante ;
+- `+0x08` **identifiant du type d'objet** (`0x1FFFFF` = pas d'identifiant à cet endroit) : squelettes `0x6049`, `0x60ea`, `0x60eb`, `0x60f2` (portés sur le dos) et `0x6087` = 24711 = **squelette renforcé niv. 2** (fabriqué puis équipé) ;
+- `+0x0C` / `+0x10` : deux valeurs (1400 / 1400 pour les squelettes ; quantité / maximum pour les consommables : 1/1, 2/99) ; `+0x14` drapeau `0xFF010000` = **équipé** (`0xFF000000` sinon) ;
+- `+0x18` / `+0x1C` : mot de poignée et 0x420 (1056, compteur global) ; `+0x20` **pointeur vers un objet du tas** ; `+0x28` 1.0 ; `+0x30` pointeur du module (classe, identique partout) ; `+0x38/0x3C` flottants (coordonnées).
+Conclusion : chaque instance est liée à un objet vivant du tas (pointeurs) : **créer un équipement par écriture mémoire n'est pas réaliste** (il faudrait appeler le code du jeu). Reste lisible/écrivable : le drapeau « équipé », les quantités des consommables (identité de l'emplacement inconnue).

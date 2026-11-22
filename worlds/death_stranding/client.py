@@ -684,6 +684,8 @@ class DeathStrandingContext(CommonContext):
         self.bot_hold_keys: typing.Optional[typing.Set[str]] = None     # cles de la table au releve precedent (detecte les creations)
         self.raw_logged: typing.Optional[tuple] = None
         self.bot_was_missing = False          # « total » absent de la table (debut de partie) : bot indisponible, base du bot differee a son apparition
+        self.bot_rebase_pending = True        # base du bot a recaler sur la sauvegarde actuellement chargee (lancement du client, retour a une sauvegarde plus ancienne)
+        self.bot_last_total: typing.Optional[int] = None
         self.title_burst_until = 0.0
         self.title_active_logged = False
         self.title_last_main: typing.Optional[typing.Tuple[int, int]] = None
@@ -1081,9 +1083,9 @@ EARLY_ORDER_FLAGS: typing.Dict[int, str] = {
 # 21/11) : la cle est l'identifiant de la phrase d'OBJECTIF FINAL de la mission (texte dans localized/sentences/ds_ui/ds_mission/simpletext). Verifie sur les 17 cles deja
 # relevees en jeu, puis sur la n°14 (cle creee 6 s apres la livraison) et la n°15 (4 objectifs, seule la cle du dernier est creee a la validation finale ; les etapes intermediaires ont leur cle a 1 puis 0). On garde les missions a UN SEUL objectif candidat et celles dont les objectifs se classent sans doute par le texte
 # (ramasser / recuperer, PUIS livrer : le fichier ne donne pas l'ordre, mais le dernier objectif est la livraison, comme sur les 7 cas connus a plusieurs objectifs) ;
-# les autres (objectifs ambigus) restent detectees par titre / memoire. Commandes non listees : 1, 29, 54, 69 (et les n°>= 71).
+# les autres (objectifs ambigus) restent detectees par titre / memoire. Commandes non listees : 1 (et les n°>= 71).
 DECIMA_ORDER_FLAGS: typing.Dict[int, str] = {
-    11: "9ad18b19569b36248a33178c6c93e034",
+    11: "9ad18b19569b36248a33178c6c93e034",  # VALIDE en jeu (22/11 16:02 : retrouvee a 0 au lancement sur une sauvegarde apres la n°11)
     12: "3f46276477fb39a193163641657d4094",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
     13: "cee7144f0ae93d51b6e9b7abbd80beae",
     14: "b95c24ee2979331a99b902762b0a16fa",  # VALIDE en jeu (21/11 20:49:53)
@@ -1099,8 +1101,9 @@ DECIMA_ORDER_FLAGS: typing.Dict[int, str] = {
     24: "3057baa388313d4592bcdf558f4ad7a7",
     25: "27b284671828385a9dd6e1f382af6911",
     26: "c47bf77798a037ee8534d0058905f93b",  # VALIDE en jeu (21/11 21:39:43, cle de la mission 00700 creee a la livraison)
-    27: "46609effb6eb310381fe3f55842ac3fc",
-    28: "45d9222a29f53d169f26da034b0c0cb8",
+    27: "46609effb6eb310381fe3f55842ac3fc",  # VALIDE en jeu (22/11 16:03:11, creee a 0 a la livraison)
+    28: "45d9222a29f53d169f26da034b0c0cb8",  # VALIDE en jeu (22/11 16:10:34, creee a 0 a la livraison)
+    29: "4ac395687f4f3036b3c27106174717d9",  # VALIDE en jeu (22/11 16:08:59 -> 16:09:19) : AUCUNE cle n'est creee a 0 ; « Upgrade the safe house » (cle finale) passe a 1 a la livraison puis a 0 a l'ecran de resultat (l'etape « Build a safe house », d4715a80, passe aussi a 0) -> valeur 0 exigee
     30: "98b9b8854e3d37c88b40f12088406ee3",
     31: "dbe8209364813f3e909788dd89ad4cd1",
     32: "eb03497ed1d9305e87bd36811b685ff2",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
@@ -1111,27 +1114,29 @@ DECIMA_ORDER_FLAGS: typing.Dict[int, str] = {
     37: "3d2e48d3491a39e4b8e3b711a5b0833d",
     38: "a42c2ea3968832b4b05564df4e50a94b",  # VALIDE en jeu (21/11 22:33:34 : cle CREEE a 0 a la livraison ; les 2 autres candidats (7a2fe706, 6cdcc269) sont des etapes, a 3 puis 0)
     39: "ccecd94dccc23c53adde159b9846af71",  # VALIDE en jeu (21/11 22:43:00) : AUCUNE cle n'est creee a la validation finale ; la derniere etape (« Trouvez l'homme mysterieux ») passe a 1 puis a 0 a la fin -> valeur 0 exigee
-    40: "c5ab755816da3dfd86e43a9aa6a369bd",  # pizza : missions 00710 / 00720 / 00730 / 00740 attribuees dans l'ordre croissant (la 00700 = n°26 est validee), pas encore rejouee
-    41: "4d3f85fab3d2396085cdd6b8eaebea62",
-    42: "92a68b85960231f382dd25dc009469f2",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
-    43: "5d85d97d29a1323b8d5e681f558bcf04",
-    44: "6e43dedf20d5392fa56f90affa311551",
+    40: "c5ab755816da3dfd86e43a9aa6a369bd",  # VALIDE en jeu (22/11 09:52:27 : pizza, cle creee a 0 a la livraison ; confirme l'ordre croissant des missions de pizza)
+    41: "4d3f85fab3d2396085cdd6b8eaebea62",  # VALIDE en jeu (22/11 09:54:48, creee a 0 a la livraison)
+    42: "92a68b85960231f382dd25dc009469f2",  # VALIDE en jeu (22/11 09:50:11 : objectif final deduit du texte « Deliver all four containers » ; l'etape « Collect » (71080414) passe a 1 puis 0)
+    43: "5d85d97d29a1323b8d5e681f558bcf04",  # VALIDE en jeu (22/11 09:57:55, creee a 0 a la livraison)
+    44: "6e43dedf20d5392fa56f90affa311551",  # VALIDE en jeu (22/11 10:00:56, creee a 0 a la livraison)
     45: "64d85717e290380c898ad20e72c23b34",  # pizza : missions 00710 / 00720 / 00730 / 00740 attribuees dans l'ordre croissant (la 00700 = n°26 est validee), pas encore rejouee
-    46: "86f3dd70af4e3001ad977a2d65fd52ad",  # mission mono-objectif « Take Mama to meet Lockne. » ; cle absente a la 32, presente a la 59 sur les 103 releves, pas encore rejouee en direct
-    47: "c7f7cec2ba103bab8a61ed6f6c0ab7ab",
-    48: "9da69a44d1ca34dea1423a3289e401a5",
-    49: "7835eba730e2301ea5ec740ac4408031",
-    50: "59bdb53f4fd7312fab7e833db15c54eb",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
-    51: "6abeef8c6fd333c4888a5a5b32f49571",
-    52: "df117a304f79332d8c6deca7e83af8d0",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
-    53: "1e0a0125c9203b98bdc1d22b55869fec",
-    55: "a7832327bf0d3e4aabaf815b00f3f8d4",
+    46: "86f3dd70af4e3001ad977a2d65fd52ad",  # VALIDE en jeu (22/11 10:04:07, creee a 0 a la livraison)
+    47: "c7f7cec2ba103bab8a61ed6f6c0ab7ab",  # VALIDE en jeu (22/11 10:33:23, creee a 0 a la livraison)
+    48: "9da69a44d1ca34dea1423a3289e401a5",  # VALIDE en jeu (22/11 10:30:01, creee a 0 a la livraison)
+    49: "7835eba730e2301ea5ec740ac4408031",  # VALIDE en jeu (22/11 10:35:54, creee a 0 a la livraison)
+    50: "59bdb53f4fd7312fab7e833db15c54eb",  # VALIDE en jeu (22/11 10:38:26, creee a 0 a la livraison ; l'etape intermediaire bebf662f passe a 1 puis 0)
+    51: "6abeef8c6fd333c4888a5a5b32f49571",  # VALIDE en jeu (22/11 10:41:12, creee a 0 a la livraison)
+    52: "df117a304f79332d8c6deca7e83af8d0",  # VALIDE en jeu (22/11 10:44:48, creee a 0 a la livraison ; l'etape intermediaire f4361f5f passe a 1 puis 0)
+    53: "1e0a0125c9203b98bdc1d22b55869fec",  # VALIDE en jeu (22/11 10:49:34, creee a 0 a la livraison)
+    54: "27e3ca6834203342b0a8f246bac84642",  # VALIDE en jeu (22/11 11:00:46) : AUCUNE cle n'est creee a la fin (comme la 39) ; 4 etapes (86dfa5bf, 4833c9b4, 435bd75c, 27e3ca68) passent a 1 puis a 0 ensemble -> on surveille la derniere (« Vaincre l'homme mysterieux »), valeur 0 exigee
+    55: "a7832327bf0d3e4aabaf815b00f3f8d4",  # VALIDE en jeu (22/11 11:04:12, creee a 0 a la livraison)
     56: "9b2b7df7485136079a6e148fc37c320a",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
     57: "caf3899bffd63825aaa2e8a909e83425",  # pizza : missions 00710 / 00720 / 00730 / 00740 attribuees dans l'ordre croissant (la 00700 = n°26 est validee), pas encore rejouee
     58: "8ffd1692d72534fa8acd6f27d207f05a",
     59: "c29c74fcdc1e379ab707b68ddb26cc2a",
     60: "1ce82f7acf933e44bd7aeaf88d667a3b",  # objectif final deduit du texte (ramasser/recuperer puis livrer), pas encore rejoue
     66: "9d5270ef18663b4eba568c909f81bab8",  # pizza : missions 00710 / 00720 / 00730 / 00740 attribuees dans l'ordre croissant (la 00700 = n°26 est validee), pas encore rejouee
+    69: "9bf7a4f853cc38cf8409d12a2d7a3b28",  # VALIDE en jeu (22/11 15:07:20 -> 15:25:58) : AUCUNE cle n'est creee a la fin ; 2 etapes (b724c5f6 a 15:06:40, 9bf7a4f8 a 15:07:20) restent a 1 jusqu'a l'ecran de resultat, puis passent a 0 -> derniere etape surveillee, valeur 0 exigee
 }
 
 
@@ -1573,6 +1578,11 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                     if keys_now is not None:
                         ctx.bot_hold_keys = keys_now
                     delivery_flag = table.get(DELIVERY_FLAG_KEY, 0) if table else None
+                    tot_now = named.get("total")
+                    if tot_now is not None:
+                        if ctx.bot_last_total is not None and tot_now < ctx.bot_last_total:
+                            ctx.bot_rebase_pending = True       # un compteur de livraisons ne diminue pas : une autre sauvegarde (plus ancienne) vient d'etre chargee
+                        ctx.bot_last_total = tot_now
                     bot_held = bot_hold_step(ctx.bot_hold_state, loop.time(), named.get("total"), named.get("repair", 0),
                                              table.get(LIKES_STAT_KEY), delivery_flag, new_keys, None if bot_missing else cur["bot"])
                     sig_ta = ctx.bot_hold_state.get("cand_ta")
@@ -1634,6 +1644,15 @@ async def _game_watcher_loop(ctx: DeathStrandingContext) -> None:
                             state["baseline"] = cur[kind]
                             ctx.save_progress()
                             logger.info(f"{ORDER_TYPES[kind][2].capitalize()} : base fixee a {cur[kind]} (palier = {step} livraison(s)).")
+                        continue
+                    if kind == "bot" and ctx.bot_rebase_pending:
+                        # la base est memorisee dans la progression du slot, pas dans la sauvegarde du jeu : apres un lancement du client ou le chargement d'une autre sauvegarde,
+                        # le compteur peut differer de la base sans qu'aucune livraison de bot n'ait eu lieu (releve 22/11 : « palier 1 » 90 s apres le lancement, sans livraison)
+                        ctx.bot_rebase_pending = False
+                        if cur[kind] != int(state["baseline"]):
+                            logger.info(f"Commandes de bot : base recalee sur la sauvegarde chargee ({state['baseline']} -> {cur[kind]}), aucune livraison de bot comptee.")
+                            state["baseline"] = cur[kind]
+                            ctx.save_progress()
                         continue
                     if not (stable_bot if kind == "bot" else stable) or not consistent or (kind == "bot" and bot_held):
                         continue

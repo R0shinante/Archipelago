@@ -41,7 +41,7 @@ Les autres objets du multimonde (cristaux, matériaux, équipement, pièges) son
 | Pièges : Injury, Fatigue, Boot Wear, Rust, Pickpocket | ✅ validé en jeu |
 | Paliers de commandes de bot livrées comme checks (`bot_checks` / `bot_step`, jusqu'à 100, sans sauvegarde) | ✅ validé en jeu : déduit de compteurs internes du jeu ; le check arrive environ 90 s après la livraison |
 | Détection des commandes principales terminées en lisant la mémoire du jeu (sans outil ni déchiffrement) | ✅ validé en jeu (français) ; le déchiffrement des sauvegardes reste disponible en option |
-| Rattrapage des commandes déjà terminées quand le client se lance ou qu'une commande n'apparaît pas dans le titre | ✅ validé en jeu : clés de fin de commande validées sur les n°2 à 10, 14, 15, 26, 38, 39 et 61 à 70 ; les autres : voir « Couverture de la détection immédiate » (clés lues dans les fichiers du jeu ou déduction par les titres de sauvegarde) |
+| Rattrapage des commandes déjà terminées quand le client se lance ou qu'une commande n'apparaît pas dans le titre | ✅ validé en jeu : clés de fin de commande validées sur les n°2 à 10, 14, 15, 26, 38 à 44, 46 et 61 à 70 ; les autres : voir « Couverture de la détection immédiate » (clés lues dans les fichiers du jeu ou déduction par les titres de sauvegarde) |
 | Checks nominatifs par commande standard / optionnelle | ❌ |
 
 Les checks sont identifiés par `7 770 000 + numéro de commande`. Le client détecte une commande principale terminée en lisant, **directement dans la mémoire du jeu**,
@@ -53,9 +53,9 @@ redémarrage), la recherche complète reprend toute seule. Le déchiffrement des
 
 | Niveau | Commandes | Comment le client les voit |
 |---|---|---|
-| ✅ Validées en jeu | 2 à 10, 14, 15, 26, 38, 39, 61 à 65, 67, 68 et 70 | Clé de fin de commande créée par le jeu : détection à la livraison, et rattrapage au lancement du client |
-| 🟡 Clés lues dans les fichiers du jeu, pas encore rejouées | 11 à 13, 16 à 25, 27, 28, 30 à 37, 40 à 53, 55 à 60 et 66 | Même mécanisme ; si une commande est signalée trop tôt, trop tard ou jamais, merci de le signaler avec un relevé `/ds_counters watch on` |
-| ⚪ Par les titres de sauvegarde seulement | 1, 29, 54 et 69 | Lecture du titre du point de contrôle (quelques secondes après la sauvegarde du jeu) et déduction ; `/check <lieu>` en dernier recours |
+| ✅ Validées en jeu | 2 à 12, 14 à 16, 18 à 30, 32 à 36, 38 à 44, 46 à 55, 58 à 65, 67 à 70 | Clé de fin de commande créée par le jeu : détection à la livraison, et rattrapage au lancement du client |
+| 🟡 Clés lues dans les fichiers du jeu, pas encore rejouées | 13, 17, 31, 37, 45, 56, 57 et 66 | Même mécanisme ; si une commande est signalée trop tôt, trop tard ou jamais, merci de le signaler avec un relevé `/ds_counters watch on` |
+| ⚪ Par les titres de sauvegarde seulement | 1 | Lecture du titre du point de contrôle (quelques secondes après la sauvegarde du jeu) et déduction ; `/check <lieu>` en dernier recours |
 
 La clé de fin d'une commande est l'identifiant de la phrase de son **objectif final** (par exemple « Deliver all four containers of aid. » pour la n°14). Les clés des autres commandes ont été lues dans les fichiers de mission de la copie du jeu de l'auteur (rien du jeu n'est livré avec l'APWorld) et recoupées avec les clés relevées en jeu. Les commandes à plusieurs objectifs ont leur clé d'objectif final déduite du texte (ramasser, puis livrer) ; celles dont l'objectif final reste ambigu sont dans la dernière ligne. Le client exige que la clé vaille **0** : une étape intermédiaire est à 1 jusqu'à la validation finale, et la n°39 ne crée même aucune clé à la fin (c'est sa dernière étape qui retombe de 1 à 0).
 

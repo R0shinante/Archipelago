@@ -41,7 +41,7 @@ equipment, traps) are applied in game by the client, which accesses the game's m
 | Traps: Injury, Fatigue, Boot Wear, Rust, Pickpocket | ✅ validated in game |
 | Bot orders delivered milestones as checks (`bot_checks` / `bot_step`, up to 100, no save needed) | ✅ validated in game: derived from internal game counters; the check arrives about 90 s after the delivery |
 | Detection of completed main orders by reading the game's memory (no tool, no decryption) | ✅ validated in game (French); save decryption remains available as an option |
-| Catching up orders already completed when the client starts, or that never show in the save title | ✅ validated in game: end-of-order keys validated on no. 2 to 10, 14, 15, 26, 38, 39 and 61 to 70; the others: see “Coverage of the immediate detection” (keys read from the game files, or inference from save titles) |
+| Catching up orders already completed when the client starts, or that never show in the save title | ✅ validated in game: end-of-order keys validated on no. 2 to 10, 14, 15, 26, 38 to 44, 46 and 61 to 70; the others: see “Coverage of the immediate detection” (keys read from the game files, or inference from save titles) |
 | Named checks per standard / optional order | ❌ |
 
 Checks are identified by `7,770,000 + order number`. The client detects a completed main order by reading, **directly from the game's memory**, the checkpoint title
@@ -53,9 +53,9 @@ launches (a few seconds). If the game moves its data (another save, a restart), 
 
 | Level | Orders | How the client sees them |
 |---|---|---|
-| ✅ Validated in game | 2 to 10, 14, 15, 26, 38, 39, 61 to 65, 67, 68 and 70 | End-of-order key created by the game: detected on delivery, and caught up when the client starts |
-| 🟡 Keys read from the game files, not replayed yet | 11 to 13, 16 to 25, 27, 28, 30 to 37, 40 to 53, 55 to 60 and 66 | Same mechanism; if an order is reported too early, too late or never, please report it with a `/ds_counters watch on` capture |
-| ⚪ Save titles only | 1, 29, 54 and 69 | The checkpoint title is read (a few seconds after the game saves) and orders are inferred; `/check <location>` as a last resort |
+| ✅ Validated in game | 2 to 12, 14 to 16, 18 to 30, 32 to 36, 38 to 44, 46 to 55, 58 to 65, 67 to 70 | End-of-order key created by the game: detected on delivery, and caught up when the client starts |
+| 🟡 Keys read from the game files, not replayed yet | 13, 17, 31, 37, 45, 56, 57 and 66 | Same mechanism; if an order is reported too early, too late or never, please report it with a `/ds_counters watch on` capture |
+| ⚪ Save titles only | 1 | The checkpoint title is read (a few seconds after the game saves) and orders are inferred; `/check <location>` as a last resort |
 
 An order's end key is the identifier of the sentence of its **final objective** (for example "Deliver all four containers of aid." for no. 14). The keys of the other orders were read from the mission files of the author's own copy of the game (nothing from the game ships with the APWorld) and cross-checked against the keys measured in game. For orders with several objectives the final-objective key is inferred from the text (collect, then deliver); those whose final objective remains ambiguous are in the last row. The client requires the key to be **0**: an intermediate step stays at 1 until the final validation, and no. 39 does not even create a key at the end (its last step is what falls back from 1 to 0).
 

@@ -426,3 +426,64 @@ Heures du joueur : 63 livrée 15:59:01 (sortie de l'écran de résultat 15:59:27
 **Commande 39 (22:36 → 22:43).** Aucune clé n'est créée à la validation finale. Les deux objectifs textuels passent à 1 quand ils sont terminés (`d812327c…` à 22:38:30, `ccecd94d…` à 22:42:25) et retombent à 0 à l'écran de résultat (22:43:00) ; « total » passe de 2 à 3. La clé retenue est la dernière étape, `ccecd94d…`, avec la valeur 0 exigée.
 
 **À confirmer.** n°46 (clé lue dans les fichiers, absente à la 32 et présente à la 59, jamais rejouée), n°54 (même structure que la 39 : probablement pas de clé de fin créée), n°29, n°69, n°1.
+
+## Relevé en direct du 22/11 (commandes 40 à 46) : six clés confirmées
+
+Partie reprise après la n°39, `/ds_counters watch on`, 6 livraisons enchaînées. Chaque clé câblée a été créée **absent → 0 à la livraison** (à quelques secondes) :
+| Commande | Livraison | Clé créée | Remarque |
+|---|---|---|---|
+| 42 (Collection : minerais rares) | 09:50:08 | `92a68b85…` | objectif final déduit du texte (« Deliver all four containers ») ; l'étape « Collect » (`71080414…`) passe à 1 à 09:49:05 puis à 0 à la validation : la déduction « collecter, puis livrer » est confirmée |
+| 40 (pizza) | 09:52:22 | `c5ab7558…` | confirme l'attribution de la 2ᵉ mission de pizza (00710) à la n°40 : ordre croissant, comme pour la n°26 (00700) |
+| 41 | 09:54:45 | `4d3f85fa…` | |
+| 43 | 09:57:53 | `5d85d97d…` | |
+| 44 | 10:00:54 | `6e43dedf…` | |
+| 46 | 10:04:03 | `86f3dd70…` | mission à un seul objectif |
+
+Le compteur « total » augmente de 1 à chaque livraison (3 → 9). Le compteur « sans bot » augmente de 1 à la sortie de l'écran de résultat pour les livraisons ordinaires (40, 41, 43, 44) mais **pas** pour la 42 (collecte) ni la 46 (histoire). Aucun faux palier de bot sur ces six commandes. Le client testé n'avait pas encore les clés 11 et suivantes (détection « mémoire » ou « déduite » à la place) : la détection par titre a bien pris le relais pour 39 à 44 ; la 46 n'avait pas été détectée avant le plantage du jeu (le titre n'avait pas été réécrit).
+
+Restent à rejouer : 45 (pizza, attribution 00720 par déduction, désormais appuyée par 26 et 40), 54, 29, 69.
+
+
+## Relevé en direct du 22/11 (commandes 47 à 55, chapitre 6) : neuf clés confirmées, 54 câblée
+
+Partie reprise juste avant la 46 (apworld du 21/11 18:32, donc sans les clés 47+ : tout est passé par les titres / la mémoire). Chaque livraison crée une clé **absent → 0 avec la hausse du total** (même schéma que 40–46) :
+
+| Commande | Clé de fin | Heure | Étapes intermédiaires (1 → 0) |
+|---|---|---|---|
+| 47 | `c7f7cec2ba103bab8a61ed6f6c0ab7ab` | 10:33:23 | |
+| 48 | `9da69a44d1ca34dea1423a3289e401a5` | 10:30:01 | |
+| 49 | `7835eba730e2301ea5ec740ac4408031` | 10:35:54 | |
+| 50 | `59bdb53f4fd7312fab7e833db15c54eb` | 10:38:26 | `bebf662f…` |
+| 51 | `6abeef8c6fd333c4888a5a5b32f49571` | 10:41:12 | |
+| 52 | `df117a304f79332d8c6deca7e83af8d0` | 10:44:48 | `f4361f5f…` |
+| 53 | `1e0a0125c9203b98bdc1d22b55869fec` | 10:49:34 | |
+| 55 | `a7832327bf0d3e4aabaf815b00f3f8d4` | 11:04:12 | |
+
+Ces clés sont exactement celles lues dans les fichiers du jeu le 21/11.
+
+**Commande 54 (« Escape the Battlefield », 2e du nom)** : comme la 39, aucune clé n'est créée à la fin. Quatre étapes passent à 1 au fil de la mission (`86dfa5bf…` 10:54:11, `4833c9b4…` 10:56:16, `435bd75c…` 10:57:16, `27e3ca68…` 11:00:16), puis les quatre retombent à 0 ensemble à 11:00:46 (hausse du total). On surveille la dernière (`27e3ca6834203342b0a8f246bac84642`, « Vaincre l'homme mystérieux ») avec la règle « valeur 0 ».
+
+**Pourquoi 48/49/52/53 n'étaient pas « déduites »** : la déduction par titre (`implied_completed`) ne couvre que les commandes d'épisodes strictement antérieurs (et les chaînes 2→3, 54→55, 63→64→65). Les 47 à 53 sont du même épisode : la 50 ne prouve pas la 48. Elles n'étaient donc connues que par les clés (absentes de l'apworld testé) ; à l'arrivée du titre de la 55 (épisode suivant), 48, 49, 52, 53 et 54 ont été déduites d'un coup (11:03). Avec les clés de la v0.4.3, chacune est reconnue à la livraison.
+
+**Bot crédité à tort (10:25)** : « Palier de commandes de bot atteint : 1 » est apparu ~90 s après le lancement du client (stabilité de 45 relevés), sans aucune hausse du total entre-temps. La base du bot est mémorisée dans la progression du slot, pas dans la sauvegarde du jeu : en rechargeant une sauvegarde différente, `bot = total − nobot − repair + 1000` (973) dépassait la base mémorisée (972). Correctif v0.4.3 : la base est recalée sur la sauvegarde chargée au lancement du client et dès que `total` diminue (rechargement d'une sauvegarde plus ancienne).
+
+Constat associé : la 46 augmente `total` sans que `nobot` suive (les autres commandes font +1 total puis +1 nobot à la sortie de l'écran de résultat) ; la hausse est écartée par `bot_absorb` après la fenêtre de retenue.
+
+## Relevé du 22/11 15:06-15:27 (commande 69, fin du jeu) et rattrapage au lancement sur sauvegarde avancée
+
+**Commande 69** : aucune clé créée à la fin (comme 39 et 54). Étape 1 « Trouver Amélie » : `b724c5f6ef2537b48fa48f5a5dd3bbdf` absent → 1 (15:06:40) ; étape 2 : `9bf7a4f853cc38cf8409d12a2d7a3b28` absent → 1 (15:07:20). Les deux restent à 1 pendant la cinématique finale, les crédits (15:17:10) et la reprise après l'écran titre (15:24:00), puis passent à 0 à l'ouverture de l'écran de résultat (15:25:58, total 56 → 57). Câblée : dernière étape, valeur 0 exigée. Après cet écran de résultat, `63353f3a…` apparaît à 6400 et `f56d0510…` à 102 (non exploités).
+
+**Rattrapage au lancement** (table lue à froid sur la sauvegarde de fin de jeu) : détectées par clé, à 0 : 2–10, 12, 14–16, 18–28, 30, 32–36, 38, 39, 41, 43, 44, 46–55, 58, 59, 60. Une clé de fin de commande retrouvée à 0 sur une vraie sauvegarde avancée confirme la clé : passent donc de « lues dans les fichiers » à « validées » les n°12, 16, 18–25, 27, 28, 30, 32–36, 58–60. Non détectées : 11, 13, 17, 31, 37, 45, 56, 57, 66 (commandes facultatives non faites sur cette sauvegarde, ou clé à revoir : à confirmer). Les 61–65, 67, 68, 70 ne sont pas rattrapées au lancement : leurs clés (`ORDER_MARKER_KEYS`) ne sont utilisées qu'à la création, avec la hausse du total.
+
+**Remarque DeathLink** : « DeathLink: Sending death » est parti à 15:25:35, 23 s avant l'écran de résultat de la 69 (séquence de fin / reprise après les crédits) : à vérifier, possible fausse mort pendant la séquence finale.
+
+## Commande 1 (22/11, 15:37) : table introuvable avant la 1re livraison
+Rejouée en direct, client connecté dès la cinématique d'ouverture : « table introuvable » à chaque tentative (signatures `nobot` / `total` vues 0 fois) tant que la 1re commande n'est pas terminée. À la fin, la commande est retrouvée **par la mémoire (titre de sauvegarde)** : « Commande terminée détectée (mémoire) : Order 1 ». Décision : pas de clé pour la n°1 (la clé candidate `9c25f335…`, présente à 0 sur les 103 sauvegardes, n'est pas câblée).
+
+## Relevé du 22/11 16:02-16:12 (commandes 27, 29, 28 ; sauvegarde de début de partie)
+
+- **27** (livraison 16:03:10) : `46609eff…` absent → 0 à la livraison ✔ (clé inchangée). **28** (livraison 16:10:30) : `45d9222a…` absent → 0 ✔. Les deux étaient « lues dans les fichiers » : validées. Jouées dans l'ordre 27, 29, 28 : chaque commande est reconnue indépendamment.
+- **11** : retrouvée à 0 au lancement (sauvegarde après la 11) ✔ validée.
+- **29 (Construction : Safe House)** : aucune clé créée à 0. Étape 1 (« Build a safe house ») : `d4715a80835a34f6b8bf2a162bb230f0` absent → 1 (16:07:33). À la livraison (16:08:58) : `4ac395687f4f3036b3c27106174717d9` (« Upgrade the safe house ») absent → 1 ; à la sortie de l'écran de résultat (16:09:19) les deux passent à 0. Câblée : `4ac39568…`, valeur 0 exigée. Cette commande ne fait pas monter `nobot` (contrairement aux commandes ordinaires) : sur une sauvegarde où `total` existe, sa hausse relève de la retenue des fins spéciales.
+- Table de début de partie : `total` absent (bot indisponible), comme attendu.
+- Titre de la 28 vu avant sa livraison : déduction (1, 2–5, 7–9, 14, 16) ; le titre désigne la dernière commande *sélectionnée*, pas la progression.

@@ -18,6 +18,7 @@ Unofficial project, not affiliated with Kojima Productions, 505 Games or the Arc
 6. [Client commands](#client-commands)
 7. [Troubleshooting](#troubleshooting)
 8. [Known limitations](#known-limitations)
+9. [AI disclosure](#ai-disclosure)
 
 ## What the mod does
 
@@ -173,6 +174,10 @@ All of these are **disabled by default**: they answer "Debug command disabled" u
 - **Client closed during an order.** It is caught up at launch if its end key is in the loaded game or if the titles prove it; otherwise `/check`. As a safeguard nothing is inferred if the title's episode is more than one ahead of your most advanced known order (another save, client started mid-game).
 - **Other languages**: unverified guesses (see above).
 - **Memory offsets.** They come from a community cheat table (only the addresses are used, not the file) and from personal measurements. They may break with every game update.
+
+## AI disclosure
+
+This project was built with **extensive use of AI**: most of the code and documentation were written with Claude (Anthropic), under the direction of the author, who chose what to build, tested it in game and validated the results on their own saves. Mistakes are still possible: please report them.
 
 ## License
 

@@ -18,6 +18,7 @@ Projet non officiel, sans lien avec Kojima Productions, 505 Games ni l'équipe d
 6. [Commandes du client](#commandes-du-client)
 7. [Dépannage](#dépannage)
 8. [Limites connues](#limites-connues)
+9. [Utilisation de l'IA](#utilisation-de-lia)
 
 ## Ce que fait le mod
 
@@ -173,6 +174,10 @@ Toutes ces commandes sont **désactivées par défaut** : elles répondent « De
 - **Client fermé pendant une commande.** Elle est rattrapée au lancement si sa clé de fin est dans la partie chargée ou si les titres la prouvent ; sinon `/check`. Par prudence, rien n'est déduit si l'épisode du titre dépasse de plus d'un celui de votre commande la plus avancée connue (autre sauvegarde, client lancé en cours de partie).
 - **Autres langues** : suppositions non vérifiées (voir plus haut).
 - **Offsets mémoire.** Ils viennent d'une table de triche communautaire (seules les adresses sont reprises, pas le fichier) et de relevés personnels. Ils peuvent casser à chaque mise à jour du jeu.
+
+## Utilisation de l'IA
+
+Ce projet a été réalisé avec une **utilisation extensive de l'IA** : l'essentiel du code et de la documentation a été écrit avec Claude (Anthropic), sous la direction de l'auteur, qui a choisi ce qu'il fallait construire, l'a testé en jeu et a validé les résultats sur ses propres sauvegardes. Des erreurs restent possibles : merci de les signaler.
 
 ## Licence
 
